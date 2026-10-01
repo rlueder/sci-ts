@@ -32,10 +32,10 @@ contains Sierra's text or looks like a game resource. MIT.
 - A font of our own (a pixel font drawn in code), a palette, a cursor.
 - `pnpm game build games/<name>` puts it together; the viewer opens it like any game.
 
-The first game, `games/hello`, is a night sky with a lantern that goes where you click,
-written in assembly. See [games.md](games.md).
+The first game, `games/hello`, is a night sky with a lantern that goes where you click.
+See [games.md](games.md).
 
-### 2. A script compiler
+### 2. A script compiler (done)
 Sierra's games were written in a Lisp-like language that maps one to one onto the bytecode:
 
 ```lisp
@@ -54,7 +54,8 @@ Sierra's games were written in a Lisp-like language that maps one to one onto th
 
 The compiler parses it and emits the assembly the assembler already builds byte for byte:
 sends, properties, locals and globals, `&rest`, `switch`/`cond`, procedures, exports, strings.
-The syntax is the community's (SCI Companion documents it); every line of the library is ours.
+Every line of the library is ours. The language as implemented: [language.md](language.md);
+`games/hello` is written in it, and the compiler's tests run what it compiles.
 
 ### 3. The class library
 The smallest set a point-and-click game needs, written in that language:

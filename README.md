@@ -72,13 +72,14 @@ SCI_GAME=out/games/hello pnpm viewer   # /play.html
 ```
 
 `games/hello` is built from nothing: its scripts, art, font, palette and cursor are all in
-this repository. See [docs/games.md](docs/games.md).
+this repository. Scripts are written in SCI's Lisp-like language and compiled
+([docs/language.md](docs/language.md)). See [docs/games.md](docs/games.md).
 
 ## Status
 
-The engine and tools work with SCI2 games you own, and games can be built without one
-(scripts in assembly for now). Next, in [docs/plan.md](docs/plan.md): a compiler for Sierra's
-script dialect, a class library of our own, and a first story built with them.
+The engine and tools work with SCI2 games you own, and games can be built without one,
+with scripts compiled from SCI's own language. Next, in [docs/plan.md](docs/plan.md): a
+class library of our own, and a first story built with it.
 
 Building rooms (the mod builder and the room editor) needs a *target* for the game: a module
 in `tools/targets/` that tells the content compiler the game's room class, globals and verbs,
