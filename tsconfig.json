@@ -13,5 +13,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/vite.config.ts", "tools", "vitest.config.ts"]
+  "include": ["packages/*/src", "packages/*/test", "apps/*/src", "apps/*/vite.config.ts", "tools", "games", "vitest.config.ts"]
 }

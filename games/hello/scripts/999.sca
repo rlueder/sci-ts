@@ -1,0 +1,8 @@
+; The root of every class. Until sci-ts has its class library (see docs/plan.md), a game
+; brings the classes it needs; this one needs only Obj and a few in script 0.
+script 999
+class Obj of - species 0
+  header -objID- -size- -propDict- -methDict- -classScript- -script- -super- -info- name
+  name @s_obj
+strings
+  s_obj "Obj"

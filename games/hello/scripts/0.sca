@@ -1,0 +1,194 @@
+; hello: the smallest game that shows something and answers the mouse. A night sky
+; (picture 100), a title in the default font, the default cursor, and a lantern (view 100)
+; that goes wherever you click.
+script 0
+exports
+  hello
+
+; What the interpreter reads from a plane: where it is, what it shows, how it's stacked.
+class Plane of Obj species 1
+  name @s_plane
+  prop priority 0
+  prop inLeft 0
+  prop inTop 0
+  prop inRight 319
+  prop inBottom 199
+  prop picture -1
+  prop back 0
+
+; A screen item: a view cel, or a bitmap the scripts made (text).
+class Sprite of Obj species 2
+  name @s_sprite
+  prop x 0
+  prop y 0
+  prop z 0
+  prop view -1
+  prop loop 0
+  prop cel 0
+  prop priority 0
+  prop fixPriority 0
+  prop plane 0
+  prop bitmap 0
+  prop scaleSignal 0
+  prop scaleX 128
+  prop scaleY 128
+  ; what CreateTextBitmap reads
+  prop text 0
+  prop font 0
+  prop fore 255
+  prop back 254
+  prop skip 254
+  prop mode 1
+  prop borderColor -1
+  ; an empty text rectangle (right before left) means the whole bitmap
+  prop textLeft 0
+  prop textTop 0
+  prop textRight -1
+  prop textBottom -1
+
+; What GetEvent fills in.
+class Event of Obj species 3
+  name @s_event
+  prop type 0
+  prop message 0
+  prop modifiers 0
+  prop x 0
+  prop y 0
+
+class Game of Obj species 4
+  name @s_game
+
+instance hello of Game
+  name @s_hello
+  method play hello::play
+
+instance screen of Plane
+  name @s_screen
+  picture 100
+
+instance title of Sprite
+  name @s_title
+  plane @screen
+  x 0
+  y 12
+  fixPriority 1
+  priority 200
+  text @s_titleText
+
+instance hint of Sprite
+  name @s_hint
+  plane @screen
+  x 0
+  y 182
+  fixPriority 1
+  priority 200
+  fore 230
+  text @s_hintText
+
+instance lantern of Sprite
+  name @s_lantern
+  plane @screen
+  view 100
+  x 160
+  y 150
+
+instance event of Event
+  name @s_event
+
+strings
+  s_obj "Obj"
+  s_plane "Plane"
+  s_sprite "Sprite"
+  s_event "Event"
+  s_game "Game"
+  s_hello "hello"
+  s_screen "screen"
+  s_title "title"
+  s_hint "hint"
+  s_lantern "lantern"
+  s_titleText "sci-ts: a game built from nothing"
+  s_hintText "Click anywhere to move the lantern"
+
+code
+hello::play:
+  link 2
+  ; The screen, with the sky on it.
+  pushi 1
+  lofss @screen
+  callk AddPlane 2
+  ; Text: the interpreter draws it into a bitmap, which a screen item then shows.
+  pushi 1
+  lofss @title
+  call label 2
+  pushi 1
+  lofss @hint
+  call label 2
+  ; The default cursor (view 999).
+  pushi 3
+  pushi 999
+  push0
+  push0
+  callk SetCursor 6
+  pushi 1
+  lofss @lantern
+  callk AddScreenItem 2
+.loop:
+  pushi 2
+  pushi $7fff
+  lofss @event
+  callk GetEvent 4
+  bnt .draw
+  pushi #type
+  push0
+  lofsa @event
+  send 4
+  push
+  ldi 1
+  eq?
+  bnt .draw
+  ; A click: the lantern goes there.
+  pushi #x
+  push0
+  lofsa @event
+  send 4
+  sat 0
+  pushi #y
+  push0
+  lofsa @event
+  send 4
+  sat 1
+  pushi #x
+  push1
+  lst 0
+  pushi #y
+  push1
+  lst 1
+  lofsa @lantern
+  send 12
+  pushi 1
+  lofss @lantern
+  callk UpdateScreenItem 2
+.draw:
+  push0
+  callk FrameOut 0
+  jmp .loop
+
+; label(item): draws the item's text into a bitmap the width of the screen, and shows it.
+label:
+  link 1
+  pushi 4
+  push0
+  pushi 320
+  pushi 12
+  lsp 1
+  callk CreateTextBitmap 8
+  sat 0
+  pushi #bitmap
+  push1
+  lst 0
+  lap 1
+  send 6
+  pushi 1
+  lsp 1
+  callk AddScreenItem 2
+  ret

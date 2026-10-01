@@ -33,6 +33,9 @@ apps/viewer/src/session.ts
 apps/viewer/src/sound-preview.ts
 apps/viewer/src/style.css
 apps/viewer/vite.config.ts
+games/hello/resources.ts
+games/hello/scripts/0.sca
+games/hello/scripts/999.sca
 packages/content/package.json
 packages/content/room.schema.json
 packages/content/src/index.ts
@@ -57,6 +60,7 @@ packages/sci/src/gfx/view-file.ts
 packages/sci/src/gfx/view.ts
 packages/sci/src/index.ts
 packages/sci/src/motion/pathfinding.ts
+packages/sci/src/resource/archive.ts
 packages/sci/src/resource/lzs.ts
 packages/sci/src/resource/manager.ts
 packages/sci/src/resource/map.ts
@@ -88,6 +92,7 @@ packages/sci/src/vm/value.ts
 packages/sci/src/vm/vm.ts
 packages/sci/test/adlib.test.ts
 packages/sci/test/formats.test.ts
+packages/sci/test/game-build.test.ts
 packages/sci/test/lzs.test.ts
 packages/sci/test/midi.test.ts
 packages/sci/test/pathfinding.test.ts
@@ -97,6 +102,11 @@ tools/analyze.ts
 tools/asm.ts
 tools/editor-server.ts
 tools/explore.ts
+tools/game.ts
+tools/game/build.ts
+tools/game/defaults.ts
+tools/game/font.ts
+tools/game/kit.ts
 tools/mod-build.ts
 tools/mod-target.ts
 tools/mod.ts

@@ -152,7 +152,7 @@ async function setUpModPicker() {
 const showMusicMode = () =>
   (musicButton.textContent = session.musicMode === "adlib" ? "Music: AdLib (OPL2 FM, 1994 Sound Blaster)" : "Music: General MIDI (SoundFont)");
 musicButton.addEventListener("click", () => {
-  session.setMusicMode(session.musicMode === "adlib" ? "gm" : "adlib");
+  if (session.hasAdLib) session.setMusicMode(session.musicMode === "adlib" ? "gm" : "adlib");
   showMusicMode();
 });
 showMusicMode();

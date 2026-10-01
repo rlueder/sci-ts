@@ -2,7 +2,8 @@ import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
-const GAME_DIR = resolve(import.meta.dirname, "../../original");
+/** The game to serve: original/ unless SCI_GAME names another (e.g. out/games/hello). */
+const GAME_DIR = resolve(import.meta.dirname, "../..", process.env.SCI_GAME ?? "original");
 const SOUNDFONT_DIR = resolve(import.meta.dirname, "../../assets/soundfonts");
 /** Built mods (`pnpm mod build mods/<name>` → out/mods/<name>), served as /game/MODS/<name>. */
 const MODS_DIR = resolve(import.meta.dirname, "../../out/mods");

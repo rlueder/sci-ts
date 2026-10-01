@@ -20,7 +20,8 @@
     "mod": "tsx tools/mod.ts",
     "pic": "tsx tools/pic.ts",
     "view": "tsx tools/view.ts",
-    "play": "tsx tools/play.ts"
+    "play": "tsx tools/play.ts",
+    "game": "tsx tools/game.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

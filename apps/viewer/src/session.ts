@@ -62,7 +62,8 @@ export class GameSession {
     readonly canvas: HTMLCanvasElement,
     readonly sound: WebAudioOutput,
     readonly music: SoundFontMidi,
-    private readonly adlib: AdLibOutput,
+    /** Only for games with an AdLib instrument bank (patch 3). */
+    private readonly adlib: AdLibOutput | undefined,
     private readonly options: SessionOptions,
   ) {
     this.ctx = canvas.getContext("2d")!;
@@ -86,7 +87,8 @@ export class GameSession {
     // through Sierra's driver and an OPL2 emulator: what most players heard in 1994.
     const music = new SoundFontMidi(sound.ctx);
     music.load("/soundfonts/GeneralUser-GS.sf2").catch((e) => console.warn("SoundFont unavailable:", e));
-    const adlib = await AdLibOutput.create(sound.ctx, parseAdLibBank(rm.loadSync({ type: ResourceType.Patch, number: 3 }).data));
+    const bank = { type: ResourceType.Patch, number: 3 };
+    const adlib = rm.has(bank) ? await AdLibOutput.create(sound.ctx, parseAdLibBank(rm.loadSync(bank).data)) : undefined;
 
     const session = new GameSession(rm, vm, options.canvas, sound, music, adlib, options);
     graphics(vm).onFrame = (f) => (session.latest = f);
@@ -101,10 +103,16 @@ export class GameSession {
     return this.musicModeValue;
   }
 
+  /** Whether the game can play its AdLib tracks (it has an instrument bank). */
+  get hasAdLib(): boolean {
+    return !!this.adlib;
+  }
+
   setMusicMode(mode: MusicMode): void {
+    if (!this.adlib) mode = "gm";
     this.musicModeValue = mode;
-    this.adlib.reset();
-    if (mode === "adlib") audio(this.vm).setMusicDevice(SoundDevice.AdLib, this.adlib);
+    this.adlib?.reset();
+    if (mode === "adlib" && this.adlib) audio(this.vm).setMusicDevice(SoundDevice.AdLib, this.adlib);
     else audio(this.vm).setMusicDevice(SoundDevice.GeneralMidi, this.music);
     try {
       localStorage.setItem(`${APP_ID}.music`, mode);
