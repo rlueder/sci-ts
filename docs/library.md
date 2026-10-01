@@ -151,6 +151,12 @@ when they finish, and so does the messager.
       (2 (self dispose:)))))
 ```
 
+## Sound
+
+`music` and `sfx` are Sounds the game makes: `(music number: 100 setLoop: -1 play:)`
+loops sound 100, `(sfx number: 50 play: self)` plays 50 once and cues the caller when it
+ends. Their numbers are the game's `music/` and `sounds/` files ([games.md](games.md)).
+
 ## Not there yet
 
 An icon bar, inventory, and saving and restoring. See [plan.md](plan.md).

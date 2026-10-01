@@ -6,7 +6,14 @@ the assembler turns into script and heap resources. A game's scripts are compile
 so any script can use another's classes, globals and public procedures.
 
 `pnpm game build games/<name>` compiles `scripts/*.sc` and writes what it made of each
-script to `out/games/<name>/src/<n>.sca`.
+script to `out/games/<name>/src/<n>.sca`. It warns about sends of selectors that no class or
+object defines, which is what most misspelt messages look like:
+
+```
+warning: games/hello/scripts/1.sc:23: nothing defines shwo (no class or object has a property or method by that name)
+```
+
+`editors/vscode` highlights the language in VS Code; the live editor highlights it too.
 
 ```lisp
 (script 0)                       ; every file starts by saying which script it is
@@ -48,7 +55,8 @@ Inside a class or instance:
 (method (name params &tmp temps [buf 4]) body)
 ```
 
-Property values are numbers, constants, strings, or other instances in the same script.
+Property values are numbers, constants (and arithmetic on them), strings, selectors
+(`#open`), or other instances in the same script.
 Classes are numbered (their *species*) by the build: superclasses first, then in script
 order.
 
@@ -72,7 +80,7 @@ Everything is an expression with a value.
 | `"text"` or `{text}` | a string in the script; `\n` and `\xx` (hex) escapes |
 | `#init` | a selector's number |
 | `[buf i]` | an element of an array variable |
-| `@buf` | a variable's address |
+| `@buf`, `@[buf i]` | a variable's address, an array element's |
 | `(= v e)` `(+= v e)` `(-= v e)` `(*= v e)` `(/= v e)` `(\|= v e)` `(&= v e)` | assignment, to a variable, a property or an array element |
 | `(++ v)` `(-- v)` | increment and decrement, with the new value |
 | `(+ a b ...)` `(- a b)` `(- a)` `(* a b ...)` `(/ a b)` `(mod a b)` | arithmetic on signed 16-bit numbers |
@@ -86,6 +94,7 @@ Everything is an expression with a value.
 (if test then ... else ...)
 (cond (test body...) (test body...) (else body...))
 (switch value (1 body...) (2 body...) (else body...))
+(switchto value (body for 0...) (body for 1...))
 (while test body...)
 (repeat body...)                              ; until (break)
 (for ((= i 0)) (< i 10) ((++ i)) body...)
@@ -111,6 +120,5 @@ A send to a property with an argument sets it; with none (or with `?`) it reads 
 
 ## Not (yet) supported
 
-Expressions as property values, `switchto`, `&rest` in the middle of arguments,
-`@[buf i]`, and the `(asm ...)` escape. The compiler reports anything it doesn't know with
-the file and line.
+`&rest` in the middle of arguments, and the `(asm ...)` escape. The compiler reports
+anything it doesn't know with the file and line.

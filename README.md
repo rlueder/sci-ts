@@ -67,9 +67,13 @@ pnpm play --frames 1500      # headless run
 ## Making a game
 
 ```sh
+pnpm game new night-walk               # a room, a hero, placeholder art in games/night-walk
 pnpm game build games/hello
-SCI_GAME=out/games/hello pnpm viewer   # /play.html
+SCI_GAME=out/games/hello pnpm viewer   # /play.html, and /editor.html to edit rooms live
+pnpm game site games/hello             # the docs and the game as a static site, in out/site
 ```
+
+`editors/vscode` highlights the script language in VS Code.
 
 `games/hello` is built from nothing: its scripts, art, font, palette and cursor are all in
 this repository. Scripts are written in SCI's Lisp-like language and compiled

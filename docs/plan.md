@@ -92,9 +92,11 @@ Art drawn by scripts (backgrounds, Holmes and the cast, portraits), rooms in YAM
 music and effects. A headless playthrough test plays it start to end: the test fixture CI can
 run, since it needs no one's game files.
 
-### 6. Publishing
-CI (typecheck, tests, the playthrough), the docs as a site, the teaser playable in the
-browser from the README.
+### 6. Publishing (started)
+CI runs the typecheck and the tests (hello's playthrough among them) and builds every game.
+`pnpm game site` builds a static site: the docs as pages and a game in the player, for any
+web server; `.github/workflows/pages.yml` publishes it to GitHub Pages when run by hand.
+Still to do: the teaser in it, and a link from the README once the repository is public.
 
 ## Ground rules
 

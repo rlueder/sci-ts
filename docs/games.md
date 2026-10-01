@@ -1,9 +1,12 @@
 # Making a game
 
-A game is a folder under `games/`. `pnpm game build games/<name>` turns it into the two files
-an SCI interpreter opens, `RESOURCE.MAP` and `RESOURCE.000`, in `out/games/<name>`:
+A game is a folder under `games/`. `pnpm game new <name>` starts one (a room, a hero,
+placeholder art), and `pnpm game build games/<name>` turns it into the files an SCI
+interpreter opens, `RESOURCE.MAP` and `RESOURCE.000` (and `RESOURCE.SFX` with sound
+effects), in `out/games/<name>`:
 
 ```sh
+pnpm game new night-walk
 pnpm game build games/hello
 SCI_GAME=out/games/hello pnpm viewer      # then open /play.html
 SCI_GAME=out/games/hello pnpm play --frames 60 --png-every 60
@@ -20,6 +23,8 @@ games/hello/
   rooms/2.room.yaml  a room as data, with what's said in it in rooms/2.yarn
   flags.yaml         the numbers of the rooms' Yarn variables (the build keeps it)
   messages/1.msg     message files, as text
+  music/100.mid      music: sound 100, from a MIDI file
+  sounds/50.wav      a sound effect: sound 50, from a WAV file
   hello.sh           definitions the scripts include (here, the nouns)
   resources.ts       optional: pictures, views and anything else made in code
   game.json          optional: { "library": false } to build without the class library
@@ -41,6 +46,13 @@ view pixel by pixel.
 
 **Messages** are `messages/<n>.msg`, one file per room (or other module), in the text form
 `pnpm msg` prints: a `messages N version V` line, then `noun verb cond seq talker "text"`.
+
+**Music** is `music/<n>.mid`: a Standard MIDI File from any sequencer, played through
+General MIDI. Its tempo changes are kept; channel 16 moves to a free channel, since SCI keeps
+it for signals to the scripts. Music can also be made in code (`writeSound` in the kit;
+`games/hello` composes its tune that way). **Sound effects** are `sounds/<n>.wav` (PCM,
+8- or 16-bit, mono or stereo). A Sound object playing number n plays the effect if there is
+one, else the music.
 
 **Defaults.** Unless the game makes its own, the build adds:
 

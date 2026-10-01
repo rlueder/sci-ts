@@ -27,3 +27,4 @@ to look; some of it we only learned by measuring. Where a number appears (285 sc
 | [sound.md](sound.md) | Music and effects: sound resources, MIDI channels and cues, digital audio, AdLib |
 | [saves.md](saves.md) | Saving and restoring games |
 | [lessons.md](lessons.md) | Things the original interpreter does that the scripts quietly depend on |
+| [building.md](building.md) | What an interpreter needs from a game, learned by building one from nothing |
