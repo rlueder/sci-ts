@@ -152,14 +152,16 @@
     (= line (String 11 "%s: %s" name txt))
     (super say: line &rest whoCares)))
 
-;; Someone with a portrait: a view whose loop 0 is the bust, loop 1 the mouth (moving while
-;; they talk) and loop 2 the eyes, every cel the same size and placed at one point (the
-;; bottom middle). The room's talker hands its parts to init: mouth bust eyes frame, where
-;; frame is drawn first (the bust). The text goes beside the portrait.
+;; Someone with a portrait: a view whose loop 0 is the bust, loop 1 the mouth and loop 2 the
+;; eyes, every cel the same size and anchored at its top-left corner. The room's talker hands
+;; its parts to init: mouth bust eyes frame, where frame is drawn first (the bust), placed
+;; where the portrait goes (the top left of the screen). The text goes to its right. While
+;; the line is said the mouth moves, then closes; the eyes blink.
 (class PortraitTalker of Talker
   (properties
     mouth 0 bust 0 eyes 0 frame 0
-    priority 150)
+    priority 150
+    mouthUntil 0)   ; the game time the mouth stops
 
   (method (init theMouth theBust theEyes theFrame)
     (= mouth theMouth)
@@ -171,15 +173,24 @@
     (self init:)
     (= portrait (if frame frame else bust))
     (if portrait
-      (= x (+ (portrait x?) (/ (CelWide (portrait view?) 0 0) 2) 6))
-      (= y (+ (- (portrait y?) (CelHigh (portrait view?) 0 0)) 1))
-      (= width (- (- SCREEN_WIDTH x) 8)))
+      (= x (+ (portrait x?) (CelWide (portrait view?) (portrait loop?) (portrait cel?)) 6))
+      (= y (portrait y?))
+      (= width (- SCREEN_WIDTH (+ x 6))))
     (super say: txt &rest whoCares)
     (self showPart: frame priority)
     (self showPart: bust priority)
     (self showPart: eyes (+ priority 1))
     (self showPart: mouth (+ priority 1))
-    (if mouth (mouth setCycle: Forward)))
+    (if eyes (eyes setCycle: Blink))
+    (if mouth
+      (mouth setCycle: Forward)
+      ;; About as long as it takes to say: half a second, and two cycles a letter.
+      (= mouthUntil (+ gameTime 30 (* 2 (String STRING_LENGTH txt))))))
+
+  (method (doit)
+    (if (and mouth (mouth cycler?) (>= gameTime mouthUntil))
+      (mouth setCycle: 0 setCel: 0))
+    (super doit:))
 
   (method (showPart part pri)
     (if part

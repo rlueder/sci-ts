@@ -37,7 +37,7 @@ properties:
 | `features` | rectangles of the picture that answer clicks |
 | `exits` | features that leave: *do* on one walks to `walkTo` and goes to room `to` |
 | `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk |
-| `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, all cels the same size) |
+| `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, all cels the same size and anchored at the top left), shown at the top left of the screen |
 
 Rooms written this way and rooms written as scripts can be next to each other in one
 game: the hero walks between them the same way.

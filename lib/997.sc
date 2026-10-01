@@ -169,6 +169,32 @@
      else
       (client cel: c))))
 
+;; Eyes: cel 0 (open) most of the time; every two or three seconds, the other cels in turn
+;; (shut) and back to 0.
+(class Blink of Cycle
+  (properties
+    nextBlink 0)
+
+  (method (init who)
+    (super init: who)
+    (self rest:))
+
+  (method (rest)
+    (= nextBlink (+ gameTime 90 (Random 0 90))))
+
+  (method (doit &tmp c)
+    (if (== (client cel?) 0)
+      (if (and (>= gameTime nextBlink) (> (self lastCel:) 0))
+        (= cycleCnt gameTime)
+        (client cel: 1))
+     else
+      (= c (self nextCel:))
+      (if (> c (self lastCel:))
+        (client cel: 0)
+        (self rest:)
+       else
+        (client cel: c)))))
+
 ;; Sizes its client by how far up the screen it stands: frontSize percent at frontY,
 ;; backSize at backY, in between in proportion.
 (class Scaler of Obj

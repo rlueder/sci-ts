@@ -29,7 +29,7 @@ export function libraryTarget(globals: readonly string[]): Target {
     firstRoomTalker: 200,
     voice: { class: "Talker", props: {} },
     // Portraits stand at the top left, the text beside them.
-    portrait: { class: "PortraitTalker", props: {}, at: [36, 70], frameSignal: 0, partSignal: 0 },
+    portrait: { class: "PortraitTalker", props: {}, at: [8, 8], frameSignal: 0, partSignal: 0 },
     teller: { class: "Teller", props: {}, verb: 2 },
     forwardCycle: "Forward",
     // room.enter lines: a verb the player can't use.

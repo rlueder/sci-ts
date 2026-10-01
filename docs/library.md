@@ -8,7 +8,7 @@ nothing about any particular game. `games/hello` uses all of it.
 |---|---|---|
 | 999 | `lib/999.sc` | the core: `Obj`, `Code`, `Collection`, `List`, `Set`, `Script`; the globals and flags |
 | 998 | `lib/998.sc` | the world: `Game`, `Plane`, `Room`, `Feature`, `View`, `Prop`, `Actor`, `Ego` |
-| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg` |
+| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg`, `Blink` |
 | 996 | `lib/996.sc` | talk: `TextStyle`, `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
@@ -117,7 +117,13 @@ there's no such message.
 Each line goes to its talker (the message's talker number): 99 the narrator, 98 the game's
 `heroTalker`, 200 and up the room's characters (its `findTalker:`). A `Narrator` shows
 the line in a box over the room; a `Talker` starts it with their name; a `PortraitTalker`
-shows their portrait beside it, the mouth moving while the line is up.
+shows their portrait at the top left of the screen and the line to its right.
+
+A portrait is a view with three loops, every cel the same size and anchored at its top-left
+corner: loop 0 the bust, loop 1 the mouth alone (cel 0 closed, then the open shapes) and
+loop 2 the eyes alone (cel 0 open, then the blink). While a line is said the mouth moves,
+for about as long as saying it takes, then closes; the eyes blink every few seconds
+(`Blink`).
 
 A `Teller` makes talking to something a conversation: a `Menu` of topics, each answered
 from the message file, back to the menu until the player says goodbye. Rooms written as

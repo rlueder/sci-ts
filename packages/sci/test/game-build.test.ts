@@ -210,14 +210,23 @@ describe("games/hello, on the class library", async () => {
     };
     choose("Was that your lantern on the hill?");
     expect(line()).toBe("Traveller: I left it burning for whoever came next.");
-    // He has a portrait, and his mouth moves while he talks.
-    const mouthCels = new Set<number>();
-    for (let i = 0; i < 60; i++) {
+    // He has a portrait at the top left, and the line goes beside it.
+    const part = (name: string) => [...g.items].find((it) => vm.object(it).name === name);
+    const bust = part("travellerBust")!;
+    expect([prop(bust, "x"), prop(bust, "y")]).toEqual([8, 8]);
+    const box = vm.getProp(global("talking"), "box")!;
+    expect([prop(box, "x"), prop(box, "y")]).toEqual([8 + 34 + 6, 8]);
+    // His mouth moves while he says it, then closes while the line stays up; his eyes blink.
+    const mouthCels = new Set<number>(), eyeCels = new Set<number>();
+    for (let i = 0; i < 200; i++) {
       frames(1);
-      const mouth = [...g.items].find((it) => vm.object(it).name === "travellerMouth");
-      if (mouth) mouthCels.add(prop(mouth, "cel"));
+      mouthCels.add(prop(part("travellerMouth")!, "cel"));
+      eyeCels.add(prop(part("travellerEyes")!, "cel"));
     }
     expect(mouthCels).toEqual(new Set([0, 1]));
+    expect(eyeCels).toEqual(new Set([0, 1]));
+    expect(line()).toBe("Traveller: I left it burning for whoever came next.");
+    expect([prop(part("travellerMouth")!, "cel"), prop(part("travellerMouth")!, "cycler")]).toEqual([0, 0]);
     click(10, 10);
     expect(line()).toBe("You: That's kind of you.");
     click(10, 10);

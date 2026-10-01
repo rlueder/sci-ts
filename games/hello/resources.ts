@@ -144,8 +144,8 @@ function traveller(): ViewFile {
 
 /**
  * The traveller's portrait: loop 0 the bust in a frame, loop 1 the mouth (closed, open),
- * loop 2 the eyes (open, shut). Every cel is the same size and drawn at the same point, so
- * the mouth and eyes land on the face.
+ * loop 2 the eyes (open, shut). Every cel is the same size and anchored at its top-left
+ * corner, so the mouth and eyes land on the face.
  */
 function portrait(): ViewFile {
   const w = 34, h = 40;
@@ -154,7 +154,7 @@ function portrait(): ViewFile {
     C: cube(51, 102, 51), E: cube(0, 0, 0), W: Colour.White, M: cube(153, 51, 51), D: cube(204, 153, 102),
   };
   const blank = () => Array.from({ length: h }, () => Array.from({ length: w }, () => "."));
-  const done = (g: string[][]) => cel(g.map((r) => r.join("")), colours);
+  const done = (g: string[][]) => ({ ...cel(g.map((r) => r.join("")), colours), displaceX: w >> 1, displaceY: h - 1 });
   // The bust: a framed dark panel, shoulders, a face, grey hair.
   const bust = blank();
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) bust[y]![x] = x < 2 || y < 2 || x >= w - 2 || y >= h - 2 ? "F" : "K";
@@ -184,7 +184,6 @@ function portrait(): ViewFile {
     }
     return done(g);
   };
-  // Every cel's origin is its bottom middle, like the bust's.
   return {
     flags: 1,
     loops: [
