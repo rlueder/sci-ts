@@ -16,6 +16,8 @@ import { ObjectSlot, readString, type Script, type ScriptObject } from "./script
  *     name @s_0b2c
  *     picture 710                      ; properties by name (or #slot)
  *     method init rm710::init
+ *     layout -objID- ... name x y      ; optional: the full property layout, so the class
+ *                                      ; needn't be known when assembling (compiled code)
  *   strings
  *     s_0b2c "rm710"
  *   code
@@ -329,6 +331,8 @@ interface AsmObject {
   info: Value;
   name: Value;
   headerSelectors?: number[];
+  /** An instance's full property layout, so its class needn't be known (compiled scripts). */
+  layoutSelectors?: number[];
   /** Slot → value, from HEADER_SLOTS on. */
   props: Map<number, Value>;
   propSelectors: number[];
@@ -431,6 +435,7 @@ export function assemble(text: string, ctx: AsmContext): { number: number; code:
       else if (head === "info") o.info = value(rest[0] ?? "", no);
       else if (head === "name") o.name = value(rest[0] ?? "", no);
       else if (head === "header") o.headerSelectors = rest.map((t) => selector(t, no));
+      else if (head === "layout") o.layoutSelectors = rest.map((t) => selector(t, no));
       else if (head === "method") o.methods.push({ selector: selector(rest[0] ?? "", no), label: rest[1] ?? "" });
       else if (head === "prop") {
         if (!o.isClass) throw new AsmError("only classes declare new properties with `prop`", no);
@@ -494,7 +499,7 @@ export function assemble(text: string, ctx: AsmContext): { number: number; code:
       if (!header) throw new AsmError(`class ${o.label} needs a header line (its superclass layout is unknown)`, o.line);
       o.propSelectors = [...header, ...o.propSelectors];
     } else {
-      const sels = ctx.classPropSelectors(o.superclass) ?? objects.find((c) => c.isClass && c.species === o.superclass)?.propSelectors;
+      const sels = o.layoutSelectors ?? ctx.classPropSelectors(o.superclass) ?? objects.find((c) => c.isClass && c.species === o.superclass)?.propSelectors;
       if (!sels) throw new AsmError(`unknown layout for the class of ${o.label}`, o.line);
       o.propSelectors = [...sels];
       // Unlisted properties keep the class's defaults.

@@ -32,4 +32,6 @@ export * from "./vm/savegame.ts";
 export * from "./analysis/game.ts";
 export * from "./analysis/runtime.ts";
 export * from "./script/assembly.ts";
+export * from "./script/sexpr.ts";
+export * from "./script/compiler.ts";
 export * from "./vm/replace.ts";
