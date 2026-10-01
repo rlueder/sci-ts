@@ -27,6 +27,11 @@
   (method (stop)
     (DoSound SND_STOP self))
 
+  ;; How many times to play: -1 forever.
+  (method (setLoop n)
+    (= loop n)
+    (return self))
+
   ;; Each cycle (from the game): has it ended?
   (method (check &tmp c)
     (if handle

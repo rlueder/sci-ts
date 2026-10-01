@@ -168,3 +168,31 @@
       (self cycleDone:)
      else
       (client cel: c))))
+
+;; Sizes its client by how far up the screen it stands: frontSize percent at frontY,
+;; backSize at backY, in between in proportion.
+(class Scaler of Obj
+  (properties
+    client 0
+    frontSize 100 backSize 100
+    frontY 190 backY 0)
+
+  (method (init who fs bs fy by)
+    (= client who)
+    (= frontSize fs)
+    (= backSize bs)
+    (= frontY fy)
+    (= backY by)
+    (self doit:))
+
+  (method (doit &tmp y pct)
+    (= y (client y?))
+    (= pct
+      (cond
+        ((>= y frontY) frontSize)
+        ((<= y backY) backSize)
+        (else (+ backSize (/ (* (- frontSize backSize) (- y backY)) (- frontY backY))))))
+    (client
+      scaleX: (/ (* pct 128) 100)
+      scaleY: (/ (* pct 128) 100)
+      scaleSignal: (| (client scaleSignal?) SCALE_ON))))

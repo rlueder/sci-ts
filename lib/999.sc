@@ -3,6 +3,8 @@
 (script 999)
 (include "system.sh")
 
+(public SetFlag 0 ClearFlag 1 IsFlag 2)
+
 (global
   game          ; the Game
   curRoom       ; the Room being played
@@ -17,9 +19,24 @@
   theEvent      ; the Event the user fills each cycle
   messager      ; says message files' lines
   narrator      ; shows text
+  heroTalker    ; says the hero's lines (the game sets it; the narrator otherwise)
+  talking       ; whoever is showing a line now
+  dialog        ; a menu waiting for a choice: it gets every click
+  music         ; the Sound for music
+  sfx           ; the Sound for effects
   uiPlane       ; the plane over the room, for text
   gameTime      ; cycles since the game started
-  quit)         ; set to end the game
+  quit          ; set to end the game
+  [gameFlags 64]) ; story flags, a bit each
+
+(procedure (SetFlag n)
+  (|= [gameFlags (/ n 16)] (<< 1 (mod n 16))))
+
+(procedure (ClearFlag n)
+  (&= [gameFlags (/ n 16)] (~ (<< 1 (mod n 16)))))
+
+(procedure (IsFlag n)
+  (return (!= 0 (& [gameFlags (/ n 16)] (<< 1 (mod n 16))))))
 
 ;; The root of every class.
 (class Obj

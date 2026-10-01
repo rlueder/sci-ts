@@ -30,6 +30,8 @@
     (= theEvent (Event new:))
     (= messager (Messager new:))
     (= narrator (Narrator new:))
+    (= music (Sound new:))
+    (= sfx (Sound new:))
     (= uiPlane ((Plane new:) priority: 200 picture: -2 yourself:))
     (uiPlane init:)
     (= user (User new:))
@@ -47,7 +49,7 @@
     (sounds eachElementDo: #check)
     (if curRoom (curRoom doit:))
     (cast eachElementDo: #doit)
-    (narrator doit:)
+    (if talking (talking doit:))
     (FrameOut)
     (user doit:)
     (if newRoomNum (self newRoom: newRoomNum)))
@@ -55,7 +57,8 @@
   ;; Leaves the current room for room n (its script's export 0).
   (method (newRoom n &tmp old)
     (= newRoomNum 0)
-    (narrator clear:)
+    (if talking (talking clear:))
+    (if dialog (dialog dispose:))
     (if curRoom
       (= old curRoomNum)
       (curRoom dispose:)
@@ -64,12 +67,20 @@
     (= prevRoomNum curRoomNum)
     (= curRoomNum n)
     (= curRoom (ScriptID n 0))
+    (curRoom setUp:)
     (curRoom init:))
 
   (method (setScript s)
     (if script (script dispose:))
     (= script s)
-    (if s (s init: self &rest))))
+    (if s (s init: self &rest)))
+
+  ;; Clicks do nothing (but dismiss text) until handsOn: for cutscenes.
+  (method (handsOff)
+    (user canInput: FALSE))
+
+  (method (handsOn)
+    (user canInput: TRUE)))
 
 ;; A room: its picture, where you can walk, its exits, and what's said about it.
 (class Room of Obj
@@ -83,11 +94,16 @@
     north 0 south 0 east 0 west 0
     edgeN 40 edgeS 189 edgeE 319 edgeW 0)
 
-  (method (init)
+  ;; Before init (the game calls it): the room's plane and its list of obstacles, so init
+  ;; can add things in any order.
+  (method (setUp)
     (if (== modNum -1) (= modNum curRoomNum))
     (= plane ((Plane new:) picture: picture priority: 1 yourself:))
     (plane init:)
     (= obstacles (List new:)))
+
+  ;; What's in the room: rooms add their features, props and obstacles here.
+  (method (init))
 
   ;; Leaves through an edge when the hero reaches it, if there's a room that way.
   (method (doit &tmp n)
@@ -134,7 +150,10 @@
     x 0 y 0
     noun 0
     modNum -1
-    nsLeft 0 nsTop 0 nsRight 0 nsBottom 0)
+    nsLeft 0 nsTop 0 nsRight 0 nsBottom 0
+    sightAngle 180
+    approachX 0 approachY 0
+    actions 0)      ; an object whose handleVerb: gets the first say (a Teller)
 
   (method (init)
     (if (== modNum -1) (= modNum curRoomNum))
@@ -149,6 +168,7 @@
 
   ;; Says the line for this noun and verb; with none, the room answers.
   (method (doVerb verb)
+    (if (and actions (actions handleVerb: verb)) (return))
     (if (not (and noun (messager say: noun verb 0 0 0 modNum)))
       (curRoom doVerb: verb))))
 
@@ -172,10 +192,41 @@
     (AddScreenItem self))
 
   (method (doit)
-    (UpdateScreenItem self))
+    (if (not (& signal SIG_HIDDEN)) (UpdateScreenItem self)))
 
   (method (onMe theX theY)
-    (return (IsOnMe theX theY self)))
+    (return (and (not (& signal SIG_HIDDEN)) (IsOnMe theX theY self))))
+
+  (method (hide)
+    (|= signal SIG_HIDDEN)
+    (DeleteScreenItem self))
+
+  (method (show)
+    (if (& signal SIG_HIDDEN)
+      (&= signal (~ SIG_HIDDEN))
+      (AddScreenItem self)))
+
+  ;; A loop that stays when the actor turns; -1 lets it follow the heading again.
+  (method (setLoop l)
+    (if (== l -1)
+      (&= signal (~ SIG_FIXED_LOOP))
+     else
+      (= loop l)
+      (|= signal SIG_FIXED_LOOP))
+    (return self))
+
+  (method (setCel c)
+    (= cel c)
+    (return self))
+
+  ;; A fixed priority (drawn above things with lower ones); -1: by y again.
+  (method (setPri p)
+    (if (== p -1)
+      (= fixPriority 0)
+     else
+      (= priority p)
+      (= fixPriority 1))
+    (return self))
 
   (method (posn newX newY)
     (= x newX)
@@ -187,7 +238,7 @@
     (self dispose:))
 
   (method (dispose)
-    (DeleteScreenItem self)
+    (if (not (& signal SIG_HIDDEN)) (DeleteScreenItem self))
     (cast delete: self)
     (DisposeClone self)))
 
@@ -228,14 +279,27 @@
   (properties
     mover 0
     moveSpeed 2     ; cycles between steps
-    heading 0)
+    heading 0
+    scaler 0)       ; sizes it by where it stands (perspective)
 
   (method (doit)
     (if mover
       (mover doit:)
       (if (and mover (mover completed?)) (mover motionCue:)))
+    (if scaler (scaler doit:))
     (BaseSetter self)
     (super doit:))
+
+  ;; (actor setScaler: Scaler frontSize backSize frontY backY), sizes in percent; 0 stops.
+  (method (setScaler cls)
+    (if scaler (scaler dispose:))
+    (= scaler 0)
+    (if cls
+      (= scaler (cls new:))
+      (scaler init: self &rest)
+     else
+      (= scaleSignal 0))
+    (return self))
 
   ;; cls is a Motion class (a new one is made) or object; 0 stops moving.
   (method (setMotion cls)
@@ -246,9 +310,11 @@
       (mover init: self &rest))
     (return self))
 
-  (method (setHeading h)
+  ;; Turns to face a direction (0 is up, clockwise in degrees); cues whoCares if given.
+  (method (setHeading h whoCares)
     (= heading h)
-    (DirLoop self h))
+    (DirLoop self h)
+    (if (> argc 1) (whoCares cue:)))
 
   ;; Whether another actor is in the way (DoBresen asks).
   (method (cantBeHere)
@@ -256,10 +322,16 @@
 
   (method (dispose)
     (if mover (mover dispose:) (= mover 0))
+    (if scaler (scaler dispose:) (= scaler 0))
     (super dispose:)))
 
 ;; The hero: walks where the player clicks, and goes from room to room.
 (class Ego of Actor
+  ;; Back to walking: cycling as he moves, turning as he goes, seen.
+  (method (normalize)
+    (self setLoop: -1 setCycle: Walk show:)
+    (return self))
+
   (method (roomDisposed)
     (self setMotion: 0)
     (DeleteScreenItem self)

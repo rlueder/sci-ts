@@ -13,7 +13,8 @@
 
 ;; Turns clicks into walking and verbs. Right-click goes to the next verb (and cursor);
 ;; a click walks the hero there, or does the verb to what's under the cursor: an actor or
-;; prop, a feature, or else the room.
+;; prop, a feature, or else the room. A click while a line is shown dismisses it; while a
+;; menu is open, it goes to the menu.
 (class User of Obj
   (properties
     verb V_WALK
@@ -32,7 +33,11 @@
 
   (method (handleEvent event &tmp obj ex ey)
     (event claimed: FALSE)
-    (if (narrator handleEvent: event) (return))
+    ;; A line being shown, then an open menu, get clicks first.
+    (if (and talking (talking handleEvent: event)) (return))
+    (if dialog
+      (dialog handleEvent: event)
+      (return))
     (if (or (not canInput) (!= (event type?) EV_MOUSE_DOWN)) (return))
     (if (& (event modifiers?) MOD_RIGHT)
       (self setVerb: (+ (mod verb VERB_COUNT) 1))

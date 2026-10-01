@@ -46,3 +46,17 @@
 
 (define SCREEN_WIDTH 320)
 (define SCREEN_HEIGHT 200)
+
+;; Who says a message line (its talker number).
+(define TALKER_HERO 98)             ; the game's heroTalker, if it has one
+(define TALKER_NARRATOR 99)
+(define ROOM_TALKERS 200)           ; and up: the room's own characters (its findTalker:)
+
+;; View signal bits.
+(define SIG_HIDDEN $0008)
+(define SIG_FIXED_LOOP $0800)
+;; scaleSignal: scale the cel by scaleX and scaleY.
+(define SCALE_ON 1)
+
+;; Story flags: SetFlag, ClearFlag and IsFlag (script 999's exports 0 to 2) take 0 to 1023.
+(define FLAG_COUNT 1024)
