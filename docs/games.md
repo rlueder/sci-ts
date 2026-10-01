@@ -93,12 +93,11 @@ without the library has to declare its own.
 ## A game in its own repository
 
 A game doesn't have to live in this repository: sci-ts is a package, and its `sci-ts`
-command does what `pnpm game` does here. [sci-sherlock](https://github.com/rlueder/sci-sherlock)
-is set up this way.
+command does what `pnpm game` does here. The Sherlock Holmes teaser is set up this way.
 
 ```json
 {
-  "devDependencies": { "sci-ts": "link:../sci-ts" },
+  "devDependencies": { "sci-ts": "^0.2.0" },
   "scripts": { "build": "sci-ts build", "play": "sci-ts play", "edit": "sci-ts edit" }
 }
 ```
@@ -141,6 +140,8 @@ const session = await GameSession.create({ canvas: document.querySelector("canva
 session.start();
 ```
 
-For now the package is used from a checkout (`link:`); the sources are TypeScript, run
-through `tsx` and Vite.
+The package is compiled JavaScript with type declarations; the `sci-ts` command runs
+through `tsx`, so a game's own TypeScript (`resources.ts`) needs no build step. The player
+ships as source, for Vite. To work on sci-ts and a game together, depend on a checkout
+instead: `"sci-ts": "link:../sci-ts"`.
 

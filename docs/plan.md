@@ -7,7 +7,7 @@ need no Sierra game at all, sci-ts needs its own library, written in a language 
 to SCI bytecode, and the few resources an interpreter expects every game to have.
 
 The first game is a short Sherlock Holmes story, in its own repository,
-[sci-sherlock](https://github.com/rlueder/sci-sherlock): small enough to finish, and it
+sci-sherlock (not public yet): small enough to finish, and it
 uses everything (talking, topics, flags, cutscenes, sound).
 
 ## What a game is, to the engine
@@ -89,7 +89,7 @@ globals in a vocab, and the editor edits the served game's rooms, swapping in wh
 build changes.
 
 ### 5. The Sherlock Holmes teaser
-In its own repository, [sci-sherlock](https://github.com/rlueder/sci-sherlock), using sci-ts
+In its own repository, sci-sherlock (not public yet), using sci-ts
 as a package ([games.md](games.md)): pixel art from a paint program ([art.md](art.md)),
 rooms in YAML and Yarn, music and effects. Its plan, art direction and art workflow are
 there. A headless playthrough test plays it start to end.

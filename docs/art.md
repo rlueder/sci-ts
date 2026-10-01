@@ -3,8 +3,7 @@
 Besides art drawn in code, a game can use PNGs exported from any pixel art editor:
 `sci-ts art` checks them against a manifest and the game's palette, and turns them into
 pictures and views with the exact colours, anchors and foreground layers they were drawn
-with (`tools/art/build.ts`). [sci-sherlock](https://github.com/rlueder/sci-sherlock) works
-this way; its art workflow (docs/art-workflow.md there) covers the editor side in detail.
+with (`tools/art/build.ts`). The Sherlock Holmes teaser works this way.
 
 ```sh
 sci-ts art check art/art.json    # read and check every PNG; build the resources in memory

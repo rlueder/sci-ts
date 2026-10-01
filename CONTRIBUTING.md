@@ -69,5 +69,13 @@ pnpm changelog:next  # what the next release would add, and its version
 pnpm release         # write CHANGELOG.md for the next version
 ```
 
-Then commit it as `chore(release): vX.Y.Z` and tag it `vX.Y.Z`. Before 1.0, a breaking change
+Then commit it as `chore(release): vX.Y.Z`, tag it `vX.Y.Z`, and publish the npm package:
+
+```sh
+pnpm package                 # out/package: one sci-ts package, compiled, with its checks
+cd out/package && npm publish
+```
+
+The package build refuses files that look like a game's resources; everything in it has
+already been checked for any game's text and names on its way into this repository. Before 1.0, a breaking change
 bumps the minor version and everything else the patch version.

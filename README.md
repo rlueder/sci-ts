@@ -1,103 +1,113 @@
 # sci-ts
 
-An engine for Sierra's SCI2 adventure games, written from scratch in TypeScript, and a
-toolchain for making new ones: rooms written as YAML and [Yarn](https://docs.yarnspinner.dev),
-a live room editor, and byte-exact writers for every kind of resource.
+An engine for Sierra's SCI2 adventure games, written from scratch in TypeScript, and the
+tools to make new games with it: scripts in SCI's own Lisp-like language on a class library
+of our own, rooms written as YAML and [Yarn](https://docs.yarnspinner.dev), a live editor,
+and writers for every kind of resource.
 
-It runs in the browser and in Node. It was developed against *Quest for Glory IV: Shadows of
-Darkness* (CD), which it plays from the title screen on, and it's on its way to running games
-of its own: the first one is a short Sherlock Holmes story,
-[sci-sherlock](https://github.com/rlueder/sci-sherlock), which uses sci-ts as a package. See
-[docs/plan.md](docs/plan.md).
+![A conversation in games/hello: the traveller's portrait beside his line](docs/screenshots/conversation-portrait.png)
+
+It runs in the browser and in Node. It was built by making one game, *Quest for Glory IV:
+Shadows of Darkness* (CD), play from its title screen on, and it now builds games that need
+nothing from Sierra: `games/hello` here, and a Sherlock Holmes teaser in progress.
 
 > **No game data here.** This repository contains no files, scripts, art, text or music from
-> any Sierra game, and none are needed to build or test it. To play a Sierra game, point the
-> tools at your own copy. Sierra, Quest for Glory and other names are trademarks of their
+> any Sierra game, and none are needed to build, test or use it. To play a Sierra game, point
+> the tools at your own copy. Sierra, Quest for Glory and other names are trademarks of their
 > owners and are used only to say what the software works with.
 
-## What's in it
+## Make a game
 
-**The engine** (`packages/sci`)
-- Resources: the resource map, volumes and patch files, LZS decompression; pictures, views,
-  palettes (cycling, fades, PalVary), fonts and message files.
-- The SCI2 virtual machine and its kernel calls: objects and sends, lists, arrays and strings,
-  planes and screen items with scaling, pathfinding (polygons, PolyPath), text and dialogs,
-  timing, script loading and unloading.
-- Sound: digital effects and speech, General MIDI music through a SoundFont, AdLib music
-  through an OPL2 emulator.
-- Saved games, kept in the browser.
-- Byte-exact readers and writers: scripts (an assembler and disassembler), message files,
-  pictures and views; PNGs become pictures and animated views.
+```sh
+mkdir night-walk && cd night-walk
+npm init -y && npm install --save-dev sci-ts
+npx sci-ts new .          # a room in YAML and Yarn, a hero, placeholder art
+npx sci-ts play           # build it and play it in the browser
+npx sci-ts edit           # the live editor for its rooms
+```
 
-**Content** (`packages/content`): a room is a `.room.yaml` (what's in it: picture, music, the
-hero's start, walkable floor, features, exits, props) and a `.yarn` (what's said and done:
-`<thing>.<verb>` nodes, characters with talking portraits, conversations as topic menus,
-flags and conditions, cutscenes, sound). It compiles to SCI assembly and messages for a
-*target*, the class library a game provides. Errors point at the file and line.
+A game is a folder: scripts (`scripts/<n>.sc`), rooms as data (`rooms/<n>.room.yaml` and
+`.yarn`), message files, music (MIDI files), sound effects (WAV files), and art drawn in code
+or exported from a paint program. `sci-ts build` turns it into the `RESOURCE.MAP` and
+`RESOURCE.000` an SCI interpreter opens. See [docs/games.md](docs/games.md).
 
-**Apps** (`apps/viewer`, `pnpm viewer`)
-- Resource viewer: every resource with thumbnails, keyboard navigation, search by the names
-  and descriptions the game's own scripts give its assets, and a sound player.
-- Player: the game in a page, with saves, room jumps and mods.
-- Explorer: a map of every room and how they connect, objects on their pictures, the class
-  hierarchy, and a live view with outlines and an inspector.
-- Room editor: YAML and Yarn next to the running game, rebuilt and replayed as you type;
-  drag things into place and paint walk areas.
+```lisp
+(instance lantern of Prop
+  (properties noun N_LANTERN view 100 x 160 y 172 cycleSpeed 12)
 
-**Tools** (`tools`): resource listing and extraction, disassembly, assembly and message
-round trips, picture and view export, headless play and scripted exploration, static analysis
-of a game's rooms and exits, mod building.
+  ;; It chimes when touched, then says its line.
+  (method (doVerb verb)
+    (if (== verb V_DO) (sfx number: 50 play:))
+    (super doVerb: verb)))
+```
 
-## Setup
+![games/hello: the hero on the hill, looking at the moon](docs/screenshots/hello.png)
+
+| | |
+|---|---|
+| [docs/games.md](docs/games.md) | a game's folder, the build, the `sci-ts` command and the package's imports |
+| [docs/language.md](docs/language.md) | the script language |
+| [docs/library.md](docs/library.md) | the class library: rooms, actors, walking, talking, conversations, flags, sound |
+| [docs/rooms.md](docs/rooms.md) | rooms as YAML and Yarn: features, exits, characters, topic menus, cutscenes |
+| [docs/art.md](docs/art.md) | art from a paint program: the manifest, the palette, the checks |
+
+## The tools
+
+**The player** plays a game in the page: saved games, a link to any room
+(`play.html#room/2`), music through a SoundFont or an emulated AdLib card.
+
+![A topic menu: talking to the traveller](docs/screenshots/conversation-menu.png)
+
+**The live editor** shows a room's YAML and Yarn, or its script, next to the running game.
+Saving (or a pause in typing) rebuilds the game and walks into the room again; errors are
+marked on their line. Outlines name the features, exits, props and walkable floor; in Move
+mode things are dragged into place and floors painted with a brush, as edits to the YAML.
+
+![The editor with a room written as YAML](docs/screenshots/editor-yaml.png)
+
+![The editor with a room written as a script](docs/screenshots/editor-script.png)
+
+**The resource viewer** lists every resource with a thumbnail and the name the game's
+scripts give it, searchable, with a player for sounds.
+
+![The resource viewer: the hero's walking loops](docs/screenshots/resource-viewer.png)
+
+**The explorer** maps a game's rooms and how they connect, its classes and objects, and
+inspects a running game.
+
+![The explorer's room map](docs/screenshots/explorer.png)
+
+**On the command line:** `sci-ts build`, `play`, `edit`, `new`, `site` (the game and its
+docs as a static site) and `art` (check and build exported art). The compiler warns about
+sends no class defines; `editors/vscode` highlights the language in VS Code.
+
+## Inside
+
+| | |
+|---|---|
+| `packages/sci` | the engine: resources, the SCI2 virtual machine and its kernel, graphics, text, motion, sound, saves; readers and byte-exact writers for every resource; the script compiler and assembler |
+| `packages/content` | the room compiler: YAML and Yarn to scripts and messages |
+| `lib` | the class library, in the script language |
+| `apps/viewer` | the player, editor, resource viewer and explorer |
+| `tools` | the `sci-ts` command, the game build, the art tool, and tools for reading SCI2 games |
+| `games/hello` | the example game |
+
+How SCI works, as far as we found out by running a game: [docs/sci](docs/sci/README.md).
+
+## Developing sci-ts
 
 ```sh
 pnpm install
-pnpm check           # typecheck and tests; runs without any game files
-pnpm test:coverage   # coverage report in coverage/
-```
-
-With a game of your own (developed against QfG4 CD 1.0) copied into `original/`, or
-anywhere else with `SCI_GAME=<dir>`:
-
-```sh
-pnpm viewer        # http://localhost:5173: resources; /play.html, /explore.html, /editor.html
-pnpm res list script
-pnpm asm dump 100            # a script as assembly text (round-trips byte for byte)
-pnpm play --frames 1500      # headless run
-```
-
-## Making a game
-
-```sh
-pnpm game new night-walk               # a room, a hero, placeholder art in games/night-walk
+pnpm check                 # typecheck and tests; no game files needed
 pnpm game build games/hello
-SCI_GAME=out/games/hello pnpm viewer   # /play.html, and /editor.html to edit rooms live
-pnpm game site games/hello             # the docs and the game as a static site, in out/site
+SCI_GAME=out/games/hello pnpm viewer
 ```
 
-`editors/vscode` highlights the script language in VS Code.
+With an SCI2 game of your own in `original/` (or `SCI_GAME=<dir>`), `pnpm viewer` opens it,
+and `pnpm res`, `pnpm asm`, `pnpm msg` and `pnpm play` read, disassemble and run it.
 
-`games/hello` is built from nothing: its scripts, art, font, palette and cursor are all in
-this repository. Scripts are written in SCI's Lisp-like language and compiled
-([docs/language.md](docs/language.md)), on a class library of our own: rooms, a hero who
-walks where you click, verbs, messages, conversations, sound
-([docs/library.md](docs/library.md)). Rooms can also be written as YAML and Yarn
-([docs/rooms.md](docs/rooms.md)) and edited live. See [docs/games.md](docs/games.md).
-
-## Status
-
-The engine and tools work with SCI2 games you own, and games can be built without one,
-with scripts compiled from SCI's own language on our own class library, and rooms in
-YAML and Yarn. Next, in [docs/plan.md](docs/plan.md): the first story.
-
-Building rooms (the mod builder and the room editor) needs a *target* for the game: a module
-in `tools/targets/` that tells the content compiler the game's room class, globals and verbs,
-named by the mod's `mod.yaml`. None ships yet; the first will be for our own class library.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md),
-which is generated from commit messages.
+See [docs/plan.md](docs/plan.md) for where this is going and [CONTRIBUTING.md](CONTRIBUTING.md)
+for how to help. Changes are in [CHANGELOG.md](CHANGELOG.md), generated from commit messages.
 
 ## License
 
