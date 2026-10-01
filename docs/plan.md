@@ -6,8 +6,9 @@ input and the main loop. Rooms compiled today subclass a game's classes. To make
 need no Sierra game at all, sci-ts needs its own library, written in a language that compiles
 to SCI bytecode, and the few resources an interpreter expects every game to have.
 
-The first game is a short Sherlock Holmes story, [docs/sherlock-teaser.md](sherlock-teaser.md):
-small enough to finish, and it uses everything (talking, topics, flags, cutscenes, sound).
+The first game is a short Sherlock Holmes story, in its own repository,
+[sci-sherlock](https://github.com/rlueder/sci-sherlock): small enough to finish, and it
+uses everything (talking, topics, flags, cutscenes, sound).
 
 ## What a game is, to the engine
 
@@ -88,12 +89,10 @@ globals in a vocab, and the editor edits the served game's rooms, swapping in wh
 build changes.
 
 ### 5. The Sherlock Holmes teaser
-Layered pixel art authored in open-source tools, with exact PNG-to-SCI builds, rooms in
-YAML and Yarn, music and effects. The [teaser plan](sherlock-teaser.md) defines the art
-direction, asset budget and production gates; [art research](art-research.md) records the
-references and [the graphics workflow](art-workflow.md) describes exports and validation.
-Scripts remain useful for repeatable art components. A headless playthrough test will play
-the finished teaser start to end, since it needs no one's game files.
+In its own repository, [sci-sherlock](https://github.com/rlueder/sci-sherlock), using sci-ts
+as a package ([games.md](games.md)): pixel art from a paint program ([art.md](art.md)),
+rooms in YAML and Yarn, music and effects. Its plan, art direction and art workflow are
+there. A headless playthrough test plays it start to end.
 
 ### 6. Publishing (started)
 CI runs the typecheck and the tests (hello's playthrough among them) and builds every game.

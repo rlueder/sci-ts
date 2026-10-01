@@ -6,7 +6,9 @@ a live room editor, and byte-exact writers for every kind of resource.
 
 It runs in the browser and in Node. It was developed against *Quest for Glory IV: Shadows of
 Darkness* (CD), which it plays from the title screen on, and it's on its way to running games
-of its own: the first one is a short Sherlock Holmes story, see [docs/plan.md](docs/plan.md).
+of its own: the first one is a short Sherlock Holmes story,
+[sci-sherlock](https://github.com/rlueder/sci-sherlock), which uses sci-ts as a package. See
+[docs/plan.md](docs/plan.md).
 
 > **No game data here.** This repository contains no files, scripts, art, text or music from
 > any Sierra game, and none are needed to build or test it. To play a Sierra game, point the

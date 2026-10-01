@@ -42,11 +42,9 @@ It imports what it needs from `tools/game/kit.ts`: the writers for pictures, vie
 palettes, and the base palette's colours. `games/hello/resources.ts` draws a picture and a
 view pixel by pixel.
 
-**Editor-authored art** can instead live in `art/art.json` with its PNG exports and palette.
-Return `buildArt(manifestPath).resources` from the game’s `resources.ts` to preserve
-exact colours, anchors and foreground priorities. `games/sherlock/resources.ts` is an example. See [the graphics workflow](art-workflow.md) for Pixelorama setup and
-`pnpm art check` / `pnpm art build`. Keep imported art IDs distinct from other resources returned by
-that hook; the build reports duplicates.
+**Art from a paint program** can live in `art/art.json` with its PNG exports and palette:
+`resources.ts` returns `buildArt(manifest).resources`, keeping exact colours, anchors and
+foreground layers ([art.md](art.md)). The build reports a resource number used twice.
 
 **Rooms** can be YAML and Yarn instead of scripts ([rooms.md](rooms.md)).
 
@@ -91,3 +89,58 @@ the properties the kernel reads: a plane needs `priority`, `inLeft`...`inBottom`
 and `back`; a screen item `x`, `y`, `view`, `loop`, `cel`, `plane`, `bitmap`; a mover the
 `b-` properties `DoBresen` keeps its place in. The library's classes have them; a game
 without the library has to declare its own.
+
+## A game in its own repository
+
+A game doesn't have to live in this repository: sci-ts is a package, and its `sci-ts`
+command does what `pnpm game` does here. [sci-sherlock](https://github.com/rlueder/sci-sherlock)
+is set up this way.
+
+```json
+{
+  "devDependencies": { "sci-ts": "link:../sci-ts" },
+  "scripts": { "build": "sci-ts build", "play": "sci-ts play", "edit": "sci-ts edit" }
+}
+```
+
+```sh
+sci-ts new my-game        # in an empty folder, or anywhere
+sci-ts build              # out/game: RESOURCE.MAP, RESOURCE.000, RESOURCE.SFX
+sci-ts play               # build, then sci-ts's player for it
+sci-ts edit               # build, then the live editor for its rooms and scripts
+sci-ts site               # the game's README and docs, and the game, as a static site
+sci-ts art check art/art.json
+```
+
+Code in the game imports what it needs from the package:
+
+| import | |
+|---|---|
+| `sci-ts` | the engine: resources, the VM and its kernels, graphics, sound, writers |
+| `sci-ts/kit` | for `resources.ts`: writers, the base palette's colours, the pixel font |
+| `sci-ts/build` | `buildGame`, for scripts that build and run the game (tests, previews) |
+| `sci-ts/art` | `buildArt`, for art from a paint program ([art.md](art.md)) |
+| `sci-ts/png` | reading and writing PNGs |
+| `sci-ts/viewer` | `GameSession`, to put the game in a page of your own |
+| `sci-ts/vite` | `sciGame`, a Vite plugin serving the built game to such a page |
+
+The class library, the default font, palette and cursors, and the room compiler come with
+the build: nothing to import. A game's own page uses the plugin:
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { sciGame } from "sci-ts/vite";
+export default defineConfig({ plugins: [sciGame({ game: "out/game" })] });
+```
+
+```ts
+// src/main.ts
+import { GameSession } from "sci-ts/viewer";
+const session = await GameSession.create({ canvas: document.querySelector("canvas")! });
+session.start();
+```
+
+For now the package is used from a checkout (`link:`); the sources are TypeScript, run
+through `tsx` and Vite.
+
