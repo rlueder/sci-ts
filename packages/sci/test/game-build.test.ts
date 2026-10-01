@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GameBuildError, buildGame } from "../../../tools/game/build.ts";
 import { pixelFont } from "../../../tools/game/font.ts";
+import { stringHelpers } from "../src/vm/kernels/arrays.ts";
 import {
   EventType, ResourceManager, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
   writeClassTable, writeFont, writeResourceArchive, writeSelectorNames, type FileSource, type Value,
@@ -68,41 +69,126 @@ describe("the default font", () => {
   });
 });
 
-describe("games/hello", async () => {
+describe("games/hello, on the class library", async () => {
   const game = await buildGame("games/hello");
 
-  it("numbers selectors from the object header on, and lists its classes", () => {
+  it("numbers selectors from the object header on, and the root class first", () => {
     expect(game.selectors.slice(0, 9)).toEqual(["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-script-", "-super-", "-info-", "name"]);
-    expect([...game.classes.values()].map((c) => c.name).sort()).toEqual(["Event", "Game", "Label", "Obj", "Plane", "Sprite"]);
     expect(game.classes.get(0)).toEqual({ name: "Obj", script: 999 });
+    for (const name of ["Game", "Room", "Ego", "PolyPath", "Messager", "User", "Sound"]) {
+      expect([...game.classes.values()].some((c) => c.name === name), name).toBe(true);
+    }
   });
 
-  it("runs: draws its picture, text and lantern, and moves the lantern to a click", async () => {
+  it("plays: walks, looks, reads a message, and goes to the next room", async () => {
     const vm = new Vm(await open(game.resources));
     vm.registerKernels(allKernels);
     const g = graphics(vm);
     vm.clock = () => (g.frames * 1000) / 60;
-    const frame = () => {
-      vm.run();
-      if (!vm.yieldRequested) throw new Error("no frame");
+    const frames = (n: number) => {
+      for (let i = 0; i < n; i++) {
+        vm.run();
+        if (!vm.yieldRequested) throw new Error(`no frame: ${vm.backtrace().join(" / ")}`);
+      }
     };
-    vm.start(vm.exportAddress(0, 0), "play");
-    frame();
-    expect(vm.missingKernels.size).toBe(0);
-
-    const pixels = g.compose().pixels;
-    // White text in the title's rows.
-    let white = 0;
-    for (let y = 12; y < 24; y++) for (let x = 0; x < 320; x++) white += pixels[y * 320 + x] === 255 ? 1 : 0;
-    expect(white).toBeGreaterThan(100);
-
-    const lantern = [...g.items].find((item: Value) => vm.object(item).name === "lantern")!;
-    expect([g.prop(lantern, "x"), g.prop(lantern, "y")]).toEqual([160, 150]);
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
     const inp = input(vm);
-    [inp.x, inp.y] = [50, 120];
-    inp.push({ type: EventType.MouseDown, message: 0 });
-    frame();
-    expect([g.prop(lantern, "x"), g.prop(lantern, "y")]).toEqual([50, 120]);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    /** The line the narrator is showing, or "" if none. */
+    const line = () => {
+      const box = vm.getProp(global("narrator"), "box") ?? 0;
+      return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    expect(vm.missingKernels.size).toBe(0);
+    expect(global("curRoomNum")).toBe(1);
+    const ego = global("ego");
+    expect([prop(ego, "x"), prop(ego, "y")]).toEqual([40, 175]);
+
+    // Walk (the first verb) to a point on the grass, facing east as he goes.
+    click(200, 180);
+    frames(2);
+    expect(prop(ego, "loop")).toBe(0);
+    frames(400);
+    expect([prop(ego, "x"), prop(ego, "y")]).toEqual([200, 180]);
+    expect(prop(ego, "cel")).toBe(0);
+
+    // A click above the crest goes as far as the grass does.
+    click(100, 60);
+    frames(400);
+    expect(prop(ego, "y")).toBe(158);
+
+    // Right-click: walk -> do -> look. Look at the moon: two lines, a click for each.
+    click(0, 0, true);
+    click(0, 0, true);
+    expect(g.cursor.view).toBe(991);
+    click(260, 30);
+    expect(line()).toBe("The moon is full tonight.");
+    click(10, 10);
+    expect(line()).toBe("Bright enough to read by.");
+    click(10, 10);
+    expect(line()).toBe("");
+    // The lantern, which animates.
+    click(160, 168);
+    expect(line()).toBe("A brass lantern, left burning in the grass.");
+    // Lines go by themselves too.
+    frames(300);
+    expect(line()).toBe("");
+
+    // Back to walking (look -> talk -> walk), and east, off the edge of the hill.
+    click(0, 0, true);
+    click(0, 0, true);
+    expect(g.cursor.view).toBe(993);
+    click(319, 175);
+    frames(600);
+    expect(global("curRoomNum")).toBe(2);
+    expect(global("prevRoomNum")).toBe(1);
+    expect(prop(global("ego"), "x")).toBe(10);
+    expect(g.compose().pixels.length).toBe(320 * 200);
+
+    // The sign on the road.
+    click(0, 0, true);
+    click(0, 0, true);
+    click(250, 135);
+    expect(line()).toBe("The sign says: TOWN, 2 MILES.");
+  });
+});
+
+describe("the class library", () => {
+  it("plays and stops a Sound (one with no resource just doesn't sound)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sci-lib-"));
+    mkdirSync(join(dir, "scripts"));
+    writeFileSync(join(dir, "scripts", "0.sc"), `(script 0)
+(include "system.sh")
+(public t 0)
+(local [out 4])
+(instance t of Game
+  (method (play)
+    (self init:)
+    (song number: 123 play:)
+    (= [out 0] (song handle?))
+    (song stop:)
+    (= [out 1] (song handle?))
+    (= [out 2] (sounds size?))
+    (song dispose:)
+    (= [out 3] (sounds size?))))
+(instance song of Sound)`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources));
+    vm.registerKernels(allKernels);
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; vm.running && i < 10; i++) vm.run();
+    const out = vm.loadedScripts.find((s) => s.number === 0)!.locals.slice(0, 4);
+    expect(out[0]).not.toBe(0);
+    expect(out.slice(1)).toEqual([0, 1, 0]);
   });
 });
 
@@ -116,14 +202,14 @@ describe("game build errors", () => {
   const obj = "script 999\nclass Obj of - species 0\n  header -objID- -size- -propDict- -methDict- -classScript- -script- -super- -info- name\n";
 
   it("names the file and the problem", async () => {
-    await expect(buildGame(game({ 0: "script 0\ninstance x of Nothing\n" }))).rejects.toThrow(/0\.sca: line 2: unknown class Nothing/);
+    await expect(buildGame(game({ 0: "script 0\ninstance x of Nothing\n" }), { library: false })).rejects.toThrow(/0\.sca: line 2: unknown class Nothing/);
   });
 
   it("refuses two classes with one species number", async () => {
-    await expect(buildGame(game({ 999: obj, 0: "script 0\nclass A of Obj species 0\n" }))).rejects.toThrow(GameBuildError);
+    await expect(buildGame(game({ 999: obj, 0: "script 0\nclass A of Obj species 0\n" }), { library: false })).rejects.toThrow(GameBuildError);
   });
 
   it("needs script 0", async () => {
-    await expect(buildGame(game({ 999: obj }))).rejects.toThrow(/no scripts\/0\.sc or 0\.sca/);
+    await expect(buildGame(game({ 999: obj }), { library: false })).rejects.toThrow(/no scripts\/0\.sc or 0\.sca/);
   });
 });
