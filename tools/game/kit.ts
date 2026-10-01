@@ -7,3 +7,4 @@ export {
   type Cel, type Font, type HunkPaletteFile, type MidiEvent, type PicFile, type ResourceData, type SoundSpec, type ViewFile,
 } from "@sci-ts/sci";
 export { BASE_PALETTE, CURSOR_VIEW, Colour, DEFAULT_FONT, basePalette, cube } from "./defaults.ts";
+export { pixelFont } from "./font.ts";

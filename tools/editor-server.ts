@@ -9,7 +9,7 @@
  * files and class tables kept loaded between builds.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { ResourceManager, ResourceType, ScriptWorld, writeResourceArchive, type AsmContext } from "@sci-ts/sci";
 import { buildGame } from "./game/build.ts";
 import { buildMod, type BuiltResource } from "./mod-build.ts";
@@ -23,15 +23,21 @@ const GAMES = join(ROOT, "games");
 const EDITABLE = /^(\d+\.room\.yaml|\d+\.yarn|flags\.yaml)$/;
 const GAME_EDITABLE = /^(\d+\.room\.yaml|\d+\.yarn|flags\.yaml|\d+\.sc|\d+\.msg)$/;
 
-/** The game of ours the dev server serves (SCI_GAME=out/games/<name>), if it is one. */
-const servedGame = (() => {
+/**
+ * The game of ours the dev server serves, if it is one: SCI_GAME_SOURCE names its folder
+ * (`sci-ts edit`), or SCI_GAME is out/games/<name> for a game in games/.
+ */
+const served = (() => {
+  const source = process.env.SCI_GAME_SOURCE;
+  if (source && existsSync(join(source, "scripts"))) return { name: basename(resolve(source)), dir: resolve(source), out: resolve(process.env.SCI_GAME ?? join(source, "out/game")) };
   const name = /(?:^|\/)out\/games\/([\w-]+)\/?$/.exec(process.env.SCI_GAME ?? "")?.[1];
-  return name && existsSync(join(GAMES, name)) ? name : undefined;
+  return name && existsSync(join(GAMES, name)) ? { name, dir: join(GAMES, name), out: join(ROOT, "out/games", name) } : undefined;
 })();
+const servedGame = served?.name;
 
 /** Where an editable thing's files are: a mod's folder, or a game's rooms/ (flags.yaml beside it). */
 function filesDir(name: string): { dir: string; game: boolean } {
-  if (servedGame && name === servedGame) return { dir: join(GAMES, name), game: true };
+  if (served && name === served.name) return { dir: served.dir, game: true };
   return { dir: modDir(name), game: false };
 }
 const fileIn = (where: { dir: string; game: boolean }, file: string) =>
@@ -57,10 +63,10 @@ const roomsIn = (dir: string) =>
 export function listMods(): { name: string; kind: "mod" | "game"; rooms: number[] }[] {
   if (servedGame) {
     // Rooms as data, and scripts (besides 0, the game) that may be rooms.
-    const scripts = existsSync(join(GAMES, servedGame, "scripts"))
-      ? readdirSync(join(GAMES, servedGame, "scripts")).flatMap((f) => /^(\d+)\.sc$/.exec(f)?.[1] ?? []).map(Number).filter((n) => n !== 0)
+    const scripts = existsSync(join(served!.dir, "scripts"))
+      ? readdirSync(join(served!.dir, "scripts")).flatMap((f) => /^(\d+)\.sc$/.exec(f)?.[1] ?? []).map(Number).filter((n) => n !== 0)
       : [];
-    const rooms = [...new Set([...roomsIn(join(GAMES, servedGame, "rooms")), ...scripts])].sort((a, b) => a - b);
+    const rooms = [...new Set([...roomsIn(join(served!.dir, "rooms")), ...scripts])].sort((a, b) => a - b);
     return [{ name: servedGame, kind: "game", rooms }];
   }
   return readdirSync(MODS)
@@ -105,7 +111,7 @@ export function save(mod: string, files: Record<string, string>): Promise<BuildR
         const path = fileIn(where, name);
         if (!existsSync(path) || readFileSync(path, "utf8") !== text) writeFileSync(path, text);
       }
-      if (where.game) return { ...(await buildServedGame(mod)), ms: Date.now() - started };
+      if (where.game) return { ...(await buildServedGame()), ms: Date.now() - started };
       const dir = where.dir;
       const { rm, world, ctx } = await openGame();
       const generated: Record<string, string> = {};
@@ -135,12 +141,12 @@ export function save(mod: string, files: Record<string, string>): Promise<BuildR
 }
 
 /**
- * Rebuilds a game of ours into out/games/<name>, and returns what changed since the files
+ * Rebuilds the game being served into its out folder, and returns what changed since the files
  * there (which the page is running).
  */
-async function buildServedGame(name: string): Promise<BuildResult> {
-  const game = await buildGame(join(GAMES, name));
-  const out = join(ROOT, "out/games", name);
+async function buildServedGame(): Promise<BuildResult> {
+  const game = await buildGame(served!.dir);
+  const out = served!.out;
   const changed: typeof game.resources = [];
   if (existsSync(join(out, "RESOURCE.MAP"))) {
     const before = await ResourceManager.open(nodeFiles(out), []);
@@ -159,7 +165,7 @@ async function buildServedGame(name: string): Promise<BuildResult> {
   const generated: Record<string, string> = {};
   for (const [n, text] of game.generated) generated[`${n}.sca`] = text;
   for (const [n, text] of game.roomMessages) generated[`${n}.msg`] = text;
-  const flagsFile = join(GAMES, name, "flags.yaml");
+  const flagsFile = join(served!.dir, "flags.yaml");
   return {
     ok: true,
     resources: changed.map((r) => ({ type: r.type, number: r.number, data: Buffer.from(r.data).toString("base64") })),

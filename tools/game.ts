@@ -27,7 +27,7 @@ if ((command !== "build" && command !== "site" && command !== "new") || !dir) {
 }
 if (command === "new") {
   try {
-    const target = newGame(basename(dir));
+    const target = newGame(join("games", basename(dir)));
     console.log(`${target}: a room (rooms/1.room.yaml, 1.yarn), the game (scripts/0.sc) and placeholder art (resources.ts)`);
     console.log(`  pnpm game build ${target}, then SCI_GAME=out/${target} pnpm viewer`);
   } catch (e) {

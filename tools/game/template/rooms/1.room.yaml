@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../packages/content/room.schema.json
+# yaml-language-server: $schema=SCHEMA
 # The first room. What's here and where you can walk; what's said is in 1.yarn.
 room: 1
 picture: 100

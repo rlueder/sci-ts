@@ -2,6 +2,21 @@
   "name": "sci-ts",
   "private": true,
   "type": "module",
+  "description": "An SCI2 adventure game engine in TypeScript, and the tools to make games with it",
+  "bin": {
+    "sci-ts": "bin/sci-ts.mjs"
+  },
+  "exports": {
+    ".": "./packages/sci/src/index.ts",
+    "./content": "./packages/content/src/index.ts",
+    "./kit": "./tools/game/kit.ts",
+    "./build": "./tools/game/build.ts",
+    "./art": "./tools/art/build.ts",
+    "./png": "./tools/png.ts",
+    "./viewer": "./apps/viewer/src/session.ts",
+    "./vite": "./apps/viewer/plugin.ts",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,10 +37,7 @@
     "view": "tsx tools/view.ts",
     "art": "node --import tsx tools/art.ts",
     "play": "tsx tools/play.ts",
-    "game": "tsx tools/game.ts",
-    "sherlock": "node --import tsx games/sherlock/dev.ts",
-    "sherlock:check": "node --import tsx games/sherlock/preview.ts",
-    "sherlock:export": "node --import tsx games/sherlock/export-art.ts"
+    "game": "tsx tools/game.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

@@ -7,7 +7,7 @@ import { markdown } from "./markdown.ts";
 /**
  * A static site, to publish anywhere (GitHub Pages, any web server):
  *
- *   index.html, CONTRIBUTING.html, ...   the repository's Markdown, as pages
+ *   index.html, CONTRIBUTING.html, ...   the Markdown of this repository (or a game's), as pages
  *   docs/...                             docs/**.md as pages, and their screenshots
  *   play/play.html                       the player, with the game in play/game/
  *
@@ -18,8 +18,15 @@ const ROOT = resolve(import.meta.dirname, "../..");
 const VIEWER = join(ROOT, "apps/viewer");
 const SOUNDFONT = join(ROOT, "assets/soundfonts/GeneralUser-GS.sf2");
 
-export async function buildSite(gameDir: string, outDir: string): Promise<{ pages: number; game: string; soundFont: boolean }> {
+export async function buildSite(
+  gameDir: string,
+  outDir: string,
+  options: { docs?: string; name?: string } = {},
+): Promise<{ pages: number; game: string; soundFont: boolean }> {
   const out = resolve(outDir);
+  // Whose Markdown becomes the pages: this repository's, or the game's own.
+  const docs = resolve(options.docs ?? ROOT);
+  const name = options.name ?? "sci-ts";
   rmSync(out, { recursive: true, force: true });
   const game = await buildGame(gameDir);
 
@@ -44,42 +51,42 @@ export async function buildSite(gameDir: string, outDir: string): Promise<{ page
 
   // The pages.
   const sources = [
-    ...["README.md", "CONTRIBUTING.md", "CHANGELOG.md"].filter((f) => existsSync(join(ROOT, f))),
-    ...walk("docs").filter((f) => f.endsWith(".md")),
+    ...["README.md", "CONTRIBUTING.md", "CHANGELOG.md"].filter((f) => existsSync(join(docs, f))),
+    ...walk(docs, "docs").filter((f) => f.endsWith(".md")),
   ];
   const nav = [
-    ["index.html", "sci-ts"],
+    ["index.html", name],
     ["play/play.html", "Play"],
-    ...sources.filter((f) => f.startsWith("docs/") && dirname(f) === "docs").map((f) => [f.replace(/\.md$/, ".html"), titleOf(f)]),
+    ...sources.filter((f) => f.startsWith("docs/") && dirname(f) === "docs").map((f) => [f.replace(/\.md$/, ".html"), titleOf(docs, f)]),
   ];
   for (const f of sources) {
     const page = f === "README.md" ? "index.html" : f.replace(/\.md$/, ".html").replace(/(^|\/)README\.html$/, "$1index.html");
-    const { html, title } = markdown(readFileSync(join(ROOT, f), "utf8"));
+    const { html, title } = markdown(readFileSync(join(docs, f), "utf8"));
     const up = "../".repeat(page.split("/").length - 1);
     const links = nav.map(([href, label]) => `<a href="${up}${href}"${href === page ? ' aria-current="page"' : ""}>${label}</a>`).join("");
     mkdirSync(dirname(join(out, page)), { recursive: true });
-    writeFileSync(join(out, page), template(title || basename(f), links, html));
+    writeFileSync(join(out, page), template(title || basename(f), name, links, html));
   }
-  if (existsSync(join(ROOT, "docs/screenshots"))) cpSync(join(ROOT, "docs/screenshots"), join(out, "docs/screenshots"), { recursive: true });
-  if (existsSync(join(ROOT, "LICENSE"))) cpSync(join(ROOT, "LICENSE"), join(out, "LICENSE"));
+  if (existsSync(join(docs, "docs/screenshots"))) cpSync(join(docs, "docs/screenshots"), join(out, "docs/screenshots"), { recursive: true });
+  if (existsSync(join(docs, "LICENSE"))) cpSync(join(docs, "LICENSE"), join(out, "LICENSE"));
   return { pages: sources.length, game: relative(ROOT, resolve(gameDir)), soundFont };
 }
 
-function walk(dir: string): string[] {
-  const abs = join(ROOT, dir);
+function walk(root: string, dir: string): string[] {
+  const abs = join(root, dir);
   if (!existsSync(abs)) return [];
-  return readdirSync(abs).sort().flatMap((name) => (statSync(join(abs, name)).isDirectory() ? walk(`${dir}/${name}`) : [`${dir}/${name}`]));
+  return readdirSync(abs).sort().flatMap((name) => (statSync(join(abs, name)).isDirectory() ? walk(root, `${dir}/${name}`) : [`${dir}/${name}`]));
 }
 
-const titleOf = (f: string) => markdown(readFileSync(join(ROOT, f), "utf8")).title || basename(f, ".md");
+const titleOf = (root: string, f: string) => markdown(readFileSync(join(root, f), "utf8")).title || basename(f, ".md");
 
-function template(title: string, nav: string, body: string): string {
+function template(title: string, site: string, nav: string, body: string): string {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title.replace(/</g, "&lt;")} · sci-ts</title>
+<title>${title.replace(/</g, "&lt;")} · ${site}</title>
 <style>
   :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fbfbf8; --muted: #6b6b6b; --line: #ddd; --code: #f0efe9; --link: #2a5db0; }
   @media (prefers-color-scheme: dark) { :root { --fg: #e6e6e3; --bg: #18181a; --muted: #9a9a9a; --line: #333; --code: #242428; --link: #8ab4f8; } }

@@ -267,7 +267,7 @@ describe("the class library", () => {
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));
-    const dir = newGame("night-walk", games);
+    const dir = newGame(join(games, "night-walk"), "path");
     const game = await buildGame(dir);
     expect(game.warnings).toEqual([]);
     const vm = new Vm(await open(game.resources, game.files));
@@ -280,8 +280,8 @@ describe("pnpm game new", () => {
     expect(global("curRoomNum")).toBe(1);
     const box = vm.getProp(global("talking"), "box")!;
     expect(stringHelpers.str(vm, vm.getProp(box, "text")!)).toMatch(/^You're here\./);
-    expect(() => newGame("night-walk", games)).toThrow(/already there/);
-    expect(() => newGame("Bad Name", games)).toThrow(/lower-case/);
+    expect(() => newGame(join(games, "night-walk"))).toThrow(/already there/);
+    expect(() => newGame(join(games, "Bad Name"))).toThrow(/lower-case/);
   });
 });
 
