@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 versions follow [Semantic Versioning](https://semver.org/), and the entries are generated
 from commit messages ([Conventional Commits](https://www.conventionalcommits.org/)).
 
+## [0.2.1] - 2026-10-01
+
+### Fixed
+
+- **tools:** Publish as sci2-ts
+
 ## [0.2.0] - 2026-10-01
 
 ### Added
