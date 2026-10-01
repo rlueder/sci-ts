@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@sci-ts/content": "workspace:*",
-    "@sci-ts/sci": "workspace:*"
+    "@sci-ts/sci": "workspace:*",
+    "yaml": "^2.9.1"
   }
 }

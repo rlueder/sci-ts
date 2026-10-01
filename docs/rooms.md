@@ -91,6 +91,7 @@ Commands for cutscenes; those that take time finish before the next line:
 | `<<animate crow once>>` `<<animate crow forever>>` `<<stop crow>>` | |
 | `<<music 120>>` `<<music stop>>` `<<sound 40>>` `<<sound 40 wait>>` | |
 | `<<closeup 240>>` `<<closeup 240 0 1>>` | a close look: view 240 (loop, cel) over the dimmed room, until a click |
+| `<<get lens>>` `<<drop lens>>` | give the hero an item `items.yaml` describes, or take it |
 | `<<room 3>>` | go to another room |
 
 The player can't click while a node with commands runs (but can dismiss text).

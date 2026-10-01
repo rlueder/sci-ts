@@ -22,7 +22,7 @@ games/hello/
   scripts/1.sc       more scripts: rooms are numbered like their scripts
   rooms/2.room.yaml  a room as data, with what's said in it in rooms/2.yarn
   flags.yaml         the numbers of the rooms' Yarn variables (the build keeps it)
-  items.yaml         optional: the verbs of the things the hero carries (lens: 10)
+  items.yaml         optional: the things the hero carries: their verbs, and the items
   messages/1.msg     message files, as text
   music/100.mid      music: sound 100, from a MIDI file
   sounds/50.wav      a sound effect: sound 50, from a WAV file
