@@ -1,0 +1,56 @@
+# CHANGELOG.md from Conventional Commits (https://git-cliff.org).
+#   pnpm changelog        rewrite CHANGELOG.md from the whole history
+#   pnpm changelog:next   preview what the next release adds
+#   pnpm release          write CHANGELOG.md with the next version, then tag it (vX.Y.Z)
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+versions follow [Semantic Versioning](https://semver.org/), and the entries are generated
+from commit messages ([Conventional Commits](https://www.conventionalcommits.org/)).\n
+"""
+body = """
+{% if version %}\
+## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits %}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}\
+{% if commit.breaking %}**Breaking:** {% endif %}\
+{{ commit.message | upper_first }}\
+{% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"
+commit_parsers = [
+  { message = "^feat", group = "<!-- 0 -->Added" },
+  { message = "^fix", group = "<!-- 1 -->Fixed" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^refactor", group = "<!-- 3 -->Changed" },
+  { message = "^docs", group = "<!-- 4 -->Documentation" },
+  { message = "^test", group = "<!-- 5 -->Tests" },
+  { message = "^chore\\(release\\)", skip = true },
+  { message = "^(build|ci|chore|style)", group = "<!-- 6 -->Maintenance" },
+  { body = ".*security", group = "<!-- 7 -->Security" },
+]
+
+[bump]
+# Before 1.0: a breaking change bumps the minor version, anything else the patch.
+features_always_bump_minor = false
+breaking_always_bump_major = false
+initial_tag = "v0.1.0"

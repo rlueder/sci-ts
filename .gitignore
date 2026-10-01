@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+# Game files never go in this repo: point the tools at your own copy.
+original/
+assets/soundfonts/
+*.log
+.DS_Store
+coverage/

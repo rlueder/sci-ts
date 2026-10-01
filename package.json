@@ -1,0 +1,44 @@
+{
+  "name": "sci-ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc",
+    "check": "pnpm typecheck && pnpm test",
+    "changelog": "git-cliff -o CHANGELOG.md",
+    "changelog:next": "git-cliff --unreleased --bump",
+    "release": "git-cliff --bump -o CHANGELOG.md",
+    "prepare": "simple-git-hooks",
+    "viewer": "pnpm --filter @sci-ts/viewer dev",
+    "res": "tsx tools/res.ts",
+    "analyze": "tsx tools/analyze.ts",
+    "asm": "tsx tools/asm.ts",
+    "msg": "tsx tools/msg.ts",
+    "mod": "tsx tools/mod.ts",
+    "pic": "tsx tools/pic.ts",
+    "view": "tsx tools/view.ts",
+    "play": "tsx tools/play.ts"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.3",
+    "@commitlint/config-conventional": "^21.2.3",
+    "@types/node": "^26.6.3",
+    "@vitest/coverage-v8": "5.0.3",
+    "git-cliff": "^2.14.2",
+    "simple-git-hooks": "^2.14.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  },
+  "simple-git-hooks": {
+    "commit-msg": "pnpm exec commitlint --edit \"$1\""
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  }
+}
