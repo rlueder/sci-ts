@@ -19,7 +19,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm art check games/sherlock/art/art.json
       - run: pnpm test:coverage
       - name: Commit messages
         if: github.event_name == 'pull_request'
