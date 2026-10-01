@@ -9,7 +9,7 @@ nothing about any particular game. `games/hello` uses all of it.
 | 999 | `lib/999.sc` | the core: `Obj`, `Code`, `Collection`, `List`, `Set`, `Script`; the globals and flags |
 | 998 | `lib/998.sc` | the world: `Game`, `Plane`, `Room`, `Feature`, `View`, `Prop`, `Actor`, `Ego` |
 | 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg` |
-| 996 | `lib/996.sc` | talk: `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
+| 996 | `lib/996.sc` | talk: `TextStyle`, `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
 
@@ -122,6 +122,30 @@ shows their portrait beside it, the mouth moving while the line is up.
 A `Teller` makes talking to something a conversation: a `Menu` of topics, each answered
 from the message file, back to the menu until the player says goodbye. Rooms written as
 YAML and Yarn get these from their conversation nodes.
+
+## How text looks
+
+Every text box and menu choice takes its look from `textStyle`, a `TextStyle` the game
+makes at the start. A game sets it once, in its `init` after `(super init:)`:
+
+```lisp
+(textStyle font: 1 fore: 3 back: 12 border: 5)   ; ink, paper and a one-pixel border
+(textStyle frame: 260)                           ; or a frame drawn around each box
+```
+
+| property | | default |
+|---|---|---|
+| `font` | the font | 0, sci-ts's own |
+| `fore` | the ink colour | 0 |
+| `back` | the paper colour | 255 |
+| `border` | a one-pixel border's colour; -1 for none | 0 |
+| `frame` | a frame view, drawn instead of the border; -1 for none | -1 |
+| `margin` | pixels between the text and the border or frame | 4 |
+
+A frame view has eight cels in loop 0, each anchored at its top-left corner: the four
+corners (top-left, top-right, bottom-left, bottom-right), then the four edges (top, bottom,
+left, right). Each edge is repeated along its side between the corners; transparent pixels
+show the paper. A box can still set its own `font`, `fore`, `back` or `frame`.
 
 ## Flags
 

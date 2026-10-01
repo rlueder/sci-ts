@@ -30,6 +30,7 @@
     (= theEvent (Event new:))
     (= messager (Messager new:))
     (= narrator (Narrator new:))
+    (= textStyle (TextStyle new:))
     (= music (Sound new:))
     (= sfx (Sound new:))
     (= uiPlane ((Plane new:) priority: 200 picture: -2 yourself:))

@@ -321,8 +321,29 @@ export const textKernels: Record<string, KernelFn> = {
     return text !== original ? 1 : 0;
   },
 
-  Bitmap: (vm, [subop = 0, ref = 0]) => {
-    if (subop === 1 && vm.memory.bitmap(ref)) vm.memory.free(segmentOf(ref));
+  // Bitmap(1, bitmap): dispose. Bitmap(3, bitmap, view, loop, cel, x, y): draw a view's cel
+  // into the bitmap with its origin at (x, y), skipping its transparent pixels (SCI2.1's
+  // kBitmapDrawView; the class library frames text boxes with it).
+  Bitmap: (vm, [subop = 0, ref = 0, ...args]) => {
+    const bmp = vm.memory.bitmap(ref);
+    if (subop === 1 && bmp) vm.memory.free(segmentOf(ref));
+    if (subop === 3 && bmp) {
+      const [view = 0, loop = 0, celNo = 0, x = 0, y = 0] = args.map(toSigned);
+      const found = graphics(vm).cel(view, loop, celNo);
+      if (!found) return 0;
+      const { cel, mirror } = found;
+      const left = x - ((cel.width >> 1) - cel.displaceX), top = y - (cel.height - 1 - cel.displaceY);
+      for (let cy = 0; cy < cel.height; cy++) {
+        const by = top + cy;
+        if (by < 0 || by >= bmp.height) continue;
+        for (let cx = 0; cx < cel.width; cx++) {
+          const bx = left + cx;
+          if (bx < 0 || bx >= bmp.width) continue;
+          const c = cel.pixels[cy * cel.width + (mirror ? cel.width - 1 - cx : cx)]!;
+          if (c !== cel.skipColor) bmp.pixels[by * bmp.width + bx] = c;
+        }
+      }
+    }
     return 0;
   },
 };

@@ -264,6 +264,47 @@ describe("the class library", () => {
   });
 });
 
+describe("the text style", () => {
+  it("gives every box the game's font, colours and frame", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sci-style-"));
+    mkdirSync(join(dir, "scripts"));
+    writeFileSync(join(dir, "scripts", "0.sc"), `(script 0)
+(include "system.sh")
+(public t 0)
+(instance t of Game
+  (method (init)
+    (super init:)
+    (textStyle font: 1 fore: 7 back: 9 frame: 260)
+    (narrator say: "Hi")))`);
+    // Font 1, and a frame: eight 3x3 cels, each its own colour (10 + cel), anchored top-left.
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import { ResourceType, pixelFont, writeFont, writeView } from ${JSON.stringify(kit)};
+const cel = (c) => ({ width: 3, height: 3, displaceX: 1, displaceY: 2, skipColor: 254, pixels: new Uint8Array(9).fill(10 + c) });
+export default () => [
+  { type: ResourceType.Font, number: 1, data: writeFont(pixelFont()) },
+  { type: ResourceType.View, number: 260, data: writeView({ flags: 1, loops: [{ link: -1, mirror: false, cels: [0, 1, 2, 3, 4, 5, 6, 7].map(cel) }], palette: undefined }) },
+];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources));
+    vm.registerKernels(allKernels);
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 3; i++) vm.run();
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const box = vm.getProp(global("talking"), "box")!;
+    expect(["font", "fore", "back", "frame", "borderColor"].map((p) => graphics(vm).prop(box, p))).toEqual([1, 7, 9, 260, -1]);
+    const bmp = vm.memory.bitmap(vm.getProp(box, "bitmap")!)!;
+    const at = (x: number, y: number) => bmp.pixels[y * bmp.width + x];
+    const [w, h] = [bmp.width, bmp.height];
+    // Corners, then an edge from each side, then the paper inside (the margin, past the frame).
+    expect([at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1)]).toEqual([10, 11, 12, 13]);
+    expect([at(w >> 1, 1), at(w >> 1, h - 2), at(1, h >> 1), at(w - 2, h >> 1)]).toEqual([14, 15, 16, 17]);
+    expect(at(4, 4)).toBe(9);
+    // Text is 10 pixels a line in font 1, inside 3 of frame and 4 of margin each side.
+    expect(h).toBe(10 + 2 * (3 + 4));
+    expect(bmp.pixels.includes(7)).toBe(true);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));

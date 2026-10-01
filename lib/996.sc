@@ -3,8 +3,25 @@
 (script 996)
 (include "system.sh")
 
+;; How text boxes and menus look, for the whole game (the `textStyle` global): the font, the
+;; ink, paper and border colours, and a frame drawn around each box instead of the border.
+;; The game sets it in its init, after (super init:):
+;;   (textStyle font: 1 fore: 3 back: 12 frame: 260)
+;; A frame is a view whose loop 0 has eight cels, each anchored at its top-left corner: the
+;; corners (top-left, top-right, bottom-left, bottom-right), then the edges (top, bottom, left,
+;; right). The edges are tiled between the corners; transparent pixels show the paper.
+(class TextStyle of Obj
+  (properties
+    font 0
+    fore 0          ; ink
+    back 255        ; paper
+    border 0        ; a one-pixel border's colour; -1: none
+    frame -1        ; a frame view, or -1
+    margin 4))      ; between the text and the border or frame
+
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
-;; item in the UI plane. Set text (and font, colours, width, x, y), then init.
+;; item in the UI plane. Set text (and width, x, y), then init. Font, colours and frame come
+;; from the textStyle unless set here.
 (class TextItem of Obj
   (properties
     x 0 y 0 z 0
@@ -14,36 +31,65 @@
     bitmap 0
     scaleSignal 0 scaleX 128 scaleY 128
     text 0
-    font 0
-    fore 0
-    back 255
+    font -1         ; -1 here and below: the textStyle's
+    fore -1
+    back -1
     skip 254
     mode 0          ; 0 left, 1 centred
-    borderColor 0
+    borderColor -2  ; -1: none
+    frame -2        ; -1: none
     textLeft 0 textTop 0 textRight -1 textBottom -1
     width 200
     height 0)
 
-  (method (init &tmp r)
-    ;; As tall as the text needs, with a 4-pixel margin inside the border.
+  (method (init &tmp r m padL padT padR padB)
+    (if (== font -1) (= font (textStyle font?)))
+    (if (== fore -1) (= fore (textStyle fore?)))
+    (if (== back -1) (= back (textStyle back?)))
+    (if (== frame -2) (= frame (textStyle frame?)))
+    (if (== borderColor -2) (= borderColor (if (!= frame -1) -1 else (textStyle border?))))
+    ;; As tall as the text needs, inside the margin and the frame.
+    (= m (textStyle margin?))
+    (= padL m) (= padT m) (= padR m) (= padB m)
+    (if (!= frame -1)
+      (+= padL (CelWide frame 0 6))
+      (+= padR (CelWide frame 0 7))
+      (+= padT (CelHigh frame 0 4))
+      (+= padB (CelHigh frame 0 5)))
     (= r (Array ARRAY_NEW 4 0))
-    (TextSize r text font (- width 8))
-    (= height (+ (Array ARRAY_AT r 3) 9))
+    (TextSize r text font (- width (+ padL padR)))
+    (= height (+ (Array ARRAY_AT r 3) 1 padT padB))
     (Array ARRAY_FREE r)
-    (= textLeft 4)
-    (= textTop 4)
-    (= textRight (- width 5))
-    (= textBottom (- height 5))
+    (= textLeft padL)
+    (= textTop padT)
+    (= textRight (- width (+ padR 1)))
+    (= textBottom (- height (+ padB 1)))
     (= plane uiPlane)
     (= bitmap (CreateTextBitmap 0 width height self))
+    (if (!= frame -1) (self drawFrame:))
     (AddScreenItem self))
+
+  ;; The edges, tiled, then the corners over their ends.
+  (method (drawFrame &tmp i step)
+    (if (< (= step (CelWide frame 0 4)) 1) (= step 1))
+    (for ((= i (CelWide frame 0 0))) (< i width) ((+= i step))
+      (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 4 i 0)
+      (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 5 i (- height (CelHigh frame 0 5))))
+    (if (< (= step (CelHigh frame 0 6)) 1) (= step 1))
+    (for ((= i (CelHigh frame 0 0))) (< i height) ((+= i step))
+      (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 6 0 i)
+      (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 7 (- width (CelWide frame 0 7)) i))
+    (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 0 0 0)
+    (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 1 (- width (CelWide frame 0 1)) 0)
+    (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 2 0 (- height (CelHigh frame 0 2)))
+    (Bitmap BITMAP_DRAW_VIEW bitmap frame 0 3 (- width (CelWide frame 0 3)) (- height (CelHigh frame 0 3))))
 
   (method (onMe theX theY)
     (return (and (>= theX x) (< theX (+ x width)) (>= theY y) (< theY (+ y height)))))
 
   (method (dispose)
     (DeleteScreenItem self)
-    (if bitmap (Bitmap 1 bitmap) (= bitmap 0))
+    (if bitmap (Bitmap BITMAP_DISPOSE bitmap) (= bitmap 0))
     (super dispose:)))
 
 ;; Shows a line until it's been there long enough to read, or the player clicks; then
@@ -53,7 +99,7 @@
     caller 0
     box 0
     until 0         ; the game time it goes
-    font 0
+    font -1         ; -1: the textStyle's
     x -1            ; -1: centred
     y 16
     width 220)

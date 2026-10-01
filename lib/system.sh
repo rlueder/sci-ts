@@ -37,6 +37,10 @@
 (define ARRAY_FREE 4)
 (define STRING_LENGTH 10)
 
+;; Bitmap subfunctions.
+(define BITMAP_DISPOSE 1)
+(define BITMAP_DRAW_VIEW 3)
+
 ;; DoSound kernel calls.
 (define SND_INIT 6)
 (define SND_DISPOSE 7)
