@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buildArt, type ArtManifest } from "../../../tools/art/build.ts";
 import { buildGame } from "../../../tools/game/build.ts";
 import { rgbaPng } from "../../../tools/png.ts";
-import { parsePicFile, parseViewFile, ResourceType, writePic, writeView } from "../src/index.ts";
+import { parseFont, parsePicFile, parseViewFile, ResourceType, writePic, writeView } from "../src/index.ts";
 
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
@@ -118,5 +118,27 @@ export default () => [...buildArt(${JSON.stringify(f.file)}).resources, { type: 
     f.manifest.pictures[0]!.number = 100; // resources.ts already makes this
     f.save();
     await expect(buildGame(f.dir)).rejects.toThrow(/made twice/);
+  });
+
+  it("turns a sheet of glyphs into a font: widths from the ink, the space from the manifest", () => {
+    const f = fixture();
+    // Three 4x5 cells: the space, "!" (ink in column 1) and '"' (columns 0 and 2).
+    const width = 12, height = 5, data = new Uint8Array(width * height * 4);
+    const ink = (x: number, y: number) => data.set([20, 30, 40, 255], (y * width + x) * 4);
+    for (const y of [0, 1, 2, 4]) ink(4 + 1, y);
+    for (const y of [0, 1]) (ink(8, y), ink(10, y));
+    writeFileSync(join(f.art, "font.png"), rgbaPng({ width, height, data }));
+    f.manifest.fonts = [{ number: 1, png: "font.png", cell: [4, 5], space: 3, lineHeight: 7 }];
+    f.save();
+    const data1 = buildArt(f.file).resources.find((r) => r.type === ResourceType.Font && r.number === 1)!.data;
+    const font = parseFont(data1);
+    expect(font.height).toBe(7);
+    expect(font.glyphs.map((g) => g?.width ?? 0).slice(32, 35)).toEqual([3, 3, 4]);
+    expect([...font.glyphs[33]!.pixels]).toEqual([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0]);
+    expect(font.glyphs[65]!.width).toBe(0); // not on the sheet
+
+    f.manifest.fonts[0]!.cell = [5, 5];
+    f.save();
+    expect(() => buildArt(f.file)).toThrow(/fonts\[0\]\.png: 12x5 is not a whole number of 5x5 cells/);
   });
 });

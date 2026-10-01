@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { ResourceType, writeHunkPalette, writePic, writeView, type ResourceData, type ViewLoop } from "@sci-ts/sci";
+import { ResourceType, writeFont, writeHunkPalette, writePic, writeView, type ResourceData, type ViewLoop } from "@sci-ts/sci";
 import { basePalette } from "../game/defaults.ts";
 import { decodePng } from "../png.ts";
+import { FontSheetError, fontFromSheet } from "./font.ts";
 
 /** Editor-neutral, exact-colour art for standalone games. See docs/art-workflow.md. */
 export interface ArtManifest {
@@ -12,6 +13,8 @@ export interface ArtManifest {
   maxColours?: number;
   pictures: { number: number; layers: { png: string; priority: number }[] }[];
   views: { number: number; loops: ({ cels: { png: string; anchor: [number, number] }[] } | { link: number; mirror: boolean })[] }[];
+  /** Fonts drawn as sheets of glyphs (tools/art/font.ts). */
+  fonts?: { number: number; png: string; cell: [number, number]; first?: number; spacing?: number; space?: number; lineHeight?: number }[];
 }
 
 export class ArtError extends Error {}
@@ -39,7 +42,7 @@ export function buildArt(file: string): { resources: ResourceData[]; colours: st
     if (typeof value !== "string" || !value.length) return fail(where, "expected a file path");
     return resolve(dirname(file), value);
   };
-  const m = object(json(file), "manifest", ["version", "palette", "maxColours", "pictures", "views"]);
+  const m = object(json(file), "manifest", ["version", "palette", "maxColours", "pictures", "views", "fonts"]);
   if (m.version !== 1) fail("version", "expected 1");
   const maxColours = m.maxColours === undefined ? 254 : int(m.maxColours, "maxColours", 2, 254);
   const paletteInput = json(path(m.palette, "palette"));
@@ -147,6 +150,29 @@ export function buildArt(file: string): { resources: ResourceData[]; colours: st
     });
     if (total > 255) fail(where, "a view supports at most 255 stored cels");
     resources.push({ type: ResourceType.View, number: n, data: writeView({ flags: 1, loops, palette }) });
+  });
+  list(m.fonts ?? [], "fonts", 0, 65536).forEach((value, i) => {
+    const where = `fonts[${i}]`;
+    const f = object(value, where, ["number", "png", "cell", "first", "spacing", "space", "lineHeight"]);
+    const n = number(f.number, "font", `${where}.number`);
+    const filename = path(f.png, `${where}.png`);
+    let img: ReturnType<typeof decodePng>;
+    try { img = decodePng(readFileSync(filename)); }
+    catch (e) { return fail(`${where}.png`, `${filename}: ${(e as Error).message}`); }
+    const cell = list(f.cell, `${where}.cell`, 2, 2);
+    const optional = (key: string, min: number, max: number) => (f[key] === undefined ? undefined : int(f[key], `${where}.${key}`, min, max));
+    try {
+      const font = fontFromSheet(img, {
+        cell: [int(cell[0], `${where}.cell[0]`, 1, 128), int(cell[1], `${where}.cell[1]`, 1, 128)],
+        first: optional("first", 0, 255), spacing: optional("spacing", 0, 16),
+        space: optional("space", 1, 128), lineHeight: optional("lineHeight", 1, 255),
+      });
+      resources.push({ type: ResourceType.Font, number: n, data: writeFont(font) });
+      images++;
+    } catch (e) {
+      if (!(e instanceof FontSheetError)) throw e;
+      fail(`${where}.png`, e.message);
+    }
   });
   resources.sort((a, b) => a.type - b.type || a.number - b.number);
   return { resources, colours, images };

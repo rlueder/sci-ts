@@ -8,3 +8,4 @@ export {
 } from "@sci-ts/sci";
 export { BASE_PALETTE, CURSOR_VIEW, Colour, DEFAULT_FONT, basePalette, cube } from "./defaults.ts";
 export { pixelFont } from "./font.ts";
+export { fontFromSheet, type FontSheet } from "../art/font.ts";

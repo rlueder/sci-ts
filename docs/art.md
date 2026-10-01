@@ -2,7 +2,7 @@
 
 Besides art drawn in code, a game can use PNGs exported from any pixel art editor:
 `sci-ts art` checks them against a manifest and the game's palette, and turns them into
-pictures and views with the exact colours, anchors and foreground layers they were drawn
+pictures, views and fonts with the exact colours, anchors and foreground layers they were drawn
 with (`tools/art/build.ts`). The Sherlock Holmes teaser works this way.
 
 ```sh
@@ -58,6 +58,26 @@ last. Black is index 0, white 255, the rest 1 onwards; 254 is transparency and 2
 kept free. Every picture and view uses this one palette, and every pixel must be one of its
 colours exactly.
 
+## Fonts
+
+A font is a PNG sheet of glyphs, one character per cell of a fixed grid, left to right and
+top to bottom:
+
+```json
+"fonts": [{ "number": 1, "png": "export/font-dialogue.png", "cell": [8, 12] }]
+```
+
+The first cell is the space (character 32) unless `first` says otherwise, so a 16-column
+sheet of 95 cells holds the printable ASCII characters. Draw each glyph from its cell's left
+edge: any opaque pixel is ink, whatever its colour (text is coloured when it's drawn), and
+the glyph is as wide as its rightmost ink plus `spacing` (default 1). A cell with no ink is a
+character the font doesn't have; the space is `space` pixels wide (default half a cell).
+`lineHeight` sets the distance between lines (default the cell height).
+
+A game uses the font by number: `(narrator font: 1)`, or for every box at once, the text
+style ([library.md](library.md)). Font 0 is sci-ts's own; a game can replace it too. In code,
+`fontFromSheet` in `sci2-ts/kit` does the same from an image.
+
 ## What the PNGs must be
 
 | | |
@@ -68,5 +88,6 @@ colours exactly.
 | Sprites | Up to 320×200; every cel of a loop the same size (turn trimming off) |
 | Anchors | A whole pixel inside the cel: the feet for actors |
 | Animation | One PNG per cel, in playing order |
+| Fonts | Ink opaque, the rest transparent; the sheet a whole number of cells |
 
 The check names the file and the pixel for anything it rejects.
