@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SCI Player</title>
+    <link rel="stylesheet" href="/src/play.css" />
+  </head>
+  <body>
+    <main>
+      <canvas id="screen" width="320" height="200"></canvas>
+      <div class="bar">
+        <div id="status">Loading game files…</div>
+        <details id="mods">
+          <summary>Mods</summary>
+          <div id="mod-list"></div>
+          <button id="mods-apply" type="button">Apply (restarts the game)</button>
+        </details>
+        <button id="export-saves" type="button" title="Download every saved game as JSON (for tools/explore.ts loadsaves:)">Export saves</button>
+        <button id="music" type="button">Music</button>
+      </div>
+      <pre id="error" hidden></pre>
+    </main>
+    <script type="module" src="/src/play.ts"></script>
+  </body>
+</html>

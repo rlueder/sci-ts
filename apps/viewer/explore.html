@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SCI Explorer</title>
+    <link rel="stylesheet" href="/src/explore/explore.css" />
+  </head>
+  <body>
+    <header>
+      <strong>SCI Explorer</strong>
+      <nav>
+        <a href="#/map" data-tab="map">Room map</a>
+        <a href="#/classes" data-tab="classes">Classes</a>
+        <a href="#/live" data-tab="live">Live</a>
+        <a href="/index.html">Resources</a>
+        <a href="/play.html">Play</a>
+      </nav>
+      <input id="search" type="search" placeholder="Jump to room, class or object…" list="search-options" autocomplete="off" />
+      <datalist id="search-options"></datalist>
+      <span id="status"></span>
+    </header>
+    <main id="stage"></main>
+    <aside id="inspector"><p class="meta">Select a room or class.</p></aside>
+    <script type="module" src="/src/explore/explore.ts"></script>
+  </body>
+</html>

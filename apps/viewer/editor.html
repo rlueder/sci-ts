@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Room Editor</title>
+    <link rel="stylesheet" href="/src/editor.css" />
+  </head>
+  <body>
+    <main class="editor">
+      <section class="source">
+        <header>
+          <label>Mod <select id="mod"></select></label>
+          <label>Room <select id="room"></select></label>
+          <span class="spacer"></span>
+          <label class="auto" title="Rebuild a moment after you stop typing"><input id="auto" type="checkbox" checked /> live</label>
+          <button id="save" type="button" title="Save and rebuild (⌘S / Ctrl+S)">Save ⌘S</button>
+        </header>
+        <nav id="tabs"></nav>
+        <div class="code" id="code"></div>
+        <div id="problems" hidden></div>
+      </section>
+      <section class="game">
+        <div class="stage"><div class="screen" id="screen-box"><canvas id="screen" width="320" height="200"></canvas></div></div>
+        <div class="bar">
+          <span id="status">Loading…</span>
+          <span class="spacer"></span>
+          <span class="modes" id="modes" role="radiogroup" aria-label="What the mouse does on the game">
+            <button type="button" data-mode="play" title="Clicks go to the game">Play</button>
+            <button type="button" data-mode="move" title="Drag features, exits, props, the hero's points and floor corners; Alt-click a corner to remove it">Move</button>
+            <button type="button" data-mode="floor" title="Paint the walkable floor's outline">Draw floor</button>
+            <button type="button" data-mode="obstacle" title="Paint an obstacle the hero walks around">Draw obstacle</button>
+          </span>
+          <label title="Outline features, exits, sprites and walk areas"><input id="outlines" type="checkbox" checked /> Outlines</label>
+          <span class="legend" id="legend"></span>
+          <button id="restart" type="button" title="Back to the moment before entering the room, then in again">Restart scene</button>
+          <button id="sound" type="button">Sound off</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/src/editor.ts"></script>
+  </body>
+</html>

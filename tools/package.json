@@ -1,0 +1,9 @@
+{
+  "name": "@sci-ts/tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@sci-ts/content": "workspace:*",
+    "@sci-ts/sci": "workspace:*"
+  }
+}

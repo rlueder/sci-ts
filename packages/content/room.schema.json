@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "room.schema.json",
+  "title": "Room",
+  "description": "A room for @sci-ts/content: what's in it. What's said in it lives in the matching .yarn file (nodes named <thing>.<verb>).",
+  "type": "object",
+  "required": [
+    "room"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "[x, y] in room coordinates"
+    },
+    "rect": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[left, top, right, bottom] in room coordinates"
+    },
+    "polygon": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/point"
+      },
+      "minItems": 3
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+    },
+    "feature": {
+      "type": "object",
+      "required": [
+        "rect"
+      ],
+      "properties": {
+        "rect": {
+          "$ref": "#/$defs/rect"
+        },
+        "at": {
+          "$ref": "#/$defs/point",
+          "description": "Where the hero looks at (default: the middle of rect)"
+        },
+        "approach": {
+          "$ref": "#/$defs/point",
+          "description": "Where the hero walks to before interacting"
+        },
+        "sightAngle": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 360,
+          "default": 180
+        }
+      }
+    }
+  },
+  "properties": {
+    "room": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "Room (script and message) number"
+    },
+    "picture": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "Picture number (default: the room number)"
+    },
+    "music": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "Music played (looping) here; left alone if it's already playing"
+    },
+    "hero": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/point",
+          "description": "Where the hero appears"
+        },
+        "enterTo": {
+          "$ref": "#/$defs/point",
+          "description": "Walk here on arrival; room.enter is narrated after"
+        },
+        "scale": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "front",
+            "back",
+            "frontY",
+            "backY"
+          ],
+          "description": "Perspective: front% at y frontY, back% at y backY",
+          "properties": {
+            "front": {
+              "type": "integer"
+            },
+            "back": {
+              "type": "integer"
+            },
+            "frontY": {
+              "type": "integer"
+            },
+            "backY": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "walkable": {
+      "$ref": "#/$defs/polygon",
+      "description": "The floor: the hero stays inside"
+    },
+    "obstacles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/polygon"
+      },
+      "description": "Polygons the hero walks around"
+    },
+    "features": {
+      "type": "object",
+      "description": "Things to look at and use, drawn in the picture",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/feature"
+          }
+        ],
+        "unevaluatedProperties": false
+      }
+    },
+    "exits": {
+      "type": "object",
+      "description": "Features that lead to another room when used (Do)",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/feature"
+          }
+        ],
+        "required": [
+          "to"
+        ],
+        "properties": {
+          "to": {
+            "type": "integer",
+            "description": "The room to go to"
+          },
+          "walkTo": {
+            "$ref": "#/$defs/point",
+            "description": "Walk here before leaving"
+          }
+        },
+        "unevaluatedProperties": false
+      }
+    },
+    "props": {
+      "type": "object",
+      "description": "Things drawn with a view (sprite), optionally animated",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "view",
+          "at"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "view": {
+            "type": "integer",
+            "description": "View number (e.g. from a .view.json)"
+          },
+          "at": {
+            "$ref": "#/$defs/point"
+          },
+          "loop": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "cel": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+          },
+          "cycle": {
+            "enum": [
+              "forward"
+            ],
+            "description": "forward: loop the animation forever"
+          },
+          "sightAngle": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360,
+            "default": 180
+          },
+          "moves": {
+            "type": "boolean",
+            "description": "It walks or floats about in cutscenes (<<walk name x y>>): an Actor instead of a Prop"
+          }
+        }
+      }
+    },
+    "characters": {
+      "type": "object",
+      "description": "Who speaks in this room's Yarn besides Narrator and Hero (`Wisp: ...`)",
+      "propertyNames": {
+        "$ref": "#/$defs/name"
+      },
+      "additionalProperties": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 40,
+            "description": "Another name they go by in Yarn (besides the key)"
+          },
+          "portrait": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "Portrait view: loop 0 bust, loop 1 mouth shapes, loop 2 eyes; same-size cels anchored at [0, 0]. Without one: a plain text box"
+          }
+        }
+      }
+    },
+    "properties": {
+      "type": "object",
+      "description": "Raw property values per object (the room is \"room\"), for anything not covered above",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

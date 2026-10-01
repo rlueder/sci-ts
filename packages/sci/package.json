@@ -1,0 +1,6 @@
+{
+  "name": "@sci-ts/sci",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" }
+}

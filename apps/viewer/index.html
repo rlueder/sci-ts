@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SCI Resources</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <aside>
+      <select id="type"></select>
+      <input id="search" type="search" placeholder="Search: number, name, description  ( / )" autocomplete="off" spellcheck="false" />
+      <div class="keys" id="index-status">Indexing the scripts…</div>
+      <label class="opt"><input type="checkbox" id="aspect" checked /> 4:3 aspect</label>
+      <div class="keys">↑↓ resources · ←→ type · PgUp/PgDn · Home/End · / search</div>
+      <ul id="list"></ul>
+    </aside>
+    <main>
+      <h1 id="title">Pick a resource</h1>
+      <div id="uses"></div>
+      <div id="view"></div>
+      <details><summary>Hex</summary><pre id="hex"></pre></details>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

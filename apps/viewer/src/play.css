@@ -1,0 +1,14 @@
+:root { color-scheme: dark; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b0b0b; color: #999; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+main { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; }
+canvas { width: min(960px, 100vw - 32px); aspect-ratio: 4 / 3; image-rendering: pixelated; background: #000; outline: 1px solid #222; cursor: none; }
+#error { color: #f77; max-width: 960px; white-space: pre-wrap; }
+.bar { display: flex; gap: 16px; align-items: center; justify-content: space-between; width: min(960px, 100vw - 32px); }
+#music { background: #1b1b1b; color: #ddd; border: 1px solid #333; border-radius: 4px; padding: 6px 10px; font: inherit; cursor: pointer; }
+#music:hover { border-color: #e8b04a; color: #e8b04a; }
+#mods { position: relative; }
+#mods summary { cursor: pointer; color: #ddd; }
+#mods[open] > div, #mods[open] > button { position: absolute; right: 0; z-index: 1; background: #161616; border: 1px solid #333; }
+#mods > div { bottom: 2.4em; min-width: 220px; padding: 8px 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; }
+#mods > button { bottom: -2.2em; background: #1b1b1b; color: #ddd; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; white-space: nowrap; }
+#mods .none { color: #777; }
