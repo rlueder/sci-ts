@@ -1,5 +1,6 @@
 {
   "name": "sci-ts",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "An SCI2 adventure game engine in TypeScript, and the tools to make games with it",
@@ -37,7 +38,8 @@
     "view": "tsx tools/view.ts",
     "art": "node --import tsx tools/art.ts",
     "play": "tsx tools/play.ts",
-    "game": "tsx tools/game.ts"
+    "game": "tsx tools/game.ts",
+    "package": "tsx tools/package.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

@@ -63,7 +63,7 @@ try {
       if (!rest[0]) throw new GameBuildError(usage);
       const target = newGame(rest[0]);
       console.log(`${shown(target)}: a room (rooms/1.room.yaml, 1.yarn), the game (scripts/0.sc) and placeholder art (resources.ts)`);
-      console.log(`  cd ${shown(target)} && sci-ts play`);
+      console.log(shown(target) === "." ? "  sci-ts play" : `  cd ${shown(target)} && sci-ts play`);
       break;
     }
     case "build":

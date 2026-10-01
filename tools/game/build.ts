@@ -261,7 +261,9 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   };
   resources.push(...(await made(join(dir, "resources.ts"))));
   const have = new Set(resources.map(resourceKey));
-  const fallback = [...(library ? await made(join(LIBRARY_DIR, "resources.ts")) : []), ...defaultResources()];
+  // The library's resources are compiled in the npm package (resources.js), source here.
+  const libraryResources = ["resources.js", "resources.ts"].map((f) => join(LIBRARY_DIR, f)).find((f) => existsSync(f))!;
+  const fallback = [...(library ? await made(libraryResources) : []), ...defaultResources()];
   for (const r of fallback) if (!have.has(resourceKey(r))) (resources.push(r), have.add(resourceKey(r)));
 
   const keys = resources.map(resourceKey);
