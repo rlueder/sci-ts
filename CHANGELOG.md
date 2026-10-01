@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.5.0](https://github.com/rlueder/sci-ts/compare/v0.4.0...v0.5.0) (2026-10-01)
+
+### Added
+
+* **lib:** an icon bar for players without a right button ([#3](https://github.com/rlueder/sci-ts/issues/3)) ([a28d5b2](https://github.com/rlueder/sci-ts/commit/a28d5b244417af6985c0c82c825a3af29ad68067))
+
 ## [0.4.0](https://github.com/rlueder/sci-ts/compare/v0.3.0...v0.4.0) (2026-10-01)
 
 ### Added
