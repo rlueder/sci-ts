@@ -1,0 +1,4 @@
+# Flags for the Yarn variables ($name) in these rooms, kept by the build: new names get the
+# next free number. Saved games store flags by number, so don't renumber once people play.
+sawRoad: 0
+askedLantern: 1

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../../packages/content/room.schema.json
+# The road east of the hill, written as data: what's here and where you can walk. What's
+# said here is in 2.yarn.
+room: 2
+picture: 101
+hero:
+  at: [10, 175]
+walkable: [[0, 158], [300, 158], [300, 189], [0, 189]]
+features:
+  sign: { rect: [236, 128, 262, 160] }
+props:
+  traveller: { view: 300, at: [180, 172] }
+characters:
+  traveller: { name: Traveller, portrait: 301 }
+properties:
+  # Walking off the left edge goes back to the hill.
+  room: { west: 1 }

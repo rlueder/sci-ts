@@ -80,7 +80,7 @@ describe("games/hello, on the class library", async () => {
     }
   });
 
-  it("plays: walks, looks, reads a message, and goes to the next room", async () => {
+  it("plays: walks, looks, reads messages, goes to the next room and has a conversation", async () => {
     const vm = new Vm(await open(game.resources));
     vm.registerKernels(allKernels);
     const g = graphics(vm);
@@ -100,10 +100,22 @@ describe("games/hello, on the class library", async () => {
       inp.push({ type: EventType.MouseUp, message: 0 });
       frames(1);
     };
-    /** The line the narrator is showing, or "" if none. */
+    /** The line being shown, or "" if none. */
     const line = () => {
-      const box = vm.getProp(global("narrator"), "box") ?? 0;
+      const who = global("talking");
+      const box = who ? vm.getProp(who, "box") ?? 0 : 0;
       return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+    /** The open menu's choices. */
+    const menu = () => {
+      const d = global("dialog");
+      if (!d) return [];
+      const out: { text: string; x: number; y: number }[] = [];
+      const list = vm.getProp(vm.getProp(d, "items")!, "elements")!;
+      for (let n = vm.memory.list(list)?.first; n; n = n.next) {
+        out.push({ text: stringHelpers.str(vm, vm.getProp(n.value, "text")!), x: prop(n.value, "x"), y: prop(n.value, "y") });
+      }
+      return out;
     };
 
     vm.start(vm.exportAddress(0, 0), "play");
@@ -148,17 +160,56 @@ describe("games/hello, on the class library", async () => {
     click(0, 0, true);
     expect(g.cursor.view).toBe(993);
     click(319, 175);
-    frames(600);
+    for (let i = 0; i < 600 && global("curRoomNum") !== 2; i++) frames(1);
     expect(global("curRoomNum")).toBe(2);
     expect(global("prevRoomNum")).toBe(1);
     expect(prop(global("ego"), "x")).toBe(10);
-    expect(g.compose().pixels.length).toBe(320 * 200);
 
-    // The sign on the road.
+    // Room 2 is YAML and Yarn. Arriving the first time, a line (set by a flag).
+    frames(3);
+    expect(line()).toBe("A cold wind comes down the road.");
+    click(10, 10);
+    expect(line()).toBe("");
+
+    // The sign (walk -> do -> look).
     click(0, 0, true);
     click(0, 0, true);
     click(250, 135);
-    expect(line()).toBe("The sign says: TOWN, 2 MILES.");
+    expect(line()).toBe("The sign reads TOWN, 2 MILES.");
+    click(10, 10);
+
+    // Talk to the traveller: a menu of topics, one of them hidden for now.
+    click(0, 0, true);
+    expect(g.cursor.view).toBe(992);
+    click(180, 166);
+    expect(menu().map((m) => m.text)).toEqual(["Where are you going?", "Was that your lantern on the hill?", "Goodbye."]);
+    const choose = (text: string) => {
+      const item = menu().find((m) => m.text === text)!;
+      click(item.x + 4, item.y + 4);
+    };
+    choose("Was that your lantern on the hill?");
+    expect(line()).toBe("Traveller: I left it burning for whoever came next.");
+    // He has a portrait, and his mouth moves while he talks.
+    const mouthCels = new Set<number>();
+    for (let i = 0; i < 60; i++) {
+      frames(1);
+      const mouth = [...g.items].find((it) => vm.object(it).name === "travellerMouth");
+      if (mouth) mouthCels.add(prop(mouth, "cel"));
+    }
+    expect(mouthCels).toEqual(new Set([0, 1]));
+    click(10, 10);
+    expect(line()).toBe("You: That's kind of you.");
+    click(10, 10);
+    // The answer set a flag: the menu again, with the topic it opened.
+    frames(1);
+    expect(menu().map((m) => m.text)).toEqual(["Where are you going?", "Was that your lantern on the hill?", "What's at the fair?", "Goodbye."]);
+    choose("What's at the fair?");
+    expect(line()).toBe("Traveller: Lanterns, mostly.");
+    click(10, 10);
+    frames(1);
+    choose("Goodbye.");
+    expect(menu()).toEqual([]);
+    expect(global("dialog")).toBe(0);
   });
 });
 

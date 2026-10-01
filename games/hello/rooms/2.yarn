@@ -1,0 +1,40 @@
+title: room.enter
+---
+<<if not $sawRoad>>
+A cold wind comes down the road.
+<<set $sawRoad to true>>
+<<endif>>
+===
+
+title: room.look
+---
+The road runs east, toward the town.
+===
+
+title: sign.look
+---
+The sign reads TOWN, 2 MILES.
+===
+
+title: sign.do
+---
+It's nailed down well.
+===
+
+title: traveller.look
+---
+A traveller with a heavy pack, resting by the road.
+===
+
+title: traveller.talk
+---
+-> Where are you going?
+    Traveller: To the town, same as everyone.
+    Traveller: There's a fair tomorrow.
+-> Was that your lantern on the hill?
+    Traveller: I left it burning for whoever came next.
+    Hero: That's kind of you.
+    <<set $askedLantern to true>>
+-> What's at the fair? <<if $askedLantern>>
+    Traveller: Lanterns, mostly.
+===

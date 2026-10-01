@@ -2,7 +2,8 @@ import { Colour, ResourceType, basePalette, cube, writePic, writeView, type Reso
 
 /**
  * hello's art, drawn here: the hill (picture 100) and the road (picture 101) at night, a
- * lantern (view 100) and the hero (view 200: four directions, four steps each).
+ * lantern (view 100), the hero (view 200: four directions, four steps each), and the
+ * traveller (view 300) with a portrait (view 301: bust, mouth, eyes).
  */
 export default function resources(): ResourceData[] {
   return [
@@ -10,6 +11,8 @@ export default function resources(): ResourceData[] {
     { type: ResourceType.Pic, number: 101, data: writePic(picture(road)) },
     { type: ResourceType.View, number: 100, data: writeView(lantern()) },
     { type: ResourceType.View, number: 200, data: writeView(hero()) },
+    { type: ResourceType.View, number: 300, data: writeView(traveller()) },
+    { type: ResourceType.View, number: 301, data: writeView(portrait()) },
   ];
 }
 
@@ -116,6 +119,73 @@ function hero(): ViewFile {
       { link: 0, mirror: true, cels: [] },
       { link: -1, mirror: false, cels: walk(front, facingLegs) },
       { link: -1, mirror: false, cels: walk(back, facingLegs) },
+    ],
+    palette: undefined,
+  };
+}
+
+/** The traveller, sitting on his pack by the road. */
+function traveller(): ViewFile {
+  const colours = {
+    H: cube(153, 153, 153), S: cube(255, 204, 153), E: cube(0, 0, 0), C: cube(51, 102, 51),
+    P: cube(153, 102, 51), L: cube(102, 102, 51), B: cube(51, 51, 51),
+  };
+  const rows = [
+    "...HHHH....", "..HHHHHH...", "...SSSS....", "...SESE....", "...SSSS....", "....SS.....",
+    "..CCCCCPPP.", ".CCCCCCPPPP", ".CCCCCCPPPP", ".SCCCCSPPPP", "..LLLLLPPP.", ".LL...LL...", ".BB...BB...",
+  ];
+  return { flags: 1, loops: [{ link: -1, mirror: false, cels: [cel(rows, colours)] }], palette: undefined };
+}
+
+/**
+ * The traveller's portrait: loop 0 the bust in a frame, loop 1 the mouth (closed, open),
+ * loop 2 the eyes (open, shut). Every cel is the same size and drawn at the same point, so
+ * the mouth and eyes land on the face.
+ */
+function portrait(): ViewFile {
+  const w = 34, h = 40;
+  const colours = {
+    F: cube(102, 51, 0), K: cube(0, 0, 51), H: cube(153, 153, 153), S: cube(255, 204, 153),
+    C: cube(51, 102, 51), E: cube(0, 0, 0), W: Colour.White, M: cube(153, 51, 51), D: cube(204, 153, 102),
+  };
+  const blank = () => Array.from({ length: h }, () => Array.from({ length: w }, () => "."));
+  const done = (g: string[][]) => cel(g.map((r) => r.join("")), colours);
+  // The bust: a framed dark panel, shoulders, a face, grey hair.
+  const bust = blank();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) bust[y]![x] = x < 2 || y < 2 || x >= w - 2 || y >= h - 2 ? "F" : "K";
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const fx = (x - 17) / 9, fy = (y - 17) / 11;
+      if (y >= 31 && y < h - 2 && Math.abs(x - 17) < 14 - (y - 31) * -0.3 && x > 1 && x < w - 2) bust[y]![x] = "C";
+      else if (fx * fx + fy * fy <= 1) bust[y]![x] = y < 10 ? "H" : "S";
+      else if (y >= 6 && y < 14 && Math.abs(x - 17) <= 10 && (x - 17) ** 2 / 100 + (y - 12) ** 2 / 49 <= 1) bust[y]![x] = "H";
+    }
+  }
+  const mouth = (open: boolean) => {
+    const g = blank();
+    for (let x = 14; x <= 20; x++) g[23]![x] = "M";
+    if (open) for (let x = 15; x <= 19; x++) g[24]![x] = "E";
+    if (open) for (let x = 15; x <= 19; x++) g[25]![x] = "M";
+    return done(g);
+  };
+  const eyes = (open: boolean) => {
+    const g = blank();
+    for (const cx of [13, 21]) {
+      if (open) {
+        g[16]![cx - 1] = "W";
+        g[16]![cx] = "E";
+        g[16]![cx + 1] = "W";
+      } else for (let x = cx - 1; x <= cx + 1; x++) g[16]![x] = "D";
+    }
+    return done(g);
+  };
+  // Every cel's origin is its bottom middle, like the bust's.
+  return {
+    flags: 1,
+    loops: [
+      { link: -1, mirror: false, cels: [done(bust)] },
+      { link: -1, mirror: false, cels: [mouth(false), mouth(true)] },
+      { link: -1, mirror: false, cels: [eyes(true), eyes(false)] },
     ],
     palette: undefined,
   };
