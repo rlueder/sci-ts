@@ -32,6 +32,7 @@ export function libraryTarget(globals: readonly string[], items: Record<string, 
     portrait: { class: "PortraitTalker", props: {}, at: [8, 8], frameSignal: 0, partSignal: 0 },
     teller: { class: "Teller", props: {}, verb: 2 },
     forwardCycle: "Forward",
+    closeUp: "CloseUp",
     // room.enter lines: a verb the player can't use.
     narrationVerb: 0,
     // And the game's items (items.yaml): using one is its own verb.

@@ -636,11 +636,21 @@ class RoomCompiler {
           ? [{ op: "async", code: send({ global: g.sound }, [["number", [n]], ["loop", [1]], ["play", ["self"]]]) }]
           : [{ op: "code", code: send({ global: g.sound }, [["number", [n]], ["loop", [1]], ["play", []]]) }];
       }
+      case "closeup": {
+        if (args.length < 1 || args.length > 3) fail("expected <<closeup view [loop [cel]]>>");
+        if (!this.target.closeUp) fail("this game has no close-ups");
+        const [view, loop = "0", cel = "0"] = args;
+        // A new close-up, shown until the player clicks; then it cues the script.
+        return [{ op: "async", code: [
+          ...send({ cls: this.target.closeUp! }, [["new", []]]),
+          "pushi #show", "pushi 4", ...pushVal(int(view, "view", 0, 65535)), ...pushVal(int(loop, "loop", 0, 255)), ...pushVal(int(cel, "cel", 0, 255)), "pushSelf", "send 12",
+        ] }];
+      }
       case "room":
         arity(1, "number");
         return [{ op: "code", code: send({ global: g.curRoom }, [["newRoom", [int(args[0], "room", 0, 65535)]]]) }];
       default:
-        return fail("unknown command (known: walk, face, wait, hide, show, loop, cel, animate, stop, music, sound, room; and set, if)");
+        return fail("unknown command (known: walk, face, wait, hide, show, loop, cel, animate, stop, music, sound, closeup, room; and set, if)");
     }
   }
 

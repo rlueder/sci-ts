@@ -46,6 +46,11 @@ export interface Target {
   teller: { class: string; props: Record<string, number>; verb: number };
   /** The class that cycles a prop's cels forever (<<animate x forever>>, cycle: forward). */
   forwardCycle: string;
+  /**
+   * Close-ups (<<closeup view [loop [cel]]>>), if the target has them: a class whose new
+   * instance takes `show: view loop cel caller` and cues the caller when it's dismissed.
+   */
+  closeUp?: string;
   /** Verb number for "said on arrival" messages. */
   narrationVerb: number;
   /** Verb names as used in Yarn node titles (lower case) -> verb numbers. */

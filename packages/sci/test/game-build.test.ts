@@ -368,7 +368,7 @@ describe("things: the inventory and close-ups", () => {
 `);
     writeFileSync(join(dir, "scripts/0.sc"), script);
     writeFileSync(join(dir, "items.yaml"), "# Things the hero can carry: their verbs.\nlens: 10\n");
-    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8").replace("Nothing out there yet.", "<<closeup 250>>\nNothing out there yet.")}
 title: window.lens
 ---
 The glass shows a fingerprint.
@@ -452,6 +452,16 @@ export default () => [...art(), { type: ResourceType.View, number: 250, data: wr
     // Right-click goes back to walking.
     click(10, 10, true);
     expect([prop(global("user"), "verb"), g.cursor.view]).toEqual([3, 993]);
+    // Yarn shows close-ups too (<<closeup 250>>), and goes on when it's dismissed: walk, do,
+    // look; look at the window.
+    click(10, 10, true);
+    click(10, 10, true);
+    click(160, 70);
+    expect(vm.object(global("dialog")).name).toBe("CloseUp");
+    expect(line()).toBe("");
+    click(10, 10);
+    frames(2);
+    expect(line()).toBe("Nothing out there yet.");
   });
 
   it("refuses an item verb the player's verbs already use", async () => {
