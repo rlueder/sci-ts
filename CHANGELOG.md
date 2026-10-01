@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.4.0](https://github.com/rlueder/sci-ts/compare/v0.3.0...v0.4.0) (2026-10-01)
+
+### Added
+
+* **lib:** saving and restoring ([#2](https://github.com/rlueder/sci-ts/issues/2)) ([117ad9d](https://github.com/rlueder/sci-ts/commit/117ad9ddf4ca87d443d8b7143d66eef380dced9a))
+
 ## [0.3.0](https://github.com/rlueder/sci-ts/compare/v0.2.2...v0.3.0) (2026-10-01)
 
 ### Added
