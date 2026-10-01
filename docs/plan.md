@@ -57,25 +57,29 @@ sends, properties, locals and globals, `&rest`, `switch`/`cond`, procedures, exp
 Every line of the library is ours. The language as implemented: [language.md](language.md);
 `games/hello` is written in it, and the compiler's tests run what it compiles.
 
-### 3. The class library
-The smallest set a point-and-click game needs, written in that language:
+### 3. The class library (done)
+The smallest set a point-and-click game needs, written in that language
+([library.md](library.md)):
 
 | | |
 |---|---|
-| core | Obj, Collection/List/Set, Code, Script, Timer |
-| world | Game (the main loop), Room, Region, Feature, View/Prop/Actor/Ego |
-| motion | Motion, MoveTo, PolyPath, Polygon; cycles (Forward, End, Walk) |
-| talk | Messager, Narrator, Talker (portraits), Print and Dialog windows |
-| input | User, Event, cursors and verbs (look, use, talk, walk), an icon bar |
+| core | Obj, Code, Collection/List/Set, Script (with cycles, ticks and seconds) |
+| world | Game (the main loop), Plane, Room (exits, obstacles), Feature, View/Prop/Actor/Ego |
+| motion | Motion, MoveTo, PolyPath, Polygon; cycles (Forward, Walk, End, Beg) |
+| talk | Messager, Narrator, text boxes |
+| input | User, Event, verbs (walk, do, look, talk) with their cursors |
 | sound | Sound (music and effects) |
-| later | inventory, Save/Restore, menus |
 
-Milestone done when a room compiled from YAML shows, the hero walks around it, and clicking a
-feature says its line.
+`games/hello` is built on it: two rooms, a hero who walks around obstacles and from one
+room to the other, and things that answer when looked at or used. Its test plays it.
+
+Not yet: talkers with portraits, dialog windows, an icon bar (milestone 4, which needs
+them for characters and topic menus), and inventory, menus and Save/Restore (later).
 
 ### 4. The content compiler targets it
 A `sci-ts` target next to the existing one (room class, globals, verbs, talkers), so YAML and
-Yarn rooms build against the library; characters, topic menus, flags and cutscenes map onto
+Yarn rooms build against the library (milestone done when a room compiled from YAML shows,
+the hero walks around it, and clicking a feature says its line); characters, topic menus, flags and cutscenes map onto
 its classes. The editor and player start a game at its first room instead of a game-specific
 route to a hero.
 
