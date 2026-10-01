@@ -1,5 +1,5 @@
 import {
-  CUR_ROOM_GLOBAL, EGO_GLOBAL, ROOM_NUM_GLOBAL, collectionElements, drawnItems, findMessage, gameGlobal, isKindOf, namedObject, objectAt,
+  collectionElements, drawnItems, findMessage, gameGlobal, isKindOf, namedObject, objectAt,
   ResourceType, heroInPlay, polygonOf, requestRoom, roomPlane, signedProp, type SciObject, type Value, type Vm, type VmSnapshot,
 } from "@sci-ts/sci";
 import { createOverlay, drawRoomOverlay } from "../overlay.ts";
@@ -103,7 +103,7 @@ export function createLiveView(ex: Explorer, inspect: (address: number) => void)
     if (!session) return;
     quickSave = session.snapshot();
     restoreButton.disabled = false;
-    restoreButton.title = `Snapshot from room ${gameGlobal(session.vm, ROOM_NUM_GLOBAL)}, frame ${session.frames}`;
+    restoreButton.title = `Snapshot from room ${gameGlobal(session.vm, "curRoomNum")}, frame ${session.frames}`;
   });
   restoreButton.addEventListener("click", () => quickSave && session?.restore(quickSave));
 
@@ -173,7 +173,7 @@ export function createLiveView(ex: Explorer, inspect: (address: number) => void)
         errorBox.hidden = false;
         errorBox.textContent = `${session!.error.message}\n${session!.error.backtrace.map((l) => `  at ${l}`).join("\n")}`;
       }
-      const room = gameGlobal(vm, ROOM_NUM_GLOBAL) ?? 0;
+      const room = gameGlobal(vm, "curRoomNum") ?? 0;
       if (room && rooms.at(-1)?.room !== room) rooms.push({ frame: session!.frames, room });
       drawOverlay();
       const now = performance.now();
@@ -260,9 +260,9 @@ function roomPanel(ex: Explorer, getSession: () => GameSession | undefined, log:
       const session = getSession();
       if (!session) return;
       const vm = session.vm;
-      const room = objectAt(vm, gameGlobal(vm, CUR_ROOM_GLOBAL));
-      const roomNum = gameGlobal(vm, ROOM_NUM_GLOBAL) ?? 0;
-      const ego = objectAt(vm, gameGlobal(vm, EGO_GLOBAL));
+      const room = objectAt(vm, gameGlobal(vm, "curRoom"));
+      const roomNum = gameGlobal(vm, "curRoomNum") ?? 0;
+      const ego = objectAt(vm, gameGlobal(vm, "ego"));
       const scriptState = (o: SciObject) => {
         const s = objectAt(vm, vm.getProp(o, "script"));
         return s ? el("span", {}, liveLink(ex, s), el("span", { className: "meta" }, ` state ${signedProp(vm, s, "state")}`)) : "";

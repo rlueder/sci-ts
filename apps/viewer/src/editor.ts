@@ -4,7 +4,7 @@ import { lintGutter, setDiagnostics, type Diagnostic } from "@codemirror/lint";
 import { EditorState, type Extension } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, keymap } from "@codemirror/view";
-import { ROOM_NUM_GLOBAL, ResourceManager, drawnItems, graphics, heroInPlay, replaceResources, requestRoom, roomPlane, type ResourceType, type VmSnapshot } from "@sci-ts/sci";
+import { ResourceManager, gameGlobal, drawnItems, graphics, heroInPlay, replaceResources, requestRoom, roomPlane, type ResourceType, type VmSnapshot } from "@sci-ts/sci";
 import { basicSetup } from "codemirror";
 import { parse as parseYaml } from "yaml";
 import { EditLayer, type EditMode } from "./editor-handles.ts";
@@ -28,6 +28,7 @@ interface BuildResult {
   resources?: { type: ResourceType; number: number; data: string }[];
   generated?: Record<string, string>;
   flags?: string;
+  reload?: boolean;
   ms?: number;
   error?: { message: string; file?: string; line?: number };
 }
@@ -42,10 +43,11 @@ const status = (text: string, kind: "" | "ok" | "error" = "") => {
 
 // --- Which mod and room ---------------------------------------------------------------
 
-const mods = (await (await fetch("/__editor/mods")).json()) as { name: string; rooms: number[] }[];
+// A mod of Sierra's game, or the game of ours the dev server is serving (its rooms/).
+const mods = (await (await fetch("/__editor/mods")).json()) as { name: string; kind: "mod" | "game"; rooms: number[] }[];
 const editable = mods.filter((m) => m.rooms.length);
 if (!editable.length) {
-  status("No mod has a <n>.room.yaml yet (see mods/README.md).", "error");
+  status(mods[0]?.kind === "game" ? `${mods[0].name} has no rooms/<n>.room.yaml yet.` : "No mod has a <n>.room.yaml yet (see mods/README.md).", "error");
   throw new Error("nothing to edit");
 }
 const mod = editable.find((m) => m.name === params.get("mod")) ?? editable[0]!;
@@ -230,6 +232,12 @@ function applyResult(result: BuildResult): void {
   problems.textContent = error ? `${error.message}${error.file && editableNames.includes(error.file) ? "\n(click to go there)" : ""}` : "";
   view.dispatch(setDiagnostics(view.state, diagnostics(current, view.state)));
   if (result.ok) {
+    if (result.reload) {
+      // The game's selector or class tables changed: the running game can't take that.
+      status("Rebuilt: reloading…");
+      location.reload();
+      return;
+    }
     if (result.flags !== undefined) setView("flags.yaml", result.flags);
     setView(scaName, result.generated?.[`${room}.sca`] ?? "");
     setView(msgName, result.generated?.[`${room}.msg`] ?? "");
@@ -256,7 +264,8 @@ function readExits(): void {
 
 // --- The game -------------------------------------------------------------------------
 
-// The mod's resources come from the builds (swapped in memory), not from out/mods.
+// A mod's resources come from the builds (swapped in memory), not from out/mods; a game's
+// from out/games, with the builds' changes swapped in.
 const rm = await ResourceManager.open(httpFiles, ["", "PATCHES"]);
 let session: GameSession | undefined;
 await build();
@@ -264,7 +273,9 @@ while (error) {
   // Nothing to run until the mod builds: wait for the next successful save.
   await new Promise((r) => setTimeout(r, 300));
 }
-session = await GameSession.create({ canvas: $<HTMLCanvasElement>("screen"), rm, mods: [mod.name], saveNamespace: `editor:${mod.name}`, muted: true });
+session = await GameSession.create({
+  canvas: $<HTMLCanvasElement>("screen"), rm, mods: mod.kind === "mod" ? [mod.name] : [], saveNamespace: `editor:${mod.name}`, muted: true,
+});
 const vm = session.vm;
 
 /**
@@ -300,7 +311,7 @@ function restartScene(): void {
 }
 $("restart").onclick = restartScene;
 
-const roomNow = () => vm.loadedScripts.find((s) => s.number === 0)?.locals[ROOM_NUM_GLOBAL];
+const roomNow = () => gameGlobal(vm, "curRoomNum");
 session.onDraw.push(() => {
   if (!entering || session!.fastForwarding) return;
   if (roomNow() === room) {

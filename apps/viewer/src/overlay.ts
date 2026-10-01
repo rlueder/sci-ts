@@ -1,5 +1,5 @@
 import {
-  CUR_ROOM_GLOBAL, EGO_GLOBAL, collectionElements, drawnItems, gameGlobal, isKindOf, namedObject, objectAt, polygonOf, readInts, roomPlane, signedProp,
+  collectionElements, drawnItems, gameGlobal, isKindOf, namedObject, objectAt, polygonOf, readInts, roomPlane, signedProp,
   type Vm,
 } from "@sci-ts/sci";
 
@@ -55,7 +55,7 @@ const label = (x: number, y: number, text: string, color: string) =>
 export function drawRoomOverlay(root: SVGSVGElement, vm: Vm, o: OverlayOptions): void {
   root.replaceChildren();
   const plane = roomPlane(vm);
-  const room = objectAt(vm, gameGlobal(vm, CUR_ROOM_GLOBAL));
+  const room = objectAt(vm, gameGlobal(vm, "curRoom"));
   // Room objects use the room plane's coordinates (below the status bar).
   const local = svg("g", { transform: plane ? `translate(${plane.left} ${plane.top})` : "" });
   root.append(local);
@@ -112,7 +112,7 @@ export function drawRoomOverlay(root: SVGSVGElement, vm: Vm, o: OverlayOptions):
     }
   }
   if (o.sprites) {
-    const ego = gameGlobal(vm, EGO_GLOBAL);
+    const ego = gameGlobal(vm, "ego");
     for (const d of drawnItems(vm)) {
       if (plane && d.plane !== plane.address) continue;
       const color = colorOf(d.item.address, d.item.address === ego ? OVERLAY_COLORS.hero : OVERLAY_COLORS.sprite);

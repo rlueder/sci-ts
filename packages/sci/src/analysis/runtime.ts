@@ -1,3 +1,5 @@
+import { ResourceType } from "../resource/types.ts";
+import { parseSelectorNames } from "../script/vocab.ts";
 import type { SciObject } from "../vm/memory.ts";
 import { graphics } from "../vm/kernels/graphics.ts";
 import type { Value } from "../vm/value.ts";
@@ -9,15 +11,36 @@ import type { Vm } from "../vm/vm.ts";
  * changes state.
  */
 
-/** SCI's system scripts fix these globals. */
-export const EGO_GLOBAL = 0;
-export const CUR_ROOM_GLOBAL = 2;
-export const ROOM_NUM_GLOBAL = 11;
-/** The room the game should switch to: Game::doit calls `newRoom:` when it differs from 11. */
-export const NEW_ROOM_GLOBAL = 13;
+/**
+ * The globals tools need: the hero, the room object and its number, and the room the game
+ * should go to next (the game changes rooms when it's set).
+ */
+export type SystemGlobal = "ego" | "curRoom" | "curRoomNum" | "newRoomNum";
 
-/** Script 0's variables are the game's globals. */
-export const gameGlobal = (vm: Vm, n: number): Value | undefined => vm.loadedScripts.find((s) => s.number === 0)?.locals[n];
+/** Where Sierra's system scripts keep them. */
+const SIERRA_GLOBALS: Record<SystemGlobal, number> = { ego: 0, curRoom: 2, curRoomNum: 11, newRoomNum: 13 };
+
+/** Games built by sci-ts name their globals in this vocab (the selector list format). */
+export const GLOBAL_NAMES_VOCAB = 990;
+
+const globalNumbers = new WeakMap<Vm, (name: SystemGlobal) => number>();
+
+function globalNumber(vm: Vm, name: SystemGlobal): number {
+  let lookup = globalNumbers.get(vm);
+  if (!lookup) {
+    const id = { type: ResourceType.Vocab, number: GLOBAL_NAMES_VOCAB };
+    const names = vm.resources.has(id) ? parseSelectorNames(vm.resources.loadSync(id).data) : undefined;
+    lookup = (n) => (names ? names.indexOf(n) : SIERRA_GLOBALS[n]);
+    globalNumbers.set(vm, lookup);
+  }
+  return lookup(name);
+}
+
+/** Script 0's variables are the game's globals: one by number, or a system global by name. */
+export const gameGlobal = (vm: Vm, g: number | SystemGlobal): Value | undefined => {
+  const n = typeof g === "number" ? g : globalNumber(vm, g);
+  return n < 0 ? undefined : vm.loadedScripts.find((s) => s.number === 0)?.locals[n];
+};
 
 export const objectAt = (vm: Vm, v: Value | undefined): SciObject | undefined => (v ? vm.memory.object(v) : undefined);
 
@@ -83,7 +106,7 @@ export function isKindOf(vm: Vm, o: SciObject, className: string): boolean {
 /** The room's plane (below the status bar): room objects' coordinates are relative to it. */
 export function roomPlane(vm: Vm): { left: number; top: number; address: Value } | undefined {
   const g = graphics(vm);
-  const room = objectAt(vm, gameGlobal(vm, CUR_ROOM_GLOBAL));
+  const room = objectAt(vm, gameGlobal(vm, "curRoom"));
   let plane = room ? vm.getProp(room, "plane") : undefined;
   if (!plane || !vm.memory.object(plane)) {
     plane = [...g.planes].find((p) => vm.memory.object(p) && g.prop(p, "picture") >= 0 && g.prop(p, "picture") < 0x8000);
@@ -130,11 +153,11 @@ export function drawnItems(vm: Vm): DrawnItem[] {
 export function requestRoom(vm: Vm, room: number): void {
   const script0 = vm.loadedScripts.find((s) => s.number === 0);
   if (!script0) throw new Error("The game hasn't started");
-  script0.locals[NEW_ROOM_GLOBAL] = room & 0xffff;
+  script0.locals[globalNumber(vm, "newRoomNum")] = room & 0xffff;
 }
 
 /** True once there's a hero in play (after character creation or a restore). */
 export function heroInPlay(vm: Vm): boolean {
-  const ego = objectAt(vm, gameGlobal(vm, EGO_GLOBAL));
+  const ego = objectAt(vm, gameGlobal(vm, "ego"));
   return !!ego && signedProp(vm, ego, "view") > 0;
 }

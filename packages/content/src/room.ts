@@ -619,7 +619,7 @@ class RoomCompiler {
         arity(2, "<prop> once|forever");
         const to = who(args[0], false);
         if (args[1] === "once") return [{ op: "async", code: send(to, [["setCel", [0]], ["setCycle", [{ cls: "End" }, "self"]]]) }];
-        if (args[1] === "forever") return [{ op: "code", code: send(to, [["setCycle", [{ cls: "Fwd" }]]]) }];
+        if (args[1] === "forever") return [{ op: "code", code: send(to, [["setCycle", [{ cls: this.target.forwardCycle }]]]) }];
         return fail("expected once or forever");
       }
       case "stop":
@@ -810,7 +810,7 @@ class RoomCompiler {
     if (spec.music !== undefined) c.push(...this.playMusic(spec.music));
     for (const name of [...Object.keys(spec.features ?? {}), ...Object.keys(spec.exits ?? {})]) c.push(...send({ obj: name }, [["init", []]]));
     for (const [name, p] of Object.entries(spec.props ?? {})) {
-      c.push(...send({ obj: name }, [["init", []], ...(p.cycle === "forward" ? [["setCycle", [{ cls: "Fwd" }]] as [string, Val[]]] : [])]));
+      c.push(...send({ obj: name }, [["init", []], ...(p.cycle === "forward" ? [["setCycle", [{ cls: this.target.forwardCycle }]] as [string, Val[]]] : [])]));
     }
     const polygons: [number, [number, number][]][] = [
       ...(spec.walkable ? [[3, spec.walkable] as [number, [number, number][]]] : []),

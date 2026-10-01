@@ -160,7 +160,7 @@ export function modFlags(modDir: string, target: ModTarget): { number: (name: st
       if (!added) return;
       const lines = [...numbers].sort((a, b) => a[1] - b[1]).map(([name, n]) => `${name}: ${n}`);
       writeFileSync(file, [
-        "# Flags for this mod's Yarn variables ($name), kept by `pnpm mod build`: new names get the",
+        "# Flags for the Yarn variables ($name) in these rooms, kept by the build: new names get the",
         "# next free number. Saved games store flags by number, so don't renumber once people play.",
         ...lines, "",
       ].join("\n"));

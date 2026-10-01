@@ -11,6 +11,7 @@ const target: Target = {
   voice: { class: "Narrator", props: { showTitle: 1 } },
   teller: { class: "Teller", props: { loopMenu: 1 }, verb: 128 },
   portrait: { class: "PortraitTalker", props: { talkWidth: 150 }, at: [0, 1], frameSignal: 0x4021, partSignal: 0x21 },
+  forwardCycle: "Fwd",
   narrationVerb: 6,
   verbs: { look: 1, talk: 2, do: 4 },
   messageVersion: 5000,

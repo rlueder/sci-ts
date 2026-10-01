@@ -1,6 +1,6 @@
 import { activeMods, availableMods, openGame, rememberMods } from "./files.ts";
 import { GameSession } from "./session.ts";
-import { ROOM_NUM_GLOBAL, ResourceType, heroInPlay, requestRoom, saves, savesToJson, type MemorySaveStore } from "@sci-ts/sci";
+import { ResourceType, gameGlobal, heroInPlay, requestRoom, saves, savesToJson, type MemorySaveStore } from "@sci-ts/sci";
 import { APP_ID } from "./app.ts";
 import { gameProfile } from "./game-profile.ts";
 
@@ -67,7 +67,7 @@ function setUpRoomNavigation() {
       if (wanted) wanted.since = performance.now();
       if (session.fastForwarding) return;
     }
-    const room = vm.loadedScripts.find((s) => s.number === 0)?.locals[ROOM_NUM_GLOBAL] ?? 0;
+    const room = gameGlobal(vm, "curRoomNum") ?? 0;
     if (wanted) {
       if (room === wanted.room) {
         roomStatus = undefined;

@@ -1,139 +1,142 @@
 # Files copied here from the private repo this engine is developed in (by its export
-# script); the next export replaces them. Everything not listed is this repo's own.
-apps/viewer/editor.html
-apps/viewer/explore.html
-apps/viewer/index.html
-apps/viewer/package.json
-apps/viewer/play.html
-apps/viewer/src/adlib.ts
-apps/viewer/src/app.ts
-apps/viewer/src/asset-index.ts
-apps/viewer/src/audio.ts
-apps/viewer/src/editor-handles.ts
-apps/viewer/src/editor-languages.ts
-apps/viewer/src/editor.css
-apps/viewer/src/editor.ts
-apps/viewer/src/explore/classes.ts
-apps/viewer/src/explore/context.ts
-apps/viewer/src/explore/explore.css
-apps/viewer/src/explore/explore.ts
-apps/viewer/src/explore/inspect.ts
-apps/viewer/src/explore/live.ts
-apps/viewer/src/explore/map.ts
-apps/viewer/src/files.ts
-apps/viewer/src/game-profile.ts
-apps/viewer/src/main.ts
-apps/viewer/src/music.ts
-apps/viewer/src/opl-worklet.ts
-apps/viewer/src/overlay.ts
-apps/viewer/src/play.css
-apps/viewer/src/play.ts
-apps/viewer/src/saves.ts
-apps/viewer/src/session.ts
-apps/viewer/src/sound-preview.ts
-apps/viewer/src/style.css
-apps/viewer/vite.config.ts
-games/hello/hello.sh
-games/hello/messages/1.msg
-games/hello/messages/2.msg
-games/hello/resources.ts
-games/hello/scripts/0.sc
-games/hello/scripts/1.sc
-games/hello/scripts/2.sc
-lib/994.sc
-lib/995.sc
-lib/996.sc
-lib/997.sc
-lib/998.sc
-lib/999.sc
-lib/resources.ts
-lib/system.sh
-packages/content/package.json
-packages/content/room.schema.json
-packages/content/src/index.ts
-packages/content/src/room.ts
-packages/content/src/target.ts
-packages/content/src/yarn.ts
-packages/content/test/room.test.ts
-packages/sci/package.json
-packages/sci/src/analysis/game.ts
-packages/sci/src/analysis/runtime.ts
-packages/sci/src/audio/adlib.ts
-packages/sci/src/audio/index.ts
-packages/sci/src/audio/midi.ts
-packages/sci/src/audio/opl2.ts
-packages/sci/src/audio/sol.ts
-packages/sci/src/gfx/cel.ts
-packages/sci/src/gfx/palette.ts
-packages/sci/src/gfx/pic-file.ts
-packages/sci/src/gfx/pic.ts
-packages/sci/src/gfx/quantize.ts
-packages/sci/src/gfx/view-file.ts
-packages/sci/src/gfx/view.ts
-packages/sci/src/index.ts
-packages/sci/src/motion/pathfinding.ts
-packages/sci/src/resource/archive.ts
-packages/sci/src/resource/lzs.ts
-packages/sci/src/resource/manager.ts
-packages/sci/src/resource/map.ts
-packages/sci/src/resource/types.ts
-packages/sci/src/script/assembly.ts
-packages/sci/src/script/compiler.ts
-packages/sci/src/script/disasm.ts
-packages/sci/src/script/kernel-names.ts
-packages/sci/src/script/opcodes.ts
-packages/sci/src/script/script.ts
-packages/sci/src/script/sexpr.ts
-packages/sci/src/script/vocab.ts
-packages/sci/src/script/world.ts
-packages/sci/src/text/font.ts
-packages/sci/src/text/message.ts
-packages/sci/src/vm/kernels/arrays.ts
-packages/sci/src/vm/kernels/audio.ts
-packages/sci/src/vm/kernels/core.ts
-packages/sci/src/vm/kernels/graphics.ts
-packages/sci/src/vm/kernels/index.ts
-packages/sci/src/vm/kernels/lists.ts
-packages/sci/src/vm/kernels/motion.ts
-packages/sci/src/vm/kernels/palette.ts
-packages/sci/src/vm/kernels/saves.ts
-packages/sci/src/vm/kernels/system.ts
-packages/sci/src/vm/kernels/text.ts
-packages/sci/src/vm/memory.ts
-packages/sci/src/vm/replace.ts
-packages/sci/src/vm/savegame.ts
-packages/sci/src/vm/value.ts
-packages/sci/src/vm/vm.ts
-packages/sci/test/adlib.test.ts
-packages/sci/test/compiler.test.ts
-packages/sci/test/formats.test.ts
-packages/sci/test/game-build.test.ts
-packages/sci/test/lzs.test.ts
-packages/sci/test/midi.test.ts
-packages/sci/test/pathfinding.test.ts
-packages/sci/test/script.test.ts
-tools/adlib-render.ts
-tools/analyze.ts
-tools/asm.ts
-tools/editor-server.ts
-tools/explore.ts
-tools/game.ts
-tools/game/build.ts
-tools/game/defaults.ts
-tools/game/font.ts
-tools/game/kit.ts
-tools/mod-build.ts
-tools/mod-target.ts
-tools/mod.ts
-tools/msg.ts
-tools/node-files.ts
-tools/package.json
-tools/patches.ts
-tools/pic-build.ts
-tools/pic.ts
-tools/play.ts
-tools/png.ts
-tools/res.ts
-tools/scenario.ts
-tools/view-build.ts
-tools/view.ts
+# script), each with its hash as written; the next export replaces them, unless they've
+# changed here since. Everything not listed is this repo's own.
+apps/viewer/editor.html	09e444f01243368df8d0d2bfd26f8142f3956cf8099e8e1039d5ca656859d340
+apps/viewer/explore.html	2f0fe7be4756254d8ffa88490a6493794eed369825f688ccec70800d3c6803ef
+apps/viewer/index.html	ca1a4f8360fedb87d5226c773ba794861a7aea06183793391907cd8a749d7aad
+apps/viewer/package.json	501d5c2ba6488d3d3a1bd22d7257b8a5d638ab651b34307c8752b1cfedda82c0
+apps/viewer/play.html	9ec5fc573590c27d9f8cca0d5959e7c2d6b0938332f633c6488ea6bf1879afd4
+apps/viewer/src/adlib.ts	55f31770ad6bb4f3c4cc8ecdb720cd8c6da8b743fae619bfb34c7747086a5fd4
+apps/viewer/src/app.ts	186f8f1a6688810e9d99459f45cda640e779c6d1e8d4e6122a653d9aaaf1b8c4
+apps/viewer/src/asset-index.ts	d01008232ee9da33f355008d904944b330c5007cade1e4992e32ea173e9042a7
+apps/viewer/src/audio.ts	9f932e1a8df785672891c74c6624c5b288bedc1a3d477185b26f0ddf8b60f5c0
+apps/viewer/src/editor-handles.ts	8635dcd0aff84eb8a307baedafbfef4d631866a0b352447faf31488f3df7fc03
+apps/viewer/src/editor-languages.ts	697d1ac63ddf4b16513fb93f48bcddced583a31efc8c206f23bed36bebbe6c34
+apps/viewer/src/editor.css	e169285cc8b3c36a1110b85eda720664eabd30e533f50fcf12b3a016569a6878
+apps/viewer/src/editor.ts	33fd5a3a20a8de06df1cf2ebebd5289e3ee54fcc3b9088234491ee9fcd684f97
+apps/viewer/src/explore/classes.ts	98e86cb55bcdcdb9103950fce16619de59316e8ba0906efc066e786cb4f60ec4
+apps/viewer/src/explore/context.ts	a4cfa53778ab9609f2c1a8c11a82d61594c7f34634c501089e9415b3368797bb
+apps/viewer/src/explore/explore.css	6c4ef8a10e6748377cddebf7b57be4db8c1cd6af99214a8b9bd60cd5837c251a
+apps/viewer/src/explore/explore.ts	af6e4250b92cfcaa803ad063944f7c48836d5bb19fd8b55dc48a1f0701ba286b
+apps/viewer/src/explore/inspect.ts	e2b0b479123d10c5de013643d3273a3927e75f7dd455938117e6ac61132d7fb1
+apps/viewer/src/explore/live.ts	3368bdd0403c64bcbc57c2c8d8281c7c5477245bd137301f1ad88c5676ffd800
+apps/viewer/src/explore/map.ts	c4bd42bc5f217788d2119204c35e01abcd6d6110264bd872d5985bc7612df26f
+apps/viewer/src/files.ts	afbe457b53dc2e0892b8b5e467ea98679cb1b136cb896cb5c867a72eb460c383
+apps/viewer/src/game-profile.ts	6d65f03aaf0c3eedf08ea83a68f2243792d6d1621394e9c786a9c59d1bdbf6ff
+apps/viewer/src/main.ts	a617ba9234b2eff08c2cedb2d95c04bad5a0ba90496efb5b7d839a519b2a807d
+apps/viewer/src/music.ts	cc0da445a1e607c87f28dc0424fcf987c1b8e27ad08d2380a95fc9ffe284decc
+apps/viewer/src/opl-worklet.ts	8d61b3ad55a6e7d5429a11dc6c99a7313df476b14cd7f24e72f6ee619e9e6317
+apps/viewer/src/overlay.ts	c51e9cc2492545c41d99302af869b6b5add13b173954a9d93b2ad5aa7ca68fcd
+apps/viewer/src/play.css	9caa385b433e1625dd53ec0ac66a0a3265603b3b7fc63d3b86de3ea6d7e2de24
+apps/viewer/src/play.ts	31ae8d9ffdb2bcac2e8facd8aadfae3b02a7316970fe31b8b77afb86f9e2b01d
+apps/viewer/src/saves.ts	eb3246f1b46ea601f73df06e9975f00c495022826eeb7ff86e5f33d5e8fbee3f
+apps/viewer/src/session.ts	ffb36d53832f0bf026edb49000aa7a33dbc618861ed2bd401ad51932b430440e
+apps/viewer/src/sound-preview.ts	074d015c691cfaf27e08656b1de2cd91530ddb88622f2260fe393e986c38df6b
+apps/viewer/src/style.css	9aeaad0d9fa0ae8d6798fa4caef8a50c681e2c116a8c61142c1458770325d292
+apps/viewer/vite.config.ts	2d290156716377001e2eb54341dceaa74014df8afac649ba4a84d532e18aa5a0
+games/hello/flags.yaml	746c3e700072676b3c30e70fa120852a12391105464a8eed6b3bf7ab0c4b76fe
+games/hello/hello.sh	9c0241fb54af9d201d7f29db21cc7e267ec285753c02312d9aee8cadd1120bf9
+games/hello/messages/1.msg	65dc166dc37cc712d5c5b618295520a9d0cbf5c98821d07776a6134ae0ba9453
+games/hello/resources.ts	05136824b2e238c971aa2df6c489844c8f36e038256d9e895331b86dd3001aea
+games/hello/rooms/2.room.yaml	4ef70d23127754a5bac0d60e6d05dee6ec1fc6d48fa2548d8a14c814d00c5859
+games/hello/rooms/2.yarn	6263721a8495197fe9ccd5fc949a126caed7aa8d042526e987985cbfcac96f02
+games/hello/scripts/0.sc	0dd24a85c8aca468b4404dfdacccd3e56017f828d3bfd38003c33dd1d5eb817f
+games/hello/scripts/1.sc	024dded8fabf47d0483ffbb50274b437e4d04e68e68330e6c41cedb69625268e
+lib/994.sc	7d7aad6a91e9336c0c82fa3204e68cdfbb12cdaa311e458c74982efbd681dee8
+lib/995.sc	1d0fe1153bef9bc9a6422c8d68e8f87dcd27b69cb4cbecfd33830dca3b315056
+lib/996.sc	0f8b77a9e33e51a693c8c97e9d488263bf9d86248d296eee59d476c0adf86efe
+lib/997.sc	0008452a928e031f8e2dce7058ca932ba72e7965b668746ec2829cc461be0784
+lib/998.sc	c5881a54a880484ff62e78d5abbca0a2acd9b070a7703fd2803145e1f2333f5d
+lib/999.sc	a032ab40648509e47767d932c2eb34fb2f558f6110863dd62c3a2ff738a2b3f4
+lib/resources.ts	7e62345f4eb44dd33f15b7091ce6f15cc2326cf61acd3a84050a4fac078b695f
+lib/system.sh	ff6b119315194662c9fc39ba6f7a5da6b5dfd5a5273425d1e358bae3e4b4f7bd
+packages/content/package.json	c1c25a0035e61a9f783ad54f0a3d0b28a7dc50a41703e79cc707e94c6158320a
+packages/content/room.schema.json	af2f1e467dc4071911189cf08db094d5aa15b69071a201ef6a6b962246cf7407
+packages/content/src/index.ts	99dae94a1f6bcc878f947754d9ec68e241d45e6aed3c3feeb595a87296b65af8
+packages/content/src/room.ts	4da6bcfb65a31ece559fa899e4496daf95b5790a5b7ceb22c9e5d58ab703aa7d
+packages/content/src/target.ts	8bf4a10180c07c1ed55d3a7f8f6b22579df76a70641595a6c7a01403a77b5f5c
+packages/content/src/yarn.ts	4424f8ccdeb84cb4b59702458e27cd2ec8a5a091ece382780ca43f0f4aed860c
+packages/content/test/room.test.ts	ae5097aa72b67c6e68071bc898df2a86e3462bad1e3bf231fdd0e552a15238e7
+packages/sci/package.json	440ff198c81fe47a296b8000a1cbc19547535e44d99932a53e8174551c5d9973
+packages/sci/src/analysis/game.ts	bbff1c1d406324550e93a3e99d060ff0f846dbbbae970e1ad61e394bdf749778
+packages/sci/src/analysis/runtime.ts	5b7df8f68212e7e7a81d1a20f61b52ef0205894253831f57524b3b2a430aff86
+packages/sci/src/audio/adlib.ts	d6a4c8ac847bbe7f401152da7f6ba659581a9caf48564a973a0caee8bbf3d151
+packages/sci/src/audio/index.ts	5ca606889dc7888883a2c91b3af30ec448abb3f7f6d5a9fc5b6ca37b7db22a2a
+packages/sci/src/audio/midi.ts	97331ff63a8ba6175e692d848e470e6733bddd0b1ebc25adfc39d6ed68833a92
+packages/sci/src/audio/opl2.ts	27f4d9a277892d7dac42ac28df56f31d8d0c680ff952c0e99ee0b3fd2754102d
+packages/sci/src/audio/sol.ts	867154e8363e379e1732d96386b42988a5aa1b3602b471a44c782147a0e72a28
+packages/sci/src/gfx/cel.ts	77f8975fd75bba337a66c8046a866ca4447d2cff6ee904d1937fbe1e9546eb9f
+packages/sci/src/gfx/palette.ts	ffd8e3541ebf639db4feedc431fd7ec927afbe1f1a941fda436a1e89ffe661db
+packages/sci/src/gfx/pic-file.ts	264b536b0579489d0944da6aacdd3e971ffec2e8107b30a30888e06a7aecc634
+packages/sci/src/gfx/pic.ts	0daef12e8e5546fd6a391afb6deacc356ebb7cfb7e16ca1f4cff7c5f84771004
+packages/sci/src/gfx/quantize.ts	e5c8e5c4b78d74f8320f7561331d9056755135ac279bea6f00649e23164ba100
+packages/sci/src/gfx/view-file.ts	cbe329788531edf2e9cfc75ac0f1a185fd9e1471660616757c77ba92a45a762b
+packages/sci/src/gfx/view.ts	ccac8fcab8cbd93bf3cd66e3a473f0e9a0866b869e5659a309bc69ea5c3ecb10
+packages/sci/src/index.ts	bbe45d6b2f691b02bfb8b52a6cc38bfa4c642970b1bd352c84123b3d2b3a05d9
+packages/sci/src/motion/pathfinding.ts	78e775076fbb71401df305b15e0895a96e2753dafcde0324b319f3c0b824a150
+packages/sci/src/resource/archive.ts	cd371b48c83a287ad5ac3a24c7f59f4079abcfdd547eb0f7e418b19f3ea8bed4
+packages/sci/src/resource/lzs.ts	1d3f1269d5f5ab2e094be6d1feee144ca110114b32cf8f9fa0eda7e5b165765b
+packages/sci/src/resource/manager.ts	4051344143d2547a46503c2fea06a783af02a2c127f1f7bdf8d9083022cf83e9
+packages/sci/src/resource/map.ts	2c88855a809d17c447231a89e55bc59a3da83ef45acd56c2949bdcd02143389b
+packages/sci/src/resource/types.ts	1a4456fc728fdd1a6baf6421d47d3983958ce8a9b0dea48f759ecafcd2fab5d3
+packages/sci/src/script/assembly.ts	b672bfb9adc9d8880f4ff44f3b8cb159b3484c833f784f8d27d1e0a07815de01
+packages/sci/src/script/compiler.ts	69ef6e1f374f26a4cdc9fb9550d816535efc2d63cc78c3cc0309c5a84d07e804
+packages/sci/src/script/disasm.ts	2f8ba2525092707c5011bddee6b45d6d6d24cc9073da5b28313ca7ecf9911933
+packages/sci/src/script/kernel-names.ts	0e06b9f34f5d70a79550cf6c80f66d601c344b150ff5ef79b79088401ac9e22e
+packages/sci/src/script/opcodes.ts	db6d5e658d9ec06a385eeaaffb00c05205b69cab8f0aae83371bf73c5dee7252
+packages/sci/src/script/script.ts	30b0ecc1919cf671ed3aa0a4fba7c2e1a7a3a0843a90190faafcef9d85101fd2
+packages/sci/src/script/sexpr.ts	8de078e8651d55ca11c5a55f3cba8bb0d990b436e55b06df982e1a12a66180bf
+packages/sci/src/script/vocab.ts	836dfbac53506ab24f508b5b38cc5c64d72bea06f66ec159edffaea4bd2a3b89
+packages/sci/src/script/world.ts	ec60273aae46bbaf2411847e3db06ac4ebca29a368d8b4ab41beac395e192dfc
+packages/sci/src/text/font.ts	16bdcce82a96e3446c99184ad323010e34db931b166287a690158f009ab14f24
+packages/sci/src/text/message.ts	4ced827735cef60ae5391b4bb46aa3f45f326b71f3db8121c7e6abdd3b1372bf
+packages/sci/src/vm/kernels/arrays.ts	4a6b76f37c15c3e27b872729dcf11d9130a686962b55f61f66058cf3671240e0
+packages/sci/src/vm/kernels/audio.ts	0a493224871c399dec6d8b382a6f377279eb06866336cd2f709230abb29372be
+packages/sci/src/vm/kernels/core.ts	1cb13f850050327e60877ccfc3d53ff011aacc8ad10608d7b4dd39f8d75f8356
+packages/sci/src/vm/kernels/graphics.ts	dc97e52f289c6a50e293a2fc72a0ca8c726447c703de584c2b515b8808d82b08
+packages/sci/src/vm/kernels/index.ts	f02e394a89d85e505a388e6e317021a632372a422f873a419d2d1b9d29404efc
+packages/sci/src/vm/kernels/lists.ts	86b85d4b7698597623d0b6faf49d1f48d38287c16262573fa3e5159df274f6e0
+packages/sci/src/vm/kernels/motion.ts	c34ce67696538dfacf4f75057c00ef9b3fcb2998d170a895dab832f87162b4d9
+packages/sci/src/vm/kernels/palette.ts	9438070151859f9b1f74e6555aa67e5b1193d617750fafda57c0d6d9c5b3996c
+packages/sci/src/vm/kernels/saves.ts	7e40729c5854544b9507485d05a0d3ef5f038163883a47e1f578a7a581ddd65d
+packages/sci/src/vm/kernels/system.ts	788833cd1684c2d81598d60fe12c3dc5048262e62aea1b06b10716123a537dc7
+packages/sci/src/vm/kernels/text.ts	b40f380a50707726633107c4badde6db1db9d628f0b3f377a87e8b6cbc72ce02
+packages/sci/src/vm/memory.ts	717565de864b4eeb7a928790cb3f9af611a15896d9bebe2b7f96045f2674dca8
+packages/sci/src/vm/replace.ts	272bcf9aab0c480efba04f915aa607353df96ee260686a861e8af834d0000511
+packages/sci/src/vm/savegame.ts	e3c64a6761e4aa1744cdbe0fe7ae0a01373c3eff6fc72935e2d343c175abb6a8
+packages/sci/src/vm/value.ts	9bfbeaae664cad7168b0e85b008c0ee7013700b98eea5dad7dabf305f92164c4
+packages/sci/src/vm/vm.ts	d8aba69deef64f006aad8885633e0b3eed7125d7a2c23b34c28681241fcc596a
+packages/sci/test/adlib.test.ts	48c81b62f40415dba5f0e55683dc88d9dd7832e946a033c1864707854793abe9
+packages/sci/test/compiler.test.ts	97399d2770ea8923c9843b16b153f11cf41f96aa54b409bd751cd0234c6db885
+packages/sci/test/formats.test.ts	422999676f103ffa4f6f02e2c6b80a93f6c86b800d43c112d969971f28936192
+packages/sci/test/game-build.test.ts	01e9e4b139b6a12c994020ecdbe44064ef0853cde16d056889c2cdedda1f6c1f
+packages/sci/test/lzs.test.ts	90b46c4a6cb438ce55822784d37991ce7288fef4cd5148bd38089f88ac3291dc
+packages/sci/test/midi.test.ts	867525f533834ba792054f88966957368c6014751065f84deeffebe3064efa19
+packages/sci/test/pathfinding.test.ts	bb4c592613d6bc9853e916f146a5dca6019e08a79b4dc5121bc076caa9e8d102
+packages/sci/test/script.test.ts	f240b92324b7c4693afbdb467ce0573b2a2076b482c79957fecef2730c560b1c
+tools/adlib-render.ts	cc849c0922fe07d3eeaefd0731a04d3a5641afb76c54e1c40c0b76871ee0dfa9
+tools/analyze.ts	093a64c35fd181bb4d49ae64d5e3507c5f4dcf09fe505fec7b5976973e060ac8
+tools/asm.ts	1e0af3f562fe5d50d04c626fc0ac7e2af64b2c583ce6cfcb1a1dcfab944184e8
+tools/editor-server.ts	7286ce5d2f9710e6c8755e2dda2edee0e6f65be6d1e6d364dd7d6f10b850e447
+tools/explore.ts	8fe54e72dabb5f5f6e3f35179edb9dcb79f3240cbb9b3a1651534e226547e5ec
+tools/game.ts	6272bb824ae71ea571f3a483b4228d8463a40bcdd05589086fe043502c1fdc35
+tools/game/build.ts	03966972016cb986be9a0c6ad732e52ed59ce0cbef1efbdc482bb231f110e902
+tools/game/defaults.ts	86bf8af2fbed2449a41f7780b978d26885edb3676512e11a5f19a829c2cef6ae
+tools/game/font.ts	e28c7d68bc1c902353496b3b55647d0c81f82c4d76f87ba323005a2fe234cd33
+tools/game/kit.ts	69e93cb03d972230096d5c40422d1fcc8a665a7b49278ad48b862681f68505cc
+tools/game/target.ts	c1d5d99b1d5b6be64ff858cf9257cac6fd8ef32d7ab3c056170b7d0d158f90c7
+tools/mod-build.ts	b2c1a774644a6e8659f6238ca0ff88209835f1eb55335a3a5a28025a1dcbfb89
+tools/mod-target.ts	79c6f2d7831409f86d3d04094437f20ad00cb37c927c957e1f73e93dfcead19b
+tools/mod.ts	f0d673350b8faba5d4a9fd50f4243543c031557af23620e7e9d105cfa97eee06
+tools/msg.ts	1e4b9d900e48211eedeaa7cd7da80a40bcd897e1b55e63ab53a82d7741c0b3ef
+tools/node-files.ts	4da4cbeb559c7ee1f128030b2ea780bcada5394b2f09bc33610daebcc0bb13fb
+tools/package.json	c46828d2e207dacb67ede5f00007fd7bb4f443fe612781dae147265559e17728
+tools/patches.ts	3255493eb1e8d879ec67c49d544cc59d3591ec8f5e1c2ba3bc583fa9997434a4
+tools/pic-build.ts	980f68b4c414e14ea0dab3b7b4b8f3d479ca4c842c5ba16ca3b7822dcf09c095
+tools/pic.ts	71181ec912695cd25ef5fd3c5d29fceb7045383a07db0ead5f8a38ebce851d56
+tools/play.ts	b9fbea26ded2764a15c3dedaabcf93134c056c0d26538d706be284d4716acfd0
+tools/png.ts	e6de913192e32ea8f64f803d689bc096bab2674d6a8cd3826c37c66b546463d0
+tools/res.ts	ec5481ae01d26df1a322ac7a2169db8364337de13d60411539c11ed7c2c7364a
+tools/scenario.ts	7518c310c1a64729a4e222d0cbad876403779b39cf13d4e96be36b92c914379c
+tools/view-build.ts	3c933f6d03d7507073ac31ae3a5e43170431c8b701dc3a74d435673d311e63f2
+tools/view.ts	76c4aef96bbafcbb2b1e57f72c1100ac52be8a0dad49ddc50e130a8c74fe6179

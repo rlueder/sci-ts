@@ -44,6 +44,8 @@ export interface Target {
    * rootNoun/verb/cond, answers at sayNoun/verb/cond).
    */
   teller: { class: string; props: Record<string, number>; verb: number };
+  /** The class that cycles a prop's cels forever (<<animate x forever>>, cycle: forward). */
+  forwardCycle: string;
   /** Verb number for "said on arrival" messages. */
   narrationVerb: number;
   /** Verb names as used in Yarn node titles (lower case) -> verb numbers. */

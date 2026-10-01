@@ -2,10 +2,13 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  AsmError, CompileError, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
+  AsmError, CompileError, GLOBAL_NAMES_VOCAB, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
   resourceKey, writeClassTable, writeMessages, writeSelectorNames, type AsmContext, type ResourceData, type ScriptObject,
 } from "@sci-ts/sci";
+import { ContentError, compileRoom } from "@sci-ts/content";
+import { modFlags } from "../mod-build.ts";
 import { defaultResources } from "./defaults.ts";
+import { libraryTarget } from "./target.ts";
 
 /**
  * Builds a game from its sources, needing nothing from any other game:
@@ -14,6 +17,9 @@ import { defaultResources } from "./defaults.ts";
  *                                  together; they may include files from the game folder
  *   games/<name>/scripts/<n>.sca   scripts in assembly (packages/sci/src/script/assembly.ts)
  *   games/<name>/messages/<n>.msg  message files, as text (`pnpm msg` writes the same form)
+ *   games/<name>/rooms/<n>.room.yaml (+ <n>.yarn)  rooms as data (packages/content), compiled
+ *                                  for the class library; their Yarn variables are flags
+ *                                  numbered in flags.yaml
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
  *                                  sounds and anything else made by code
  *   games/<name>/game.json         optional: { "library": false } to build without lib/
@@ -30,6 +36,8 @@ export interface BuiltGame {
   generated: Map<number, string>;
   /** The globals' names, by number (when script 0 is compiled). */
   globals: string[];
+  /** The message text compiled from each YAML room's Yarn, by room. */
+  roomMessages: Map<number, string>;
 }
 
 const HEADER = OBJECT_HEADER;
@@ -106,12 +114,43 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
       compileError = undefined;
       for (const c of out) generated.set(c.number, c.assembly);
       globals = out.find((c) => c.number === 0)?.variables ?? [];
-      return out.map((c) => ({ file: c.file, text: c.assembly }));
+      const rooms = library ? compileRooms() : [];
+      return [...out.map((c) => ({ file: c.file, text: c.assembly })), ...rooms];
     } catch (e) {
       if (!(e instanceof CompileError)) throw e;
       compileError = e;
       return [];
     }
+  };
+
+  // Rooms as YAML and Yarn: compiled once script 0 is (the target needs its globals).
+  const roomMessages: ResourceData[] = [];
+  const roomMessageText = new Map<number, string>();
+  const compileRooms = (): { file: string; text: string }[] => {
+    const roomsDir = join(dir, "rooms");
+    if (!existsSync(roomsDir)) return [];
+    const target = libraryTarget(globals);
+    const flags = modFlags(dir, { content: target });
+    const out: { file: string; text: string }[] = [];
+    for (const { file, text } of load(roomsDir, /^\d+\.room\.yaml$/)) {
+      const n = numberOf(file);
+      if (numbers.includes(n)) throw new GameBuildError(`${relative(process.cwd(), file)}: there's also a scripts/${n} (a room is one or the other)`);
+      const yarnFile = join(roomsDir, `${n}.yarn`);
+      let room: ReturnType<typeof compileRoom>;
+      try {
+        room = compileRoom(text, existsSync(yarnFile) ? readFileSync(yarnFile, "utf8") : undefined, target,
+          { yaml: relative(process.cwd(), file), yarn: relative(process.cwd(), yarnFile) }, { flag: flags.number });
+      } catch (e) {
+        if (e instanceof ContentError) throw new GameBuildError(e.message);
+        throw e;
+      }
+      generated.set(n, room.sca);
+      roomMessageText.set(n, room.msg);
+      roomMessages.push({ type: ResourceType.Message, number: n, data: writeMessages(messagesFromText(room.msg).file) });
+      out.push({ file: relative(process.cwd(), file), text: room.sca });
+    }
+    flags.save();
+    return out;
   };
 
   // A script can only be assembled once the classes it uses are known, so keep going round
@@ -151,8 +190,12 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     { type: ResourceType.Vocab, number: 997, data: writeSelectorNames(selectors) },
     { type: ResourceType.Vocab, number: 996, data: writeClassTable(classTable) },
   );
+  // The globals' names, for tools reading the running game (the player's room links, the
+  // editor, the explorer): sci-ts's own vocab, in the selector list format.
+  if (globals.length) resources.push({ type: ResourceType.Vocab, number: GLOBAL_NAMES_VOCAB, data: writeSelectorNames(globals) });
 
-  // Messages, as text.
+  // Messages: the rooms', then those written as text.
+  resources.push(...roomMessages);
   const messagesDir = join(dir, "messages");
   if (existsSync(messagesDir)) {
     for (const { file, text } of load(messagesDir, /^\d+\.msg$/)) {
@@ -188,5 +231,6 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     classes: new Map([...classes].map(([species, c]) => [species, { name: c.name, script: c.script }])),
     generated,
     globals,
+    roomMessages: roomMessageText,
   };
 }
