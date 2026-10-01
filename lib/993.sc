@@ -79,6 +79,9 @@
       (= icons 0))
     (if window (window dispose:) (= window 0)))
 
+  (method (dismiss)
+    (self hide:))
+
   (method (delete item)
     (if (== theItem item) (user useItem: 0))
     (super delete: item &rest)))
@@ -118,6 +121,9 @@
     (if (== (event type?) EV_MOUSE_DOWN)
       (self close:))
     (return TRUE))
+
+  (method (dismiss)
+    (self close:))
 
   (method (close &tmp c)
     (if (== dialog self) (= dialog 0))

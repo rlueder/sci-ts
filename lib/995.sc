@@ -20,6 +20,7 @@
 ;; A game with its own sets them in its init: (user walkCursor: 261 waitCursor: 265 ...).
 ;; I or Tab opens the inventory; an item picked there is used like a verb (V_ITEM), with
 ;; its own cursor, until right-click goes back to walking.
+;; Escape opens the game menu (save, restore, start again); F5 saves and F7 restores.
 (class User of Obj
   (properties
     verb V_WALK
@@ -86,6 +87,11 @@
       (dialog handleEvent: event)
       (return))
     (if (not canInput) (return))
+    (if (== (event type?) EV_KEY_DOWN)
+      (switch (event message?)
+        (KEY_ESCAPE (event claimed: TRUE) (game showMenu:) (return))
+        (KEY_F5 (event claimed: TRUE) (game save:) (return))
+        (KEY_F7 (event claimed: TRUE) (game restore:) (return))))
     (if (and (== (event type?) EV_KEY_DOWN)
           (or (== (event message?) KEY_TAB) (== (event message?) KEY_i) (== (event message?) KEY_I)))
       (event claimed: TRUE)

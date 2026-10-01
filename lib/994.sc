@@ -42,6 +42,19 @@
         (= client 0)
         (if c (c cue:)))))
 
+  ;; After a restore nothing is playing: a sound that loops forever starts again; one that
+  ;; was playing once is over (and whoever was waiting for it hears so).
+  (method (replay &tmp c)
+    (if handle
+      (= handle 0)
+      (= nodePtr 0)
+      (if (== loop -1)
+        (self play: client)
+       else
+        (= c client)
+        (= client 0)
+        (if c (c cue:)))))
+
   (method (dispose)
     (DoSound SND_STOP self)
     (DoSound SND_DISPOSE self)

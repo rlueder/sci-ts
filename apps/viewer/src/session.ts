@@ -1,5 +1,5 @@
 import {
-  EventType, ResourceManager, ResourceType, SciKey, SoundDevice, Vm, allKernels, audio, graphics, hostFiles, input, parseAdLibBank, readingTime, restoreGame, saves, snapshot,
+  EventType, GLOBAL_NAMES_VOCAB, ResourceManager, ResourceType, SciKey, SoundDevice, Vm, allKernels, audio, graphics, hostFiles, input, parseAdLibBank, readingTime, restoreGame, saves, snapshot,
   type Frame, type VmSnapshot,
 } from "@sci-ts/sci";
 import { AdLibOutput } from "./adlib.ts";
@@ -76,7 +76,7 @@ export class GameSession {
     const vm = new Vm(rm);
     vm.registerKernels(allKernels);
     // Saved games persist in this browser (IndexedDB) and appear in the game's Restore screen.
-    saves(vm).store = await browserSaveStore(options.saveNamespace ?? [...(options.mods ?? [])].sort().join("+"));
+    saves(vm).store = await browserSaveStore(options.saveNamespace ?? defaultSaveNamespace(vm, rm, options.mods ?? []));
     if (options.debug) hostFiles(vm).add("18.scr");
 
     const sound = new WebAudioOutput(httpFiles, (name) => rm.file(name));
@@ -292,6 +292,16 @@ export class GameSession {
       inp.push({ type: EventType.KeyDown, message: code, modifiers: modifiers(e) });
     });
   }
+}
+
+/**
+ * Whose saves these are. Games built by sci-ts (they carry their globals' names, vocab 990)
+ * each get their own, by the game object's name, so games played from one site don't share
+ * save slots; Sierra's games keep the namespace they always had (their mods, if any).
+ */
+function defaultSaveNamespace(vm: Vm, rm: ResourceManager, mods: string[]): string {
+  if (rm.has({ type: ResourceType.Vocab, number: GLOBAL_NAMES_VOCAB })) return `game:${vm.object(vm.exportAddress(0, 0)).name}`;
+  return [...mods].sort().join("+");
 }
 
 const KEY_CODES: Record<string, number> = {

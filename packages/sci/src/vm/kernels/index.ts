@@ -14,7 +14,7 @@ export { graphics, Graphics, type Frame, SCREEN_WIDTH, SCREEN_HEIGHT, ShowStyle,
 export { input, Input, EventType, SciKey, hostFiles, type SciEvent } from "./system.ts";
 export { audio, AudioState, readingTime } from "./audio.ts";
 export { paletteEffects, PaletteEffects } from "./palette.ts";
-export { saves, restoreGame, MemorySaveStore, type SaveStore, type SaveInfo } from "./saves.ts";
+export { saves, restoreGame, scriptsFingerprint, MemorySaveStore, type SaveStore, type SaveInfo } from "./saves.ts";
 
 export const allKernels: Record<string, KernelFn> = {
   ...coreKernels,
