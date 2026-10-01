@@ -4,7 +4,7 @@
  *   (send obj x: 1)      a list                  [buf 3]   an array element (or declaration)
  *   foo  x:  y?  &rest   symbols                  42 -7 $1F %101 `a   numbers
  *   "text" {text}        strings                  #init     a selector
- *   @buf                 a variable's address     ; ...     a comment, to the end of the line
+ *   @buf  @[buf i]       a variable's address, an element's   ; ...  a comment, to the end of the line
  */
 export type Node =
   | { kind: "list"; items: Node[]; line: number }
@@ -13,7 +13,7 @@ export type Node =
   | { kind: "num"; value: number; line: number }
   | { kind: "str"; value: string; line: number }
   | { kind: "sel"; name: string; line: number }
-  | { kind: "addr"; name: string; line: number };
+  | { kind: "addr"; name: string; index?: Node; line: number };
 
 export class ReadError extends Error {
   constructor(message: string, readonly line: number) {
@@ -96,7 +96,24 @@ export function read(text: string): Node[] {
     add(atom(token, line));
   }
   if (stack.length) throw new ReadError(`( never closed`, stack[stack.length - 1]!.node.line);
-  return top;
+  return addresses(top);
+}
+
+/** `@` then `[buf i]` is one thing: the address of an element. */
+function addresses(nodes: Node[]): Node[] {
+  const out: Node[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i]!;
+    const next = nodes[i + 1];
+    if (n.kind === "sym" && n.name === "@" && next?.kind === "index" && next.items.length === 2 && next.items[0]!.kind === "sym") {
+      out.push({ kind: "addr", name: (next.items[0] as { name: string }).name, index: addresses([next.items[1]!])[0], line: n.line });
+      i++;
+      continue;
+    }
+    if (n.kind === "list" || n.kind === "index") out.push({ ...n, items: addresses(n.items) });
+    else out.push(n);
+  }
+  return out;
 }
 
 function atom(token: string, line: number): Node {
@@ -117,6 +134,6 @@ export function show(n: Node): string {
     case "num": return String(n.value);
     case "str": return JSON.stringify(n.value);
     case "sel": return `#${n.name}`;
-    case "addr": return `@${n.name}`;
+    case "addr": return n.index ? `@[${n.name} ${show(n.index)}]` : `@${n.name}`;
   }
 }

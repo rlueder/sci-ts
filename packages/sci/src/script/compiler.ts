@@ -20,10 +20,10 @@ import { read, show, ReadError, type Node } from "./sexpr.ts";
  *
  * Expressions: (= v e) (+= v e) (++ v), arithmetic + - * / mod << >> & | ^ ~, comparison
  * == != < > <= >= u< u> u<= u>=, (and ...) (or ...) (not e), (if c ... else ...), (cond ...),
- * (switch v (k ...) (else ...)), (while c ...), (repeat ...), (for (init) c (step) ...),
- * (break), (continue), (return e). Sends: (obj sel: args sel2: args), (self ...),
- * (super ...), (send e sel: ...); `sel?` reads a property; (obj [s] args) sends the
- * selector in s. Calls: (proc args), (Kernel args),
+ * (switch v (k ...) (else ...)), (switchto v (...) (...)), (while c ...), (repeat ...),
+ * (for (init) c (step) ...), (break), (continue), (return e). Sends: (obj sel: args sel2:
+ * args), (self ...), (super ...), (send e sel: ...); `sel?` reads a property; (obj [s] args)
+ * sends the selector in s. Calls: (proc args), (Kernel args),
  * `&rest` passes on the caller's remaining arguments. [buf i] is an array element, @buf its
  * address, #sel a selector, `a a character, $1F hex.
  */
@@ -47,6 +47,17 @@ export interface CompileContext {
   takenSpecies?: ReadonlySet<number>;
   /** The text of an included file, or undefined if there's no such file. */
   include?(name: string, from: string): string | undefined;
+  /**
+   * Hears about likely mistakes that still compile: sends of a selector no class or object
+   * defines (as a property or a method). Only checked when every class is compiled here.
+   */
+  onWarning?(warning: CompileWarning): void;
+}
+
+export interface CompileWarning {
+  message: string;
+  file: string;
+  line: number;
 }
 
 export interface CompiledScript {
@@ -66,7 +77,7 @@ export class CompileError extends Error {
 }
 
 /** The object header slots, in order; every class and instance begins with them. */
-export const OBJECT_HEADER = ["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-script-", "-super-", "-info-", "name"];
+export const OBJECT_HEADER = ["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-species-", "-super-", "-info-", "name"];
 
 // --- Declarations ----------------------------------------------------------------------
 
@@ -166,14 +177,32 @@ export function compileScripts(sources: readonly CompileSource[], ctx: CompileCo
     for (const p of u.publics) if (u.procedures.some((f) => f.name === p.name)) publicProcs.set(p.name, { script: u.number, index: p.index });
   }
 
-  const project: Project = { ctx, classes, globals, publicProcs, layouts: new Map() };
-  return units.map((u) => ({
+  const project: Project = { ctx, classes, globals, publicProcs, layouts: new Map(), sent: [] };
+  const compiled = units.map((u) => ({
     file: u.file,
     number: u.number,
     assembly: new ScriptCompiler(u, project).compile(),
     classes: new Map(u.objects.filter((o) => o.kind === "class").map((o) => [o.name, o.species])),
     variables: u.locals.flatMap((v) => (v.size === 1 ? [v.name] : Array.from({ length: v.size }, (_, i) => `${v.name}[${i}]`))),
   }));
+
+  // Selectors sent that nothing here defines: probably misspelt.
+  if (ctx.onWarning) {
+    const defined = new Set(OBJECT_HEADER);
+    for (const u of units) {
+      for (const o of u.objects) {
+        for (const p of o.props) defined.add(p.name);
+        for (const m of o.methods) defined.add(m.name);
+      }
+    }
+    const reported = new Set<string>();
+    for (const s of project.sent) {
+      if (defined.has(s.name) || reported.has(s.name)) continue;
+      reported.add(s.name);
+      ctx.onWarning({ message: `nothing defines ${s.name} (no class or object has a property or method by that name)`, file: s.file, line: s.line });
+    }
+  }
+  return compiled;
 }
 
 /** Reads a source file's top-level forms into declarations. */
@@ -378,6 +407,8 @@ interface Project {
   globals: Map<string, { index: number; size: number }>;
   publicProcs: Map<string, { script: number; index: number }>;
   layouts: Map<string, Layout>;
+  /** Selectors sent or named (#sel), and where: for the misspelling check. */
+  sent: { name: string; file: string; line: number }[];
 }
 
 /** A class's properties after the header: names and default values. */
@@ -543,9 +574,13 @@ class ScriptCompiler {
     return typeof v === "number" ? String(toWord(v)) : this.initValue(v);
   }
 
-  /** A value fixed when the script loads: a number, a string, or an object in this script. */
+  /** A value fixed when the script loads: a number, a string, a selector, or an object in this script. */
   private initValue(n: Node): string {
     if (n.kind === "str") return `@${this.string(n.value)}`;
+    if (n.kind === "sel") {
+      this.project.sent.push({ name: n.name, file: this.unit.file, line: n.line });
+      return `#${n.name}`;
+    }
     if (n.kind === "sym" && this.objects.has(n.name) && this.objects.get(n.name)!.kind === "instance") return `@${n.name}`;
     return String(toWord(constValue(n, this.unit.defines, (m) => this.fail(m, n.line))));
   }
@@ -625,8 +660,10 @@ class ScriptCompiler {
     switch (n.kind) {
       case "num": return this.op(`ldi ${toSigned(n.value)}`);
       case "str": return this.op(`lofsa @${this.string(n.value)}`);
-      case "sel": return this.op(`ldi #${n.name}`);
-      case "addr": return this.address(n.name, undefined, n.line);
+      case "sel":
+        this.project.sent.push({ name: n.name, file: this.unit.file, line: n.line });
+        return this.op(`ldi #${n.name}`);
+      case "addr": return this.address(n.name, n.index, n.line);
       case "index": {
         const [arr, i] = n.items;
         if (arr?.kind !== "sym" || !i || n.items.length !== 2) this.fail("an array element is [name index]", n.line);
@@ -659,7 +696,10 @@ class ScriptCompiler {
       const w = toWord(v);
       return this.op(w === 0 ? "push0" : w === 1 ? "push1" : w === 2 ? "push2" : `pushi ${toSigned(w)}`);
     }
-    if (n.kind === "sel") return this.op(`pushi #${n.name}`);
+    if (n.kind === "sel") {
+      this.project.sent.push({ name: n.name, file: this.unit.file, line: n.line });
+      return this.op(`pushi #${n.name}`);
+    }
     if (n.kind === "str") return this.op(`lofss @${this.string(n.value)}`);
     if (n.kind === "sym") {
       const ref = this.resolve(n.name, n.line);
@@ -732,6 +772,15 @@ class ScriptCompiler {
       case "if": return this.ifForm(args, n.line);
       case "cond": return this.cond(args, n.line);
       case "switch": return this.switchForm(args, n.line);
+      case "switchto": {
+        // (switchto value (body for 0...) (body for 1...) ...): cases by position.
+        if (!args.length) this.fail("(switchto value (body...)...)", n.line);
+        const cases = args.slice(1).map((c, i) => {
+          if (c.kind !== "list") this.fail("a switchto case is (body...)", c.line);
+          return { kind: "list", items: [{ kind: "num", value: i, line: c.line }, ...(c as { items: Node[] }).items], line: c.line } as Node;
+        });
+        return this.switchForm([args[0]!, ...cases], n.line);
+      }
       case "while": {
         arity(1, Infinity);
         const top = this.label(), end = this.label();
@@ -934,7 +983,11 @@ class ScriptCompiler {
       let j = i + 1;
       while (j < messages.length && !isMessageHead(messages[j])) j++;
       const args = this.restSplit(messages.slice(i + 1, j), sel.line);
-      if (sel.kind === "sym") this.op(`pushi #${SEND_SELECTOR.exec(sel.name)![1]}`);
+      if (sel.kind === "sym") {
+        const name = SEND_SELECTOR.exec(sel.name)![1]!;
+        this.project.sent.push({ name, file: this.unit.file, line: sel.line });
+        this.op(`pushi #${name}`);
+      }
       else this.push((sel as { items: Node[] }).items[0]!);
       this.push({ kind: "num", value: args.explicit.length, line });
       frame += 4 + this.pushArgs(args);

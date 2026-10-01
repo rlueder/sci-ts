@@ -243,6 +243,46 @@ describe("several scripts", () => {
   });
 });
 
+describe("more forms", () => {
+  it("switchto picks a case by position", async () => {
+    const out = await run(`
+      (= [out 0] (switchto 2 (10) (20) (30)))
+      (= [out 1] (switchto 0 (10) (20)))`);
+    expect(out.slice(0, 2)).toEqual([30, 10]);
+  });
+
+  it("selectors as property values, sent later", async () => {
+    const out = await run(`(= [out 0] (doer act:))`, {
+      top: `(instance doer of Obj
+  (properties action #twice)
+  (method (act) (return (self [action] 21)))
+  (method (twice n) (return (* n 2))))`.replace("(instance doer of Obj\n  (properties action #twice)", "(class Doer of Obj (properties action 0))\n(instance doer of Doer\n  (properties action #twice)"),
+    });
+    expect(out[0]).toBe(42);
+  });
+
+  it("@[buf i] is the address of an element", () => {
+    const [script] = compileScripts([{ file: "x.sc", text: "(script 1)\n(local [buf 4])\n(procedure (f) (return @[buf 2]))" }], { kernelNames });
+    // lea: locals (1), indexed (8), shifted left once; then buf's first slot.
+    expect(script!.assembly).toMatch(/ldi 2\n\s+lea 18 0/);
+  });
+});
+
+describe("warnings", () => {
+  it("name sends of selectors nothing defines", () => {
+    const warnings: string[] = [];
+    compileScripts(
+      [{ file: "x.sc", text: "(script 1)\n(class Obj (properties x 0) (method (show)))\n(instance a of Obj)\n(procedure (f)\n  (a show: x: 1)\n  (a shwo:)\n  (a respondsTo: #hide))" }],
+      { kernelNames, onWarning: (w) => warnings.push(`${w.file}:${w.line}: ${w.message}`) },
+    );
+    expect(warnings).toEqual([
+      "x.sc:6: nothing defines shwo (no class or object has a property or method by that name)",
+      "x.sc:7: nothing defines respondsTo (no class or object has a property or method by that name)",
+      "x.sc:7: nothing defines hide (no class or object has a property or method by that name)",
+    ]);
+  });
+});
+
 describe("errors", () => {
   const compile = (text: string) => compileScripts([{ file: "x.sc", text }], { kernelNames });
   const fails = (text: string, message: RegExp) => expect(() => compile(text)).toThrow(message);

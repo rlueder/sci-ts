@@ -369,6 +369,7 @@ export function assemble(text: string, ctx: AsmContext): { number: number; code:
     return v;
   };
   const value = (t: string, line: number): Value => {
+    if (t.startsWith("#") && t.length > 1) return { kind: "num", value: selector(t.slice(1), line) };
     if (t.startsWith("@")) {
       const [label, off] = t.slice(1).split("+");
       return { kind: "heap", label: label!, offset: off ? Number(off) : 0 };
