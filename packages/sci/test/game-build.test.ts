@@ -583,7 +583,7 @@ describe("saving and restoring", async () => {
 
     // Escape: the game menu. Save, a new saved game, a description typed over "Room 1".
     key(27);
-    expect(menu().map((m) => m.text)).toEqual(["Save the game", "Restore a game", "Start again", "Carry on"]);
+    expect(menu().map((m) => m.text)).toEqual(["Save the game", "Restore a game", "Start again", "Text speed: normal", "Carry on"]);
     choose("Save the game");
     expect(menu().map((m) => m.text)).toEqual(["A new saved game", "Cancel"]);
     choose("A new saved game");
@@ -615,6 +615,75 @@ describe("saving and restoring", async () => {
     click(150, 175);
     frames(400);
     expect(prop(ego(), "x")).toBe(150);
+  });
+
+  it("keeps lines up as long as the text speed says, and lets Enter dismiss one", async () => {
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const key = (message: number) => (inp.push({ type: EventType.KeyDown, message, modifiers: 0 }), frames(1));
+    const showing = () => global("talking") !== 0;
+    const menu = () => {
+      const d = global("dialog");
+      const items = d ? vm.getProp(d, "items") : 0;
+      if (!items) return [];
+      const out: { text: string; x: number; y: number }[] = [];
+      for (let n = vm.memory.list(vm.getProp(items, "elements")!)?.first; n; n = n.next) {
+        out.push({ text: stringHelpers.str(vm, vm.getProp(n.value, "text")!), x: prop(n.value, "x"), y: prop(n.value, "y") });
+      }
+      return out;
+    };
+    const choose = (text: string) => {
+      const item = menu().find((m) => m.text === text)!;
+      click(item.x + 4, item.y + 4);
+    };
+    /** Frames a line about the moon stays up. */
+    const moon = () => {
+      click(260, 30);
+      expect(showing()).toBe(true);
+      let n = 0;
+      while (showing() && n < 3000) (frames(1), n++);
+      if (showing()) key(13); // its second line, likewise
+      while (showing() && n < 6000) frames(1);
+      return n;
+    };
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    click(0, 100, true);
+    click(0, 100, true); // walk -> do -> look
+    const normal = moon();
+
+    // Faster, from the game menu: Escape, then the text speed item, which changes in place.
+    key(27);
+    choose("Text speed: normal");
+    expect(menu().map((m) => m.text)).toContain("Text speed: fast");
+    choose("Carry on");
+    expect(global("textSpeed")).toBe(2);
+    const fast = moon();
+    expect(fast).toBeLessThan(normal * 0.7);
+
+    // Until a click: it stays; Enter dismisses it.
+    key(27);
+    choose("Text speed: fast");
+    choose("Carry on");
+    click(260, 30);
+    frames(2000);
+    expect(showing()).toBe(true);
+    key(13);
+    expect(stringHelpers.str(vm, vm.getProp(vm.getProp(global("talking"), "box")!, "text")!)).toBe("Bright enough to read by.");
+    key(32);
+    expect(showing()).toBe(false);
   });
 });
 

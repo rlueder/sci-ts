@@ -58,8 +58,16 @@
       add: SR_SAVE "Save the game"
       add: SR_RESTORE "Restore a game"
       add: SR_RESTART "Start again"
+      add: SR_TEXT (String STRING_FORMAT "Text speed: %s" (self textSpeedName:))
       add: 0 "Carry on"
       show: self))
+
+  (method (textSpeedName)
+    (switch textSpeed
+      (TEXT_SLOW (return "slow"))
+      (TEXT_FAST (return "fast"))
+      (TEXT_CLICK (return "until I click"))
+      (else (return "normal"))))
 
   ;; The saves there are now.
   (method (load)
@@ -117,7 +125,15 @@
         (switch v
           (SR_SAVE (self save:))
           (SR_RESTORE (self restore:))
-          (SR_RESTART (RestartGame))))
+          (SR_RESTART (RestartGame))
+          ;; The next speed, slowest first; the menu again, showing it.
+          (SR_TEXT
+            (switch textSpeed
+              (TEXT_SLOW (= textSpeed TEXT_NORMAL))
+              (TEXT_NORMAL (= textSpeed TEXT_FAST))
+              (TEXT_FAST (= textSpeed TEXT_CLICK))
+              (else (= textSpeed TEXT_SLOW)))
+            (self showMenu:))))
       (SR_SAVE (if v (self askDescription: (- v 1))))
       (SR_RESTORE
         (if v

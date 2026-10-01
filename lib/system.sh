@@ -44,6 +44,14 @@
 (define SR_RESTORE 3)
 (define SR_RESTART 4)
 (define SR_NAME 5)
+(define SR_TEXT 6)
+
+;; How long a line stays up (the textSpeed global): normal (the default), slow, fast, or
+;; until the player clicks.
+(define TEXT_NORMAL 0)
+(define TEXT_SLOW 1)
+(define TEXT_FAST 2)
+(define TEXT_CLICK 3)
 
 ;; Event types, as GetEvent reports them.
 (define EV_NULL 0)
@@ -54,6 +62,8 @@
 ;; Keys (an event's message).
 (define KEY_TAB 9)
 (define KEY_ENTER 13)
+(define KEY_SPACE 32)
+(define KEY_PERIOD 46)
 (define KEY_ESCAPE 27)
 (define KEY_F5 $3f00)
 (define KEY_F7 $4100)
@@ -78,6 +88,7 @@
 (define ARRAY_AT_PUT 3)
 (define ARRAY_FREE 4)
 (define STRING_LENGTH 10)
+(define STRING_FORMAT 11)
 (define STRING_FORMAT_INTO 12)
 (define ARRAY_COPY 6)
 

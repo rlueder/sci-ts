@@ -134,7 +134,9 @@ messages 1 version 4321
 ```
 
 `(messager say: noun verb [cond [seq [caller [module]]]])` says each line in sequence,
-waiting for a click or the time it takes to read, then cues the caller. It returns 0 when
+waiting for a click (or Enter, Space or ".") or the time it takes to read, then cues the
+caller. How long that is, the player chooses in the game menu: normal, slow, fast, or until
+they dismiss it (the `textSpeed` global, kept in saved games). It returns 0 when
 there's no such message.
 
 Each line goes to its talker (the message's talker number): 99 the narrator, 98 the game's
@@ -218,7 +220,8 @@ library's view 996 in colour 253, which the art palette keeps free, made a remap
 
 ## Saving and restoring
 
-Escape opens the game menu: save the game, restore a game, start again, carry on. F5 goes
+Escape opens the game menu: save the game, restore a game, start again, the text speed,
+carry on. F5 goes
 straight to saving and F7 to restoring; a script can do the same with `(game showMenu:)`,
 `(game save:)` and `(game restore:)`. None of them work during a cutscene (between
 `handsOff` and `handsOn`).
