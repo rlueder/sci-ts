@@ -15,7 +15,7 @@ nothing about any particular game. `games/hello` uses all of it.
 
 `lib/system.sh` has the constants games share with the library (verbs, event types,
 polygon types); include it with `(include "system.sh")`. The library also brings a cursor
-for each verb (views 991 to 994, `lib/resources.ts`). A game that wants none of this says so
+for each verb (views 991 to 994) and one for waiting (995), in `lib/resources.ts`. A game that wants none of this says so
 in `game.json`: `{ "library": false }`.
 
 ## A game
@@ -98,6 +98,16 @@ The player has four verbs: walk (the first), do, look and talk. Right-click goes
 next one, and the cursor changes with it. A click with walk sends the hero there along a
 path around the obstacles (`PolyPath`); with any other verb it goes to the first thing
 under the cursor, cast first, then features, then the room.
+
+Each verb has its cursor, and there's one more for while the player can't act (between
+`handsOff` and `handsOn`). They're `User` properties holding view numbers, so a game with its
+own sets them in its `init`:
+
+```lisp
+(user walkCursor: 261 lookCursor: 262 doCursor: 263 talkCursor: 264 waitCursor: 265)
+```
+
+A cursor's hotspot is its cel's anchor. Any it leaves alone stay the library's.
 
 ## Messages
 

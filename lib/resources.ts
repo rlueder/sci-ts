@@ -1,10 +1,11 @@
 import { Colour, ResourceType, writeView, type ResourceData } from "../tools/game/kit.ts";
 
 /**
- * The class library's own resources: a cursor for each verb, view CURSOR_BASE + verb
- * (system.sh). X is black, W white, . transparent.
+ * The class library's own resources: a cursor for each verb, view CURSOR_BASE + verb, and
+ * one while the player waits, CURSOR_WAIT (system.sh). X is black, W white, . transparent.
  */
 const CURSOR_BASE = 990;
+const CURSOR_WAIT = 995;
 
 const CURSORS: Record<number, { art: string[]; hotspot: "tip" | "centre" }> = {
   // V_LOOK: an eye.
@@ -70,6 +71,22 @@ const CURSORS: Record<number, { art: string[]; hotspot: "tip" | "centre" }> = {
       ".XWWWWWWWWX",
       "..XWWWWWWX.",
       "...XXXXXX..",
+    ],
+  },
+  // Waiting: an hourglass.
+  [CURSOR_WAIT - CURSOR_BASE]: {
+    hotspot: "centre",
+    art: [
+      "XXXXXXXXX",
+      "XWWWWWWWX",
+      ".XWWWWWX.",
+      "..XWWWX..",
+      "...XWX...",
+      "...XWX...",
+      "..XWWWX..",
+      ".XWWWWWX.",
+      "XWWWWWWWX",
+      "XXXXXXXXX",
     ],
   },
 };

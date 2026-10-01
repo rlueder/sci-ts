@@ -15,19 +15,44 @@
 ;; a click walks the hero there, or does the verb to what's under the cursor: an actor or
 ;; prop, a feature, or else the room. A click while a line is shown dismisses it; while a
 ;; menu is open, it goes to the menu.
+;;
+;; The cursor is a view for each verb, and another while the player can't act (handsOff).
+;; A game with its own sets them in its init: (user walkCursor: 261 waitCursor: 265 ...).
 (class User of Obj
   (properties
     verb V_WALK
-    canInput TRUE)
+    canInput TRUE
+    lookCursor 991  ; the library's: CURSOR_BASE + verb
+    talkCursor 992
+    walkCursor 993
+    doCursor 994
+    waitCursor 995  ; CURSOR_WAIT
+    cursor -1)      ; the view showing now
 
   (method (init)
     (self setVerb: verb))
 
   (method (setVerb v)
     (= verb v)
-    (SetCursor (+ CURSOR_BASE v) 0 0))
+    (self showCursor:))
+
+  ;; The cursor for a verb (0: waiting).
+  (method (cursorFor v)
+    (switch v
+      (V_LOOK (return lookCursor))
+      (V_TALK (return talkCursor))
+      (V_WALK (return walkCursor))
+      (V_DO (return doCursor))
+      (else (return waitCursor))))
+
+  (method (showCursor &tmp c)
+    (= c (self cursorFor: (if canInput verb else 0)))
+    (if (!= c cursor)
+      (= cursor c)
+      (SetCursor c 0 0)))
 
   (method (doit)
+    (self showCursor:)
     (while (GetEvent EV_ALL theEvent)
       (self handleEvent: theEvent)))
 

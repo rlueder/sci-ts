@@ -78,10 +78,10 @@
 
   ;; Clicks do nothing (but dismiss text) until handsOn: for cutscenes.
   (method (handsOff)
-    (user canInput: FALSE))
+    (user canInput: FALSE showCursor:))
 
   (method (handsOn)
-    (user canInput: TRUE)))
+    (user canInput: TRUE showCursor:)))
 
 ;; A room: its picture, where you can walk, its exits, and what's said about it.
 (class Room of Obj

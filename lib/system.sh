@@ -9,8 +9,10 @@
   V_DO)
 (define VERB_COUNT 4)
 
-;; Cursors: one view per verb, CURSOR_BASE + verb.
+;; Cursors: the library's are views CURSOR_BASE + verb, and CURSOR_WAIT while the player
+;; can't act (a game can bring its own: User).
 (define CURSOR_BASE 990)
+(define CURSOR_WAIT 995)
 
 ;; Event types, as GetEvent reports them.
 (define EV_NULL 0)

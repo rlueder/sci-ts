@@ -314,6 +314,41 @@ export default () => [
   });
 });
 
+describe("cursors", () => {
+  it("are the game's own when it has them, and a wait cursor shows while hands are off", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sci-cursors-"));
+    mkdirSync(join(dir, "scripts"));
+    writeFileSync(join(dir, "scripts", "0.sc"), `(script 0)
+(include "system.sh")
+(public t 0)
+(instance t of Game
+  (method (init)
+    (super init:)
+    (user walkCursor: 261 lookCursor: 262 doCursor: 263 talkCursor: 264 waitCursor: 265)))`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    vm.run();
+    vm.run();
+    expect(g.cursor.view).toBe(261);
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 3 });
+    vm.run();
+    expect(g.cursor.view).toBe(263); // right-click: walk -> do
+    // The library's own: an hourglass while the player can't act.
+    expect(game.resources.some((r) => r.type === ResourceType.View && r.number === 995)).toBe(true);
+    vm.setProp(global("user"), "canInput", 0);
+    vm.run();
+    expect(g.cursor.view).toBe(265);
+    vm.setProp(global("user"), "canInput", 1);
+    vm.run();
+    expect(g.cursor.view).toBe(263);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));
