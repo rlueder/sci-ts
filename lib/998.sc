@@ -20,7 +20,8 @@
 ;; The game: sets everything up, then runs one cycle after another until `quit`.
 (class Game of Obj
   (properties
-    script 0)
+    script 0
+    saver 0)        ; the SaveRestore behind the game menu
 
   (method (init)
     (= game self)
@@ -44,6 +45,38 @@
     (while (not quit)
       (self doit:)))
 
+  ;; After a restore (RestoreGame), the interpreter starts the game here, not at play: the
+  ;; game is as it was saved, but nothing is on screen and nothing is playing. Put the
+  ;; planes and the cast back and start looping sounds again, then carry on.
+  (method (replay)
+    (uiPlane init:)
+    (if curRoom ((curRoom plane?) init:))
+    (cast eachElementDo: #replay)
+    (sounds eachElementDo: #replay)
+    (user cursor: -1)
+    (while (not quit)
+      (self doit:)))
+
+  ;; The game menu (Escape): save, restore, start again.
+  (method (showMenu)
+    (self clearText:)
+    ((self saveRestore:) showMenu:))
+
+  (method (save)
+    ((self saveRestore:) save:))
+
+  (method (restore)
+    ((self saveRestore:) restore:))
+
+  (method (saveRestore)
+    (if (not saver) (= saver (SaveRestore new:)))
+    (return saver))
+
+  ;; Takes down a line being shown and whatever is open (a menu, the inventory, a close-up).
+  (method (clearText)
+    (if talking (talking clear:))
+    (if dialog (dialog dismiss:)))
+
   ;; One cycle: scripts, the room, everything on screen, text, drawing, then input.
   (method (doit)
     (++ gameTime)
@@ -59,8 +92,7 @@
   ;; Leaves the current room for room n (its script's export 0).
   (method (newRoom n &tmp old)
     (= newRoomNum 0)
-    (if talking (talking clear:))
-    (if dialog (dialog dispose:))
+    (self clearText:)
     (if curRoom
       (= old curRoomNum)
       (curRoom dispose:)
@@ -238,6 +270,10 @@
   ;; The room is going: so is this.
   (method (roomDisposed)
     (self dispose:))
+
+  ;; Back on screen after a restore.
+  (method (replay)
+    (if (not (& signal SIG_HIDDEN)) (AddScreenItem self)))
 
   (method (dispose)
     (if (not (& signal SIG_HIDDEN)) (DeleteScreenItem self))

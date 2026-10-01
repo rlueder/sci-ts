@@ -24,6 +24,16 @@
 (define REMAP_OFF 0)
 (define REMAP_BY_PERCENT 2)
 
+;; Saved games: a description is up to SAVE_DESCRIPTION - 1 characters; the menus show the
+;; newest SAVES_SHOWN. What SaveRestore's open menu is for:
+(define SAVE_DESCRIPTION 36)
+(define SAVES_SHOWN 8)
+(define SR_MENU 1)
+(define SR_SAVE 2)
+(define SR_RESTORE 3)
+(define SR_RESTART 4)
+(define SR_NAME 5)
+
 ;; Event types, as GetEvent reports them.
 (define EV_NULL 0)
 (define EV_MOUSE_DOWN 1)
@@ -32,6 +42,10 @@
 
 ;; Keys (an event's message).
 (define KEY_TAB 9)
+(define KEY_ENTER 13)
+(define KEY_ESCAPE 27)
+(define KEY_F5 $3f00)
+(define KEY_F7 $4100)
 (define KEY_I 73)
 (define KEY_i 105)
 (define EV_ALL $7fff)
@@ -53,6 +67,8 @@
 (define ARRAY_AT_PUT 3)
 (define ARRAY_FREE 4)
 (define STRING_LENGTH 10)
+(define STRING_FORMAT_INTO 12)
+(define ARRAY_COPY 6)
 
 ;; Bitmap subfunctions.
 (define BITMAP_DISPOSE 1)

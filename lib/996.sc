@@ -290,6 +290,10 @@
       (c choose: v))
     (return TRUE))
 
+  ;; Closed without a choice.
+  (method (dismiss)
+    (self dispose:))
+
   (method (dispose)
     (if (== dialog self) (= dialog 0))
     (if items

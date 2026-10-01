@@ -13,6 +13,7 @@ nothing about any particular game. `games/hello` uses all of it.
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
 | 993 | `lib/993.sc` | things: `InvItem`, `Inventory`, `CloseUp` |
+| 992 | `lib/992.sc` | the game menu: `SaveRestore`, `EditField` |
 
 `lib/system.sh` has the constants games share with the library (verbs, event types,
 polygon types); include it with `(include "system.sh")`. The library also brings a cursor
@@ -201,6 +202,25 @@ Script can wait for it. The cel is anchored at its top-left corner. The dimming 
 library's view 996 in colour 253, which the art palette keeps free, made a remap colour at
 `dim` percent brightness (50 unless set).
 
+## Saving and restoring
+
+Escape opens the game menu: save the game, restore a game, start again, carry on. F5 goes
+straight to saving and F7 to restoring; a script can do the same with `(game showMenu:)`,
+`(game save:)` and `(game restore:)`. None of them work during a cutscene (between
+`handsOff` and `handsOn`).
+
+Saving offers a new save or any of the newest eight to replace, then asks for a
+description: the old one, or the room's number to start from. The interpreter saves a
+snapshot of the whole game. Restoring starts the game again where the snapshot left it, at
+`Game::replay` instead of `play`: memory is as it was, but nothing is on screen and nothing
+is playing, so `replay` puts the planes and the cast back (each View's `replay:`) and starts
+sounds that loop forever (each Sound's `replay:`). A game that keeps its own planes or
+screen items outside the cast puts them back in its own `replay`.
+
+A save only fits the scripts it was made with. Each save records which those were, and a
+game is only offered the saves its scripts made: after a rebuild that changes a script,
+older saves don't appear. In the browser, saves live in IndexedDB, each game's apart.
+
 ## Flags
 
 `(SetFlag n)`, `(ClearFlag n)` and `(IsFlag n)` (script 999's exports) keep 1024 story
@@ -237,4 +257,4 @@ ends. Their numbers are the game's `music/` and `sounds/` files ([games.md](game
 
 ## Not there yet
 
-An icon bar, and saving and restoring. See [plan.md](plan.md).
+An icon bar. See [plan.md](plan.md).

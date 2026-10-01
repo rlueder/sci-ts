@@ -1,3 +1,4 @@
+import { ResourceType } from "../../resource/types.ts";
 import { restore, snapshot, type VmSnapshot } from "../savegame.ts";
 import type { KernelFn, Vm } from "../vm.ts";
 import { toSigned } from "../value.ts";
@@ -12,6 +13,11 @@ export interface SaveInfo {
   description: string;
   version: string;
   date: number;
+  /**
+   * The scripts it was made with (scriptsFingerprint). A save is a snapshot of running
+   * scripts, so it only restores into the same ones; saves from before this was kept have none.
+   */
+  scripts?: string;
 }
 
 /** Where saves live. Synchronous because kernels are; hosts preload and write through. */
@@ -47,7 +53,26 @@ const DESCRIPTION_SIZE = 36;
 class SaveState {
   store: SaveStore = new MemorySaveStore();
   restarting: number = Restarting.None;
+  fingerprint: string | undefined;
 }
+
+/** A hash (FNV-1a) of every script and heap resource: which scripts a save belongs to. */
+export function scriptsFingerprint(vm: Vm): string {
+  const s = saves(vm);
+  if (s.fingerprint === undefined) {
+    let h = 0x811c9dc5;
+    const resources = vm.resources.list().filter((r) => r.type === ResourceType.Script || r.type === ResourceType.Heap);
+    resources.sort((a, b) => a.type - b.type || a.number - b.number);
+    for (const r of resources) {
+      for (const b of [r.type, r.number & 0xff, r.number >> 8, ...vm.resources.loadSync(r).data]) h = Math.imul(h ^ b, 0x01000193) >>> 0;
+    }
+    s.fingerprint = h.toString(16).padStart(8, "0");
+  }
+  return s.fingerprint;
+}
+
+/** Whether a save can be restored into the scripts running now. */
+const fits = (vm: Vm, info: SaveInfo) => info.scripts === undefined || info.scripts === scriptsFingerprint(vm);
 
 const stateOf = new WeakMap<Vm, SaveState>();
 export const saves = (vm: Vm): SaveState => {
@@ -90,6 +115,7 @@ export const saveKernels: Record<string, KernelFn> = {
       description: stringHelpers.str(vm, description),
       version: stringHelpers.str(vm, version),
       date: Date.now(),
+      scripts: scriptsFingerprint(vm),
     };
     saves(vm).store.put(info, snapshot(vm));
     return 1;
@@ -99,7 +125,7 @@ export const saveKernels: Record<string, KernelFn> = {
   // the saved state via `theGame replay`, as in the original interpreter.
   RestoreGame: (vm, [, id = 0]) => {
     const save = saves(vm).store.get(toSigned(id));
-    if (!save) return 0;
+    if (!save || !fits(vm, save.info)) return 0;
     restoreGame(vm, save.snapshot);
     return 1;
   },
@@ -123,7 +149,8 @@ export const saveKernels: Record<string, KernelFn> = {
   // GetSaveFiles(gameName, descriptions, ids): fixed 36-byte description slots and a
   // 0-terminated id list, newest first.
   GetSaveFiles: (vm, [, descriptions = 0, ids = 0]) => {
-    const list = saves(vm).store.list();
+    // Only saves these scripts can restore.
+    const list = saves(vm).store.list().filter((info) => fits(vm, info));
     const desc = stringHelpers.resolve(vm, descriptions);
     const idArray = stringHelpers.resolve(vm, ids);
     if (desc) {
@@ -140,7 +167,7 @@ export const saveKernels: Record<string, KernelFn> = {
   // CheckSaveGame(gameName, id, version): exists and was made by this game version.
   CheckSaveGame: (vm, [, id = 0, version = 0]) => {
     const save = saves(vm).store.get(toSigned(id));
-    return save && save.info.version === stringHelpers.str(vm, version) ? 1 : 0;
+    return save && fits(vm, save.info) && save.info.version === stringHelpers.str(vm, version) ? 1 : 0;
   },
 
   GetSaveDir: (vm) => stringHelpers.newString(vm, "SAVES"),

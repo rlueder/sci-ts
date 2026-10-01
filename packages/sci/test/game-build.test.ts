@@ -6,7 +6,8 @@ import { GameBuildError, buildGame } from "../../../tools/game/build.ts";
 import { newGame } from "../../../tools/game/new.ts";
 import { pixelFont } from "../../../tools/game/font.ts";
 import { stringHelpers } from "../src/vm/kernels/arrays.ts";
-import { paletteEffects } from "../src/vm/kernels/index.ts";
+import { paletteEffects, saves } from "../src/vm/kernels/index.ts";
+import type { MemorySaveStore } from "../src/vm/kernels/saves.ts";
 import {
   EventType, ResourceManager, audio, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
   writeClassTable, writeFont, writeResourceArchive, writeSelectorNames, type FileSource, type Value,
@@ -468,6 +469,93 @@ export default () => [...art(), { type: ResourceType.View, number: 250, data: wr
     const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-inv-")), "bad-items"), "path");
     writeFileSync(join(dir, "items.yaml"), "lens: 4\n");
     await expect(buildGame(dir)).rejects.toThrow(/items\.yaml:1: lens: the verb is a number from 10 to 255/);
+  });
+});
+
+describe("saving and restoring", async () => {
+  const game = await buildGame("games/hello");
+
+  it("saves from the game menu, restores with F7 into the same place, and offers only its own saves", async () => {
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
+    const inp = input(vm);
+    const click = (x: number, y: number) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const key = (message: number) => (inp.push({ type: EventType.KeyDown, message, modifiers: 0 }), frames(1));
+    const line = () => {
+      const who = global("talking");
+      const box = who ? vm.getProp(who, "box") ?? 0 : 0;
+      return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+    const menu = () => {
+      const d = global("dialog");
+      const items = d ? vm.getProp(d, "items") : 0;
+      if (!items) return [];
+      const out: { text: string; x: number; y: number }[] = [];
+      for (let n = vm.memory.list(vm.getProp(items, "elements")!)?.first; n; n = n.next) {
+        out.push({ text: stringHelpers.str(vm, vm.getProp(n.value, "text")!), x: prop(n.value, "x"), y: prop(n.value, "y") });
+      }
+      return out;
+    };
+    const choose = (text: string) => {
+      const item = menu().find((m) => m.text === text);
+      expect(item, `${text} in ${menu().map((m) => m.text).join(" / ")}`).toBeDefined();
+      click(item!.x + 4, item!.y + 4);
+    };
+    const store = saves(vm).store as MemorySaveStore;
+    // A save from other scripts (another build of the game): never offered.
+    store.saves.set(7, { info: { id: 7, description: "From another build", version: "", date: 1, scripts: "deadbeef" }, snapshot: undefined! });
+
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    const ego = () => global("ego");
+    click(200, 180);
+    frames(400);
+    expect([prop(ego(), "x"), prop(ego(), "y")]).toEqual([200, 180]);
+
+    // Escape: the game menu. Save, a new saved game, a description typed over "Room 1".
+    key(27);
+    expect(menu().map((m) => m.text)).toEqual(["Save the game", "Restore a game", "Start again", "Carry on"]);
+    choose("Save the game");
+    expect(menu().map((m) => m.text)).toEqual(["A new saved game", "Cancel"]);
+    choose("A new saved game");
+    for (const c of " on the hill") key(c.charCodeAt(0));
+    key(13);
+    frames(1);
+    expect(line()).toBe("Saved.");
+    const mine = [...store.saves.values()].find((s) => s.info.id !== 7)!;
+    expect(mine.info.description).toBe("Room 1 on the hill");
+    expect(mine.info.scripts).toMatch(/^[0-9a-f]{8}$/);
+    click(10, 10);
+    expect(global("dialog")).toBe(0);
+
+    // Somewhere else, then F7: the save is there (not the other build's), and restoring it
+    // puts the hero back, the room on screen and the night's tune playing again.
+    click(100, 170);
+    frames(400);
+    expect(prop(ego(), "x")).toBe(100);
+    key(0x4100);
+    expect(menu().map((m) => m.text)).toEqual(["Room 1 on the hill", "Cancel"]);
+    choose("Room 1 on the hill");
+    frames(3);
+    expect([prop(ego(), "x"), prop(ego(), "y")]).toEqual([200, 180]);
+    expect(global("curRoomNum")).toBe(1);
+    expect(g.items.has(ego())).toBe(true);
+    expect(g.planes.size).toBe(2);
+    expect(audio(vm).songs.get(global("music"))?.loop).toBe(true);
+    // And it plays on: a click walks.
+    click(150, 175);
+    frames(400);
+    expect(prop(ego(), "x")).toBe(150);
   });
 });
 
