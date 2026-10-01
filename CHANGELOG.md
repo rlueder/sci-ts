@@ -4,6 +4,28 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 versions follow [Semantic Versioning](https://semver.org/), and the entries are generated
 from commit messages ([Conventional Commits](https://www.conventionalcommits.org/)).
 
+## [0.2.0] - 2026-10-01
+
+### Added
+
+- **tools:** An art tool for PNGs exported from a paint program (pnpm art)
+- **tools:** Sci-ts as a package, with the sci-ts command
+- **tools:** Publish sci-ts to npm
+
+### Fixed
+
+- **viewer:** Play games without an AdLib bank or a SoundFont
+- **viewer:** A neutral sample text in the font preview
+
+### Changed
+
+- **game:** Sherlock moves to its own repository, sci-sherlock
+
+### Documentation
+
+- A game in its own repository, and the art tool
+- The README shows the tools, and the package is on npm
+
 ## [0.1.0] - 2026-10-01
 
 ### Added
