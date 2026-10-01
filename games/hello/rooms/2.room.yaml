@@ -3,6 +3,7 @@
 # said here is in 2.yarn.
 room: 2
 picture: 101
+music: 100
 hero:
   at: [10, 175]
 walkable: [[0, 158], [300, 158], [300, 189], [0, 189]]

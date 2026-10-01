@@ -13,6 +13,9 @@
 
   (method (init)
     (super init:)
+    ;; The night's tune, unless it's already playing (coming back from the road).
+    (if (!= (music number?) 100)
+      (music number: 100 setLoop: -1 play:))
     ;; Where you can walk: the grass below the crest of the hill.
     (self addObstacle: ((Polygon new:) type: PT_CONTAINED init: 0 158 319 158 319 189 0 189))
     (moon init:)
@@ -30,4 +33,9 @@
     noun N_LANTERN
     view 100
     x 160 y 172
-    cycleSpeed 12))
+    cycleSpeed 12)
+
+  ;; It chimes when touched (sounds/50.wav), then says its line.
+  (method (doVerb verb)
+    (if (== verb V_DO) (sfx number: 50 play:))
+    (super doVerb: verb)))
