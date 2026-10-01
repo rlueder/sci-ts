@@ -48,6 +48,11 @@ export interface AsmContext extends DisasmContext {
   classPropSelectors(species: number): readonly number[] | undefined;
   /** A class's default property values, all slots (instances start from these). */
   classDefaults(species: number): readonly number[] | undefined;
+  /**
+   * A selector the context doesn't know yet: a game built from nothing numbers its selectors
+   * as its scripts use them. Without it, unknown selectors are errors.
+   */
+  newSelector?(name: string): number;
 }
 
 export class AsmError extends Error {
@@ -349,7 +354,8 @@ export function assemble(text: string, ctx: AsmContext): { number: number; code:
   const lines = tokenize(text);
   const selectorIds = new Map(ctx.selectorNames.map((n, i) => [n, i] as const));
   const selector = (name: string, line: number) => {
-    const id = selectorIds.get(name) ?? (name.startsWith("sel_") ? Number(name.slice(4)) : undefined);
+    let id = selectorIds.get(name) ?? (name.startsWith("sel_") ? Number(name.slice(4)) : undefined);
+    if (id === undefined && ctx.newSelector && /^[A-Za-z_-][\w-]*$/.test(name)) selectorIds.set(name, (id = ctx.newSelector(name)));
     if (id === undefined || Number.isNaN(id)) throw new AsmError(`unknown selector ${name}`, line);
     return id;
   };

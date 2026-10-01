@@ -23,3 +23,26 @@ export function parseClassTable(data: Uint8Array): number[] {
   const v = view(data);
   return Array.from({ length: data.length / 4 }, (_, i) => v.getUint16(i * 4 + 2, true));
 }
+
+/** Vocab 997 from selector names, in id order (the inverse of parseSelectorNames). */
+export function writeSelectorNames(names: readonly string[]): Uint8Array {
+  const bytes = names.map((n) => Uint8Array.from(n, (ch) => ch.charCodeAt(0) & 0xff));
+  const out = new Uint8Array(2 + names.length * 2 + bytes.reduce((n, b) => n + 2 + b.length, 0));
+  const v = view(out);
+  v.setUint16(0, names.length, true);
+  let at = 2 + names.length * 2;
+  bytes.forEach((b, i) => {
+    v.setUint16(2 + i * 2, at, true);
+    v.setUint16(at, b.length, true);
+    out.set(b, at + 2);
+    at += 2 + b.length;
+  });
+  return out;
+}
+
+/** Vocab 996 from the script defining each class, by species (the inverse of parseClassTable). */
+export function writeClassTable(scripts: readonly number[]): Uint8Array {
+  const out = new Uint8Array(scripts.length * 4);
+  scripts.forEach((s, i) => view(out).setUint16(i * 4 + 2, s, true));
+  return out;
+}

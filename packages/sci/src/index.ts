@@ -2,6 +2,7 @@ export * from "./resource/types.ts";
 export * from "./resource/map.ts";
 export * from "./resource/lzs.ts";
 export * from "./resource/manager.ts";
+export * from "./resource/archive.ts";
 export * from "./gfx/palette.ts";
 export * from "./gfx/cel.ts";
 export * from "./gfx/view.ts";

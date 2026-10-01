@@ -46,6 +46,35 @@ export function parseFont(data: Uint8Array): Font {
   return { height, glyphs };
 }
 
+/** A font resource (the inverse of parseFont). Missing glyphs are written as 0×0. */
+export function writeFont(font: Font): Uint8Array {
+  const count = font.glyphs.length;
+  const bodies = Array.from({ length: count }, (_, c) => {
+    const g = font.glyphs[c] ?? { width: 0, height: 0, pixels: new Uint8Array(0) };
+    if (g.width > 255 || g.height > 255) throw new Error(`glyph ${c} is ${g.width}x${g.height}`);
+    const stride = Math.ceil(g.width / 8);
+    const out = new Uint8Array(2 + stride * g.height);
+    out[0] = g.width;
+    out[1] = g.height;
+    for (let y = 0; y < g.height; y++) {
+      for (let x = 0; x < g.width; x++) if (g.pixels[y * g.width + x]) out[2 + y * stride + (x >> 3)]! |= 0x80 >> (x & 7);
+    }
+    return out;
+  });
+  const out = new Uint8Array(6 + count * 2 + bodies.reduce((n, b) => n + b.length, 0));
+  const v = new DataView(out.buffer);
+  v.setUint16(2, count, true);
+  v.setUint16(4, font.height, true);
+  let at = 6 + count * 2;
+  bodies.forEach((b, c) => {
+    if (at > 0xffff) throw new Error("font too large: offsets are 16-bit");
+    v.setUint16(6 + c * 2, at, true);
+    out.set(b, at);
+    at += b.length;
+  });
+  return out;
+}
+
 export const textWidth = (font: Font, text: string): number =>
   [...text].reduce((w, ch) => w + (font.glyphs[ch.charCodeAt(0)]?.width ?? 0), 0);
 
