@@ -8,17 +8,32 @@
   V_WALK
   V_DO)
 (define VERB_COUNT 4)
+(define V_ITEM 5)                   ; using the item picked in the inventory (theItem)
 
 ;; Cursors: the library's are views CURSOR_BASE + verb, and CURSOR_WAIT while the player
 ;; can't act (a game can bring its own: User).
 (define CURSOR_BASE 990)
 (define CURSOR_WAIT 995)
 
+;; The inventory window: icons are INV_ICON pixels square, INV_GAP apart.
+(define INV_ICON 24)
+(define INV_GAP 4)
+
+;; Close-ups: the room is dimmed by this view, drawn in a remap colour.
+(define CLOSE_UP_SHADE 996)
+(define REMAP_OFF 0)
+(define REMAP_BY_PERCENT 2)
+
 ;; Event types, as GetEvent reports them.
 (define EV_NULL 0)
 (define EV_MOUSE_DOWN 1)
 (define EV_MOUSE_UP 2)
 (define EV_KEY_DOWN 4)
+
+;; Keys (an event's message).
+(define KEY_TAB 9)
+(define KEY_I 73)
+(define KEY_i 105)
 (define EV_ALL $7fff)
 ;; The right button arrives as a click with shift held.
 (define MOD_RIGHT 3)

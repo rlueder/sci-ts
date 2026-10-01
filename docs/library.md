@@ -12,10 +12,12 @@ nothing about any particular game. `games/hello` uses all of it.
 | 996 | `lib/996.sc` | talk: `TextStyle`, `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
+| 993 | `lib/993.sc` | things: `InvItem`, `Inventory`, `CloseUp` |
 
 `lib/system.sh` has the constants games share with the library (verbs, event types,
 polygon types); include it with `(include "system.sh")`. The library also brings a cursor
-for each verb (views 991 to 994) and one for waiting (995), in `lib/resources.ts`. A game that wants none of this says so
+for each verb (views 991 to 994), one for waiting (995) and the shade behind close-ups (996),
+in `lib/resources.ts`. A game that wants none of this says so
 in `game.json`: `{ "library": false }`.
 
 ## A game
@@ -163,6 +165,42 @@ corners (top-left, top-right, bottom-left, bottom-right), then the four edges (t
 left, right). Each edge is repeated along its side between the corners; transparent pixels
 show the paper. A box can still set its own `font`, `fore`, `back` or `frame`.
 
+## Things the hero carries
+
+An `InvItem` is something the hero can carry: a view and a verb of its own, 10 and up.
+
+```lisp
+(instance lens of InvItem
+  (properties view 250 verb 10 description "A brass magnifying lens."))
+```
+
+Loop 0 of its view is its icon in the inventory window (24 by 24) and loop 1 the cursor
+while it's in use (its anchor is the hotspot), both anchored at the top-left corner.
+`inventory` holds what the hero has: `(inventory add: lens)`, `(inventory delete: lens)`,
+`(inventory contains: lens)`.
+
+The player opens the inventory with I or Tab, or a script does with `(inventory showSelf:)`:
+the icons in a box at the top of the screen, in the text style. A right-click on one says its
+`description`; a click picks it, and it becomes the cursor. Clicking something with it sends
+that thing `doVerb:` with the item's verb, so the room's messages for that noun and verb
+answer. In Yarn that's a node named for the item, `filings.lens`; the game lists its items'
+verbs in `items.yaml`:
+
+```yaml
+lens: 10
+```
+
+The item stays picked until right-click, which goes on to walking (from talk, right-click
+goes to the item first). `theItem` is the item picked, or 0.
+
+## Close-ups
+
+`((CloseUp new:) show: view [loop [cel [caller]]])` shows a cel in the middle of the screen
+with the room dimmed behind it, until the player clicks; then the caller is cued, so a
+Script can wait for it. The cel is anchored at its top-left corner. The dimming draws the
+library's view 996 in colour 253, which the art palette keeps free, made a remap colour at
+`dim` percent brightness (50 unless set).
+
 ## Flags
 
 `(SetFlag n)`, `(ClearFlag n)` and `(IsFlag n)` (script 999's exports) keep 1024 story
@@ -199,4 +237,4 @@ ends. Their numbers are the game's `music/` and `sounds/` files ([games.md](game
 
 ## Not there yet
 
-An icon bar, inventory, and saving and restoring. See [plan.md](plan.md).
+An icon bar, and saving and restoring. See [plan.md](plan.md).

@@ -100,6 +100,20 @@ function cursor(art: string[], hotspot: "tip" | "centre") {
   return writeView({ flags: 1, loops: [{ link: -1, mirror: false, cels: [cel] }], palette: undefined });
 }
 
+/**
+ * What a close-up dims the room with (CLOSE_UP_SHADE): the whole screen in colour 253, which
+ * CloseUp makes a remap colour that darkens what's under it.
+ */
+const CLOSE_UP_SHADE = 996;
+function shade() {
+  const [width, height] = [320, 200];
+  const cel = { width, height, displaceX: width >> 1, displaceY: height - 1, skipColor: Colour.Transparent, pixels: new Uint8Array(width * height).fill(253) };
+  return writeView({ flags: 1, loops: [{ link: -1, mirror: false, cels: [cel] }], palette: undefined });
+}
+
 export default function resources(): ResourceData[] {
-  return Object.entries(CURSORS).map(([verb, c]) => ({ type: ResourceType.View, number: CURSOR_BASE + Number(verb), data: cursor(c.art, c.hotspot) }));
+  return [
+    ...Object.entries(CURSORS).map(([verb, c]) => ({ type: ResourceType.View, number: CURSOR_BASE + Number(verb), data: cursor(c.art, c.hotspot) })),
+    { type: ResourceType.View, number: CLOSE_UP_SHADE, data: shade() },
+  ];
 }

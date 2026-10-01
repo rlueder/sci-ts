@@ -46,7 +46,9 @@ game: the hero walks between them the same way.
 
 [Yarn](https://docs.yarnspinner.dev) nodes named `<thing>.<verb>` are what happens when the
 player uses a verb on a thing: `sign.look`, `traveller.talk`, `room.look`. The verbs are
-look, talk, walk and do; `room.enter` runs when the hero arrives.
+look, talk, walk and do; `room.enter` runs when the hero arrives. Using something the hero
+carries is a verb too, named in the game's `items.yaml`: `filings.lens` is the lens used on
+the filings ([library.md](library.md)).
 
 ```
 title: sign.look

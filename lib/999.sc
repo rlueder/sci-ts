@@ -28,7 +28,9 @@
   gameTime      ; cycles since the game started
   quit          ; set to end the game
   [gameFlags 64]  ; story flags, a bit each
-  textStyle)      ; how text boxes and menus look (a TextStyle)
+  textStyle       ; how text boxes and menus look (a TextStyle)
+  inventory       ; what the hero carries (an Inventory)
+  theItem)        ; the item picked to use, or 0
 
 (procedure (SetFlag n)
   (|= [gameFlags (/ n 16)] (<< 1 (mod n 16))))

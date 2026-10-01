@@ -18,6 +18,8 @@
 ;;
 ;; The cursor is a view for each verb, and another while the player can't act (handsOff).
 ;; A game with its own sets them in its init: (user walkCursor: 261 waitCursor: 265 ...).
+;; I or Tab opens the inventory; an item picked there is used like a verb (V_ITEM), with
+;; its own cursor, until right-click goes back to walking.
 (class User of Obj
   (properties
     verb V_WALK
@@ -27,7 +29,8 @@
     walkCursor 993
     doCursor 994
     waitCursor 995  ; CURSOR_WAIT
-    cursor -1)      ; the view showing now
+    cursor -1       ; the view and loop showing now
+    cursorLoop 0)
 
   (method (init)
     (self setVerb: verb))
@@ -35,6 +38,13 @@
   (method (setVerb v)
     (= verb v)
     (self showCursor:))
+
+  ;; Picks an item to use (0: none).
+  (method (useItem item)
+    (= theItem item)
+    (cond
+      (item (self setVerb: V_ITEM))
+      ((== verb V_ITEM) (self setVerb: V_WALK))))
 
   ;; The cursor for a verb (0: waiting).
   (method (cursorFor v)
@@ -45,16 +55,28 @@
       (V_DO (return doCursor))
       (else (return waitCursor))))
 
-  (method (showCursor &tmp c)
-    (= c (self cursorFor: (if canInput verb else 0)))
-    (if (!= c cursor)
-      (= cursor c)
-      (SetCursor c 0 0)))
+  (method (showCursor &tmp v l)
+    (= l 0)
+    (cond
+      ((not canInput) (= v waitCursor))
+      ((and (== verb V_ITEM) theItem) (= v (theItem view?)) (= l 1))
+      (else (= v (self cursorFor: verb))))
+    (if (or (!= v cursor) (!= l cursorLoop))
+      (= cursor v)
+      (= cursorLoop l)
+      (SetCursor v l 0)))
 
   (method (doit)
     (self showCursor:)
     (while (GetEvent EV_ALL theEvent)
       (self handleEvent: theEvent)))
+
+  ;; The verb right-click goes to: walk, do, look, talk, the item picked (if any), walk.
+  (method (nextVerb)
+    (cond
+      ((== verb V_ITEM) (return V_WALK))
+      ((and (== verb V_TALK) theItem) (return V_ITEM))
+      (else (return (+ (mod verb VERB_COUNT) 1)))))
 
   (method (handleEvent event &tmp obj ex ey)
     (event claimed: FALSE)
@@ -63,9 +85,15 @@
     (if dialog
       (dialog handleEvent: event)
       (return))
-    (if (or (not canInput) (!= (event type?) EV_MOUSE_DOWN)) (return))
+    (if (not canInput) (return))
+    (if (and (== (event type?) EV_KEY_DOWN)
+          (or (== (event message?) KEY_TAB) (== (event message?) KEY_i) (== (event message?) KEY_I)))
+      (event claimed: TRUE)
+      (inventory showSelf:)
+      (return))
+    (if (!= (event type?) EV_MOUSE_DOWN) (return))
     (if (& (event modifiers?) MOD_RIGHT)
-      (self setVerb: (+ (mod verb VERB_COUNT) 1))
+      (self setVerb: (self nextVerb:))
       (return))
     (= ex (event x?))
     (= ey (event y?))
@@ -75,4 +103,4 @@
     (= obj (cast firstTrue: #onMe ex ey))
     (if (not obj) (= obj (features firstTrue: #onMe ex ey)))
     (if (not obj) (= obj curRoom))
-    (if obj (obj doVerb: verb))))
+    (if obj (obj doVerb: (if (== verb V_ITEM) (theItem verb?) else verb)))))

@@ -22,6 +22,8 @@ import { libraryTarget } from "./target.ts";
  *   games/<name>/rooms/<n>.room.yaml (+ <n>.yarn)  rooms as data (packages/content), compiled
  *                                  for the class library; their Yarn variables are flags
  *                                  numbered in flags.yaml
+ *   games/<name>/items.yaml        optional: the verbs of the things the hero can carry
+ *                                  (`lens: 10`), so rooms' Yarn can answer them (filings.lens)
  *   games/<name>/music/<n>.mid     music: sound n, from a Standard MIDI File (General MIDI)
  *   games/<name>/sounds/<n>.wav    digital effects: sound n plays this instead of music
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
@@ -140,7 +142,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   const compileRooms = (): { file: string; text: string }[] => {
     const roomsDir = join(dir, "rooms");
     if (!existsSync(roomsDir)) return [];
-    const target = libraryTarget(globals);
+    const target = libraryTarget(globals, itemVerbs(dir));
     const flags = modFlags(dir, { content: target });
     const out: { file: string; text: string }[] = [];
     for (const { file, text } of load(roomsDir, /^\d+\.room\.yaml$/)) {
@@ -280,4 +282,25 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     files,
     warnings: [...new Set(warnings)],
   };
+}
+
+/** items.yaml: `name: verb` lines, each item's verb from 10 to 255 (1 to 4 are the player's). */
+export function itemVerbs(dir: string): Record<string, number> {
+  const file = join(dir, "items.yaml");
+  if (!existsSync(file)) return {};
+  const where = relative(process.cwd(), file);
+  const verbs: Record<string, number> = {};
+  readFileSync(file, "utf8").split("\n").forEach((raw, i) => {
+    const line = raw.replace(/#.*/, "").trim();
+    if (!line) return;
+    const at = `${where}:${i + 1}`;
+    const m = /^([A-Za-z]\w*)\s*:\s*(\d+)$/.exec(line);
+    if (!m) throw new GameBuildError(`${at}: expected item: verb`);
+    const [, name, n] = m, verb = Number(n);
+    if (!/^[a-z][A-Za-z0-9]*$/.test(name!) || ["look", "talk", "walk", "do", "enter"].includes(name!)) throw new GameBuildError(`${at}: "${name}" can't name an item (lower camelCase, and not a verb)`);
+    if (verb < 10 || verb > 255) throw new GameBuildError(`${at}: ${name}: the verb is a number from 10 to 255`);
+    if (Object.values(verbs).includes(verb)) throw new GameBuildError(`${at}: ${name}: verb ${verb} is used twice`);
+    verbs[name!] = verb;
+  });
+  return verbs;
 }

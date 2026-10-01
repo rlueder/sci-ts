@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { GameBuildError, buildGame } from "../../../tools/game/build.ts";
 import { newGame } from "../../../tools/game/new.ts";
 import { pixelFont } from "../../../tools/game/font.ts";
 import { stringHelpers } from "../src/vm/kernels/arrays.ts";
+import { paletteEffects } from "../src/vm/kernels/index.ts";
 import {
   EventType, ResourceManager, audio, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
   writeClassTable, writeFont, writeResourceArchive, writeSelectorNames, type FileSource, type Value,
@@ -346,6 +347,117 @@ describe("cursors", () => {
     vm.setProp(global("user"), "canInput", 1);
     vm.run();
     expect(g.cursor.view).toBe(263);
+  });
+});
+
+describe("things: the inventory and close-ups", () => {
+  it("picks an item in the window, uses it on a feature, and shows a close-up over a dimmed room", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-inv-")), "lens-test"), "path");
+    // The game gives the hero a lens, and shows a close-up once it starts.
+    const script = readFileSync(join(dir, "scripts/0.sc"), "utf8")
+      .replace("(super init:)", "(super init:)\n    (inventory add: lens)\n    (self setScript: peek)")
+      .concat(`
+(instance lens of InvItem (properties view 250 verb 10 description "A brass lens."))
+(instance peek of Script
+  (method (changeState newState)
+    (= state newState)
+    (switch state
+      (0 (= cycles 3))
+      (1 ((CloseUp new:) show: 250 0 0 self))
+      (2 (self dispose:)))))
+`);
+    writeFileSync(join(dir, "scripts/0.sc"), script);
+    writeFileSync(join(dir, "items.yaml"), "# Things the hero can carry: their verbs.\nlens: 10\n");
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+title: window.lens
+---
+The glass shows a fingerprint.
+===
+`);
+    // View 250: a 24x24 icon (loop 0) and an 8x8 cursor (loop 1), both anchored top-left.
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (size, c) => ({ width: size, height: size, displaceX: size >> 1, displaceY: size - 1, skipColor: 254, pixels: new Uint8Array(size * size).fill(c) });
+export default () => [...art(), { type: ResourceType.View, number: 250, data: writeView({ flags: 1, loops: [
+  { link: -1, mirror: false, cels: [cel(24, 40)] }, { link: -1, mirror: false, cels: [cel(8, 41)] }], palette: undefined }) }];`);
+    const game = await buildGame(dir);
+    expect(game.warnings).toEqual([]);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const line = () => {
+      const who = global("talking");
+      const box = who ? vm.getProp(who, "box") ?? 0 : 0;
+      return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+    const shown = (view: number) => [...g.items].filter((it) => prop(it, "view") === view);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(6);
+
+    // The close-up: view 250 in the middle, the room dimmed behind it by the shade (view
+    // 996, colour 253 remapped), until a click.
+    expect(vm.object(global("dialog")).name).toBe("CloseUp");
+    expect(shown(996)).toHaveLength(1);
+    const [closeUp] = shown(250);
+    expect([prop(closeUp!, "x"), prop(closeUp!, "y")]).toEqual([(320 - 24) / 2, (200 - 24) / 2]);
+    expect(paletteEffects(vm).remaps.has(253)).toBe(true);
+    const brightness = () => {
+      const f = g.compose(), c = f.pixels[(f.height - 5) * f.width + 5]!;
+      return f.palette.rgb[c * 3]! + f.palette.rgb[c * 3 + 1]! + f.palette.rgb[c * 3 + 2]!;
+    };
+    const dimmed = brightness();
+    click(10, 10); // the room's first line
+    click(10, 10);
+    frames(1);
+    expect(brightness()).toBeGreaterThan(dimmed);
+    expect(global("dialog")).toBe(0);
+    expect([shown(996), shown(250)]).toEqual([[], []]);
+    expect(paletteEffects(vm).remaps.has(253)).toBe(false);
+
+    // I opens the inventory: the lens's icon in a box at the top.
+    inp.push({ type: EventType.KeyDown, message: 105, modifiers: 0 });
+    frames(1);
+    const inv = global("inventory");
+    expect(global("dialog")).toBe(inv);
+    const [icon] = shown(250);
+    const [ix, iy] = [prop(icon!, "x"), prop(icon!, "y")];
+    // Right-click on it looks at it; a click dismisses the line and leaves the window open.
+    click(ix + 4, iy + 4, true);
+    expect(line()).toBe("A brass lens.");
+    click(ix + 4, iy + 4);
+    expect(global("dialog")).toBe(inv);
+    // A click picks it: the window goes, and the lens is the cursor.
+    click(ix + 4, iy + 4);
+    expect(global("dialog")).toBe(0);
+    expect(shown(250)).toEqual([]);
+    expect(prop(global("user"), "verb")).toBe(5);
+    expect([g.cursor.view, g.cursor.loop]).toEqual([250, 1]);
+    // Used on the window: the room's Yarn answers window.lens.
+    click(160, 70);
+    expect(line()).toBe("The glass shows a fingerprint.");
+    click(10, 10);
+    // Right-click goes back to walking.
+    click(10, 10, true);
+    expect([prop(global("user"), "verb"), g.cursor.view]).toEqual([3, 993]);
+  });
+
+  it("refuses an item verb the player's verbs already use", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-inv-")), "bad-items"), "path");
+    writeFileSync(join(dir, "items.yaml"), "lens: 4\n");
+    await expect(buildGame(dir)).rejects.toThrow(/items\.yaml:1: lens: the verb is a number from 10 to 255/);
   });
 });
 

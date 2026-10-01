@@ -74,8 +74,9 @@ The smallest set a point-and-click game needs, written in that language
 `games/hello` is built on it: two rooms, a hero who walks around obstacles and from one
 room to the other, and things that answer when looked at or used. Its test plays it.
 
-Not yet: talkers with portraits, dialog windows, an icon bar (milestone 4, which needs
-them for characters and topic menus), and inventory, menus and Save/Restore (later).
+Since then: talkers with portraits and topic menus (milestone 4), a text style with
+frames, cursors a game can replace, an inventory and close-ups. Not yet: an icon bar, and
+Save/Restore.
 
 ### 4. The content compiler targets it (done)
 A target for the library (`tools/game/target.ts`), so rooms written as YAML and Yarn

@@ -20,8 +20,8 @@
     margin 4))      ; between the text and the border or frame
 
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
-;; item in the UI plane. Set text (and width, x, y), then init. Font, colours and frame come
-;; from the textStyle unless set here.
+;; item in the UI plane. Set text (and width, x, y), then init; it's as tall as the text
+;; unless height is set. Font, colours and frame come from the textStyle unless set here.
 (class TextItem of Obj
   (properties
     x 0 y 0 z 0
@@ -56,10 +56,11 @@
       (+= padR (CelWide frame 0 7))
       (+= padT (CelHigh frame 0 4))
       (+= padB (CelHigh frame 0 5)))
-    (= r (Array ARRAY_NEW 4 0))
-    (TextSize r text font (- width (+ padL padR)))
-    (= height (+ (Array ARRAY_AT r 3) 1 padT padB))
-    (Array ARRAY_FREE r)
+    (if (not height)
+      (= r (Array ARRAY_NEW 4 0))
+      (TextSize r text font (- width (+ padL padR)))
+      (= height (+ (Array ARRAY_AT r 3) 1 padT padB))
+      (Array ARRAY_FREE r))
     (= textLeft padL)
     (= textTop padT)
     (= textRight (- width (+ padR 1)))
