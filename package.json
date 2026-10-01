@@ -20,8 +20,12 @@
     "mod": "tsx tools/mod.ts",
     "pic": "tsx tools/pic.ts",
     "view": "tsx tools/view.ts",
+    "art": "node --import tsx tools/art.ts",
     "play": "tsx tools/play.ts",
-    "game": "tsx tools/game.ts"
+    "game": "tsx tools/game.ts",
+    "sherlock": "node --import tsx games/sherlock/dev.ts",
+    "sherlock:check": "node --import tsx games/sherlock/preview.ts",
+    "sherlock:export": "node --import tsx games/sherlock/export-art.ts"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

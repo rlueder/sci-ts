@@ -88,9 +88,12 @@ globals in a vocab, and the editor edits the served game's rooms, swapping in wh
 build changes.
 
 ### 5. The Sherlock Holmes teaser
-Art drawn by scripts (backgrounds, Holmes and the cast, portraits), rooms in YAML and Yarn,
-music and effects. A headless playthrough test plays it start to end: the test fixture CI can
-run, since it needs no one's game files.
+Layered pixel art authored in open-source tools, with exact PNG-to-SCI builds, rooms in
+YAML and Yarn, music and effects. The [teaser plan](sherlock-teaser.md) defines the art
+direction, asset budget and production gates; [art research](art-research.md) records the
+references and [the graphics workflow](art-workflow.md) describes exports and validation.
+Scripts remain useful for repeatable art components. A headless playthrough test will play
+the finished teaser start to end, since it needs no one's game files.
 
 ### 6. Publishing (started)
 CI runs the typecheck and the tests (hello's playthrough among them) and builds every game.

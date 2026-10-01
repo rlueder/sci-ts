@@ -42,6 +42,12 @@ It imports what it needs from `tools/game/kit.ts`: the writers for pictures, vie
 palettes, and the base palette's colours. `games/hello/resources.ts` draws a picture and a
 view pixel by pixel.
 
+**Editor-authored art** can instead live in `art/art.json` with its PNG exports and palette.
+Return `buildArt(manifestPath).resources` from the game’s `resources.ts` to preserve
+exact colours, anchors and foreground priorities. `games/sherlock/resources.ts` is an example. See [the graphics workflow](art-workflow.md) for Pixelorama setup and
+`pnpm art check` / `pnpm art build`. Keep imported art IDs distinct from other resources returned by
+that hook; the build reports duplicates.
+
 **Rooms** can be YAML and Yarn instead of scripts ([rooms.md](rooms.md)).
 
 **Messages** are `messages/<n>.msg`, one file per room (or other module), in the text form
