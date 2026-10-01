@@ -147,8 +147,8 @@ describe("games/hello, on the class library", async () => {
     expect(prop(ego, "y")).toBe(158);
 
     // Right-click: walk -> do -> look. Look at the moon: two lines, a click for each.
-    click(0, 0, true);
-    click(0, 0, true);
+    click(0, 100, true);
+    click(0, 100, true);
     expect(g.cursor.view).toBe(991);
     click(260, 30);
     expect(line()).toBe("The moon is full tonight.");
@@ -164,9 +164,9 @@ describe("games/hello, on the class library", async () => {
     expect(line()).toBe("");
 
     // Do on the lantern: it chimes (sounds/50.wav, a digital effect), then speaks.
-    click(0, 0, true);
-    click(0, 0, true);
-    click(0, 0, true);
+    click(0, 100, true);
+    click(0, 100, true);
+    click(0, 100, true);
     expect(g.cursor.view).toBe(994);
     click(160, 168);
     expect(prop(global("sfx"), "number")).toBe(50);
@@ -174,11 +174,11 @@ describe("games/hello, on the class library", async () => {
     expect(audio(vm).index.effects.has(50)).toBe(true);
     expect(line()).toBe("It's warm. Whoever left it will be back for it.");
     click(10, 10);
-    click(0, 0, true); // do -> look
+    click(0, 100, true); // do -> look
 
     // Back to walking (look -> talk -> walk), and east, off the edge of the hill.
-    click(0, 0, true);
-    click(0, 0, true);
+    click(0, 100, true);
+    click(0, 100, true);
     expect(g.cursor.view).toBe(993);
     click(319, 175);
     for (let i = 0; i < 600 && global("curRoomNum") !== 2; i++) frames(1);
@@ -195,14 +195,14 @@ describe("games/hello, on the class library", async () => {
     expect(line()).toBe("");
 
     // The sign (walk -> do -> look).
-    click(0, 0, true);
-    click(0, 0, true);
+    click(0, 100, true);
+    click(0, 100, true);
     click(250, 135);
     expect(line()).toBe("The sign reads TOWN, 2 MILES.");
     click(10, 10);
 
     // Talk to the traveller: a menu of topics, one of them hidden for now.
-    click(0, 0, true);
+    click(0, 100, true);
     expect(g.cursor.view).toBe(992);
     click(180, 166);
     expect(menu().map((m) => m.text)).toEqual(["Where are you going?", "Was that your lantern on the hill?", "Goodbye."]);
@@ -556,6 +556,61 @@ describe("saving and restoring", async () => {
     click(150, 175);
     frames(400);
     expect(prop(ego(), "x")).toBe(150);
+  });
+});
+
+describe("the icon bar", async () => {
+  const game = await buildGame("games/hello");
+
+  it("comes down at the top edge, picks verbs, opens the inventory and the menu, and goes away", async () => {
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
+    const inp = input(vm);
+    const point = (x: number, y: number) => (([inp.x, inp.y] = [x, y]), frames(1));
+    const click = (x: number, y: number) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const icons = () => [...g.items].filter((it) => prop(it, "view") === 990).sort((a, b) => prop(a, "x") - prop(b, "x"));
+    const tap = (n: number) => click(prop(icons()[n]!, "x") + 12, prop(icons()[n]!, "y") + 12);
+    const user = () => global("user");
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+
+    // The pointer at the top edge: the bar, walk picked; no item in use, so six icons.
+    point(160, 1);
+    expect(global("dialog")).toBe(global("iconBar"));
+    expect(icons().map((i) => [prop(i, "cel"), prop(i, "loop")])).toEqual([[0, 1], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]]);
+    // Look: picked, the bar goes, the cursor is look's.
+    tap(1);
+    expect([prop(user(), "verb"), global("dialog"), icons().length, g.cursor.view]).toEqual([1, 0, 0, 991]);
+
+    // A tap at the top (as on a touch screen), then the pointer well below closes it.
+    point(160, 120);
+    click(160, 2);
+    point(160, 20);
+    expect(global("dialog")).toBe(global("iconBar"));
+    expect(prop(icons()[1]!, "loop")).toBe(1); // look is picked now
+    point(160, 120);
+    expect([global("dialog"), icons().length]).toEqual([0, 0]);
+
+    // The inventory icon: nothing carried yet.
+    click(160, 2);
+    tap(4);
+    const box = vm.getProp(global("talking"), "box")!;
+    expect(stringHelpers.str(vm, vm.getProp(box, "text")!)).toBe("You aren't carrying anything.");
+    click(160, 120);
+    // The menu icon: the game menu.
+    click(160, 2);
+    tap(5);
+    expect(vm.object(global("dialog")).name).toBe("Menu");
   });
 });
 

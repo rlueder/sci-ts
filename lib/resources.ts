@@ -111,9 +111,47 @@ function shade() {
   return writeView({ flags: 1, loops: [{ link: -1, mirror: false, cels: [cel] }], palette: undefined });
 }
 
+/**
+ * The icon bar's icons (ICON_BAR_VIEW): walk, look, do, talk, the inventory and the game
+ * menu, each 24 pixels square and anchored at the top-left corner; loop 0 as they are,
+ * loop 1 picked (inverted). The verbs reuse their cursors' drawings.
+ */
+const ICON_BAR_VIEW = 990;
+const ICON = 24;
+const BAG = [
+  "...XXXXX...",
+  "..X.....X..",
+  "..X.....X..",
+  "XXXXXXXXXXX",
+  "XWWWWWWWWWX",
+  "XWWWWWWWWWX",
+  "XWWWXXXWWWX",
+  "XWWWWWWWWWX",
+  "XWWWWWWWWWX",
+  "XXXXXXXXXXX",
+];
+const MENU = ["XXXXXXXXXXX", "", "", "XXXXXXXXXXX", "", "", "XXXXXXXXXXX"].map((r) => r || "...........");
+function iconBar() {
+  const drawings = [CURSORS[3]!.art, CURSORS[1]!.art, CURSORS[4]!.art, CURSORS[2]!.art, BAG, MENU];
+  const icon = (art: string[], picked: boolean) => {
+    const [ink, paper] = picked ? [Colour.White, Colour.Black] : [Colour.Black, Colour.White];
+    const pixels = new Uint8Array(ICON * ICON);
+    for (let y = 0; y < ICON; y++) for (let x = 0; x < ICON; x++) pixels[y * ICON + x] = x === 0 || y === 0 || x === ICON - 1 || y === ICON - 1 ? Colour.Black : paper;
+    const top = (ICON - art.length) >> 1, left = (ICON - art[0]!.length) >> 1;
+    art.forEach((row, y) => [...row].forEach((c, x) => {
+      if (c === "X") pixels[(top + y) * ICON + left + x] = ink;
+      else if (c === "W") pixels[(top + y) * ICON + left + x] = paper;
+    }));
+    return { width: ICON, height: ICON, displaceX: ICON >> 1, displaceY: ICON - 1, skipColor: Colour.Transparent, pixels };
+  };
+  const loop = (picked: boolean) => ({ link: -1, mirror: false, cels: drawings.map((art) => icon(art, picked)) });
+  return writeView({ flags: 1, loops: [loop(false), loop(true)], palette: undefined });
+}
+
 export default function resources(): ResourceData[] {
   return [
     ...Object.entries(CURSORS).map(([verb, c]) => ({ type: ResourceType.View, number: CURSOR_BASE + Number(verb), data: cursor(c.art, c.hotspot) })),
     { type: ResourceType.View, number: CLOSE_UP_SHADE, data: shade() },
+    { type: ResourceType.View, number: ICON_BAR_VIEW, data: iconBar() },
   ];
 }

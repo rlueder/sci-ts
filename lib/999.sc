@@ -30,7 +30,8 @@
   [gameFlags 64]  ; story flags, a bit each
   textStyle       ; how text boxes and menus look (a TextStyle)
   inventory       ; what the hero carries (an Inventory)
-  theItem)        ; the item picked to use, or 0
+  theItem         ; the item picked to use, or 0
+  iconBar)        ; the icon bar (an IconBar)
 
 (procedure (SetFlag n)
   (|= [gameFlags (/ n 16)] (<< 1 (mod n 16))))

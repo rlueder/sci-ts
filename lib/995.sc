@@ -70,7 +70,11 @@
   (method (doit)
     (self showCursor:)
     (while (GetEvent EV_ALL theEvent)
-      (self handleEvent: theEvent)))
+      (self handleEvent: theEvent))
+    ;; theEvent now says where the pointer is: at the top edge, the icon bar comes down.
+    (cond
+      ((== dialog iconBar) (iconBar pointerAt: (theEvent x?) (theEvent y?)))
+      ((and canInput (not dialog) (not talking) (<= (theEvent y?) ICON_BAR_EDGE)) (iconBar show:))))
 
   ;; The verb right-click goes to: walk, do, look, talk, the item picked (if any), walk.
   (method (nextVerb)
@@ -100,6 +104,11 @@
     (if (!= (event type?) EV_MOUSE_DOWN) (return))
     (if (& (event modifiers?) MOD_RIGHT)
       (self setVerb: (self nextVerb:))
+      (return))
+    ;; A tap at the top edge (touch has no pointer to hover there) opens the icon bar.
+    (if (<= (event y?) (* 3 ICON_BAR_EDGE))
+      (event claimed: TRUE)
+      (iconBar show:)
       (return))
     (= ex (event x?))
     (= ey (event y?))

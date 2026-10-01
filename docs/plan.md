@@ -75,8 +75,8 @@ The smallest set a point-and-click game needs, written in that language
 room to the other, and things that answer when looked at or used. Its test plays it.
 
 Since then: talkers with portraits and topic menus (milestone 4), a text style with
-frames, cursors a game can replace, an inventory and close-ups, saving and restoring. Not
-yet: an icon bar.
+frames, cursors a game can replace, an inventory and close-ups, saving and restoring, and an
+icon bar for players without a right button.
 
 ### 4. The content compiler targets it (done)
 A target for the library (`tools/game/target.ts`), so rooms written as YAML and Yarn

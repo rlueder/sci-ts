@@ -47,7 +47,7 @@
     (for ((= node (FirstNode elements))) node ((= node (NextNode node)))
       (= item (NodeValue node))
       ;; The icon keeps its item in `actions`.
-      (= icon ((View new:) view: (item view?) loop: 0 cel: 0 actions: item x: x y: (+ (window y?) (window textTop?) INV_GAP) yourself:))
+      (= icon ((Icon new:) view: (item view?) loop: 0 cel: 0 actions: item x: x y: (+ (window y?) (window textTop?) INV_GAP) yourself:))
       (icon init:)
       (icon plane: uiPlane setPri: (+ (window priority?) 1))
       (icons add: icon)
