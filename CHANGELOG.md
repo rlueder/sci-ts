@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.6.0](https://github.com/rlueder/sci-ts/compare/v0.5.0...v0.6.0) (2026-10-01)
+
+### Added
+
+* **content:** items made from items.yaml, given and taken in Yarn ([#4](https://github.com/rlueder/sci-ts/issues/4)) ([129c439](https://github.com/rlueder/sci-ts/commit/129c43965f318d8815957e6efd6ce9290eced619))
+
 ## [0.5.0](https://github.com/rlueder/sci-ts/compare/v0.4.0...v0.5.0) (2026-10-01)
 
 ### Added
