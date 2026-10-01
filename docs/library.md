@@ -6,10 +6,10 @@ nothing about any particular game. `games/hello` uses all of it.
 
 | script | file | what |
 |---|---|---|
-| 999 | `lib/999.sc` | the core: `Obj`, `Code`, `Collection`, `List`, `Set`, `Script`; the globals |
+| 999 | `lib/999.sc` | the core: `Obj`, `Code`, `Collection`, `List`, `Set`, `Script`; the globals and flags |
 | 998 | `lib/998.sc` | the world: `Game`, `Plane`, `Room`, `Feature`, `View`, `Prop`, `Actor`, `Ego` |
-| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`; `Cycle`, `Forward`, `Walk`, `End`, `Beg` |
-| 996 | `lib/996.sc` | talk: `TextItem`, `Narrator`, `Messager` |
+| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg` |
+| 996 | `lib/996.sc` | talk: `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
 
@@ -46,7 +46,8 @@ and the player's input. A room change asked for during the cycle happens at its 
 ## A room
 
 A room is export 0 of its script. Its number is its script's number, and its message file
-has the same number.
+has the same number. A room can also be written as YAML and Yarn ([rooms.md](rooms.md)).
+The game calls `setUp` (which makes the room's plane and obstacle list), then `init`.
 
 ```lisp
 (script 1)
@@ -82,8 +83,11 @@ the hero, who is added to the next room by its `init`.
 | `Feature` | a rectangle of the picture (`nsLeft`...`nsBottom`) that answers clicks | `noun`, `modNum` |
 | `View` | a Feature drawn with a view's cel | `view`, `loop`, `cel`, `x`, `y`, `priority` |
 | `Prop` | a View that animates and runs scripts | `setCycle:`, `setScript:`, `cycleSpeed` |
-| `Actor` | a Prop that walks | `setMotion:`, `moveSpeed`, `xStep`, `yStep` |
-| `Ego` | the Actor the player walks | |
+| `Actor` | a Prop that walks | `setMotion:`, `setHeading:`, `setScaler:`, `moveSpeed`, `xStep`, `yStep` |
+| `Ego` | the Actor the player walks | `normalize` (back to walking) |
+
+Views also take `hide`, `show`, `setLoop:` (a loop that stays when it turns; -1 to follow
+the heading again), `setCel:` and `setPri:` (a fixed priority; -1 to sort by y again).
 
 `(thing doVerb: verb)` says the line for its `noun` and the verb in the room's message file
 (the room answers if there isn't one).
@@ -108,7 +112,27 @@ messages 1 version 4321
 
 `(messager say: noun verb [cond [seq [caller [module]]]])` says each line in sequence,
 waiting for a click or the time it takes to read, then cues the caller. It returns 0 when
-there's no such message. The narrator shows a line in a box over the room.
+there's no such message.
+
+Each line goes to its talker (the message's talker number): 99 the narrator, 98 the game's
+`heroTalker`, 200 and up the room's characters (its `findTalker:`). A `Narrator` shows
+the line in a box over the room; a `Talker` starts it with their name; a `PortraitTalker`
+shows their portrait beside it, the mouth moving while the line is up.
+
+A `Teller` makes talking to something a conversation: a `Menu` of topics, each answered
+from the message file, back to the menu until the player says goodbye. Rooms written as
+YAML and Yarn get these from their conversation nodes.
+
+## Flags
+
+`(SetFlag n)`, `(ClearFlag n)` and `(IsFlag n)` (script 999's exports) keep 1024 story
+flags. Yarn's `$variables` are flags; the build numbers them.
+
+## Cutscenes
+
+`(game handsOff:)` stops clicks doing anything but dismissing text, until
+`(game handsOn:)`. Movers, cyclers, `setHeading:` and the messager cue a caller when they
+finish, so a Script can wait for each.
 
 ## Scripts
 
@@ -129,6 +153,4 @@ when they finish, and so does the messager.
 
 ## Not there yet
 
-Talkers with portraits, dialog windows with buttons, an icon bar, inventory, saving and
-restoring, and the content compiler's target for this library (so rooms can be YAML and
-Yarn). These come next, with the first story: see [plan.md](plan.md).
+An icon bar, inventory, and saving and restoring. See [plan.md](plan.md).

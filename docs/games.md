@@ -17,6 +17,8 @@ SCI_GAME=out/games/hello pnpm play --frames 60 --png-every 60
 games/hello/
   scripts/0.sc       script 0: exports the game object
   scripts/1.sc       more scripts: rooms are numbered like their scripts
+  rooms/2.room.yaml  a room as data, with what's said in it in rooms/2.yarn
+  flags.yaml         the numbers of the rooms' Yarn variables (the build keeps it)
   messages/1.msg     message files, as text
   hello.sh           definitions the scripts include (here, the nouns)
   resources.ts       optional: pictures, views and anything else made in code
@@ -35,6 +37,8 @@ It imports what it needs from `tools/game/kit.ts`: the writers for pictures, vie
 palettes, and the base palette's colours. `games/hello/resources.ts` draws a picture and a
 view pixel by pixel.
 
+**Rooms** can be YAML and Yarn instead of scripts ([rooms.md](rooms.md)).
+
 **Messages** are `messages/<n>.msg`, one file per room (or other module), in the text form
 `pnpm msg` prints: a `messages N version V` line, then `noun verb cond seq talker "text"`.
 
@@ -50,14 +54,15 @@ view pixel by pixel.
 
 ## What the build does
 
-1. Compiles the `.sc` scripts and the class library together, and assembles them and any
-   `.sca` scripts. Classes
+1. Compiles the `.sc` scripts and the class library together, then the YAML rooms, and
+   assembles them and any `.sca` scripts. Classes
    come from the scripts themselves; a class name nobody defines is reported with its file
    and line.
 2. Numbers selectors as the scripts use them, starting with the nine slots every object
    begins with (`-objID-` to `name`), and writes them to vocab 997.
-3. Writes vocab 996, which says which script defines each class (by species number, which
-   each class declares).
+3. Writes vocab 996, which says which script defines each class (by species number), and
+   vocab 990, the globals' names (the player, editor and explorer find the room and the
+   hero by them).
 4. Adds the message files, `resources.ts`'s resources, the library's and the defaults, and
    refuses any resource made twice.
 

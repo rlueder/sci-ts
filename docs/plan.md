@@ -76,12 +76,16 @@ room to the other, and things that answer when looked at or used. Its test plays
 Not yet: talkers with portraits, dialog windows, an icon bar (milestone 4, which needs
 them for characters and topic menus), and inventory, menus and Save/Restore (later).
 
-### 4. The content compiler targets it
-A `sci-ts` target next to the existing one (room class, globals, verbs, talkers), so YAML and
-Yarn rooms build against the library (milestone done when a room compiled from YAML shows,
-the hero walks around it, and clicking a feature says its line); characters, topic menus, flags and cutscenes map onto
-its classes. The editor and player start a game at its first room instead of a game-specific
-route to a hero.
+### 4. The content compiler targets it (done)
+A target for the library (`tools/game/target.ts`), so rooms written as YAML and Yarn
+([rooms.md](rooms.md)) build against it: features, exits, props, walkable areas, characters
+with portraits, conversations as topic menus, flags and conditions, cutscene commands and
+music. The library gained what they need (talkers, portraits, menus, tellers, flags, a
+scaler, hands off and on). `games/hello`'s road is such a room, with a traveller to talk to.
+
+The player's room links and the live editor work with these games: a game names its
+globals in a vocab, and the editor edits the served game's rooms, swapping in what each
+build changes.
 
 ### 5. The Sherlock Holmes teaser
 Art drawn by scripts (backgrounds, Holmes and the cast, portraits), rooms in YAML and Yarn,
