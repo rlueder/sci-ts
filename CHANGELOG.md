@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.7.0](https://github.com/rlueder/sci-ts/compare/v0.6.1...v0.7.0) (2026-10-01)
+
+### Added
+
+* **lib:** text speed, and dismissing a line from the keyboard ([#6](https://github.com/rlueder/sci-ts/issues/6)) ([3ab244b](https://github.com/rlueder/sci-ts/commit/3ab244b0d96a34dd0c3e7d13b1f52404fdceccfe))
+
 ## [0.6.1](https://github.com/rlueder/sci-ts/compare/v0.6.0...v0.6.1) (2026-10-01)
 
 ### Fixed
