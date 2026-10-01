@@ -4,6 +4,12 @@ All notable changes to this project. The format follows [Keep a Changelog](https
 versions follow [Semantic Versioning](https://semver.org/), and the entries are generated
 from commit messages ([Conventional Commits](https://www.conventionalcommits.org/)).
 
+## [0.2.2] - 2026-10-01
+
+### Fixed
+
+- **tools:** Republish as 0.2.2: 0.2.1 is stuck in npm's staging
+
 ## [0.2.1] - 2026-10-01
 
 ### Fixed
