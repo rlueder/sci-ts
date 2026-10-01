@@ -1,16 +1,18 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  AsmError, ResourceType, assemble, kernelNames, parseScript, resourceKey, writeClassTable, writeSelectorNames,
-  type AsmContext, type ResourceData, type ScriptObject,
+  AsmError, CompileError, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, parseScript, resourceKey,
+  writeClassTable, writeSelectorNames, type AsmContext, type ResourceData, type ScriptObject,
 } from "@sci-ts/sci";
 import { defaultResources } from "./defaults.ts";
 
 /**
  * Builds a game from its sources, needing nothing from any other game:
  *
- *   games/<name>/scripts/<n>.sca   scripts, in assembly (see packages/sci/src/script/assembly.ts)
+ *   games/<name>/scripts/<n>.sc    scripts (see packages/sci/src/script/compiler.ts), compiled
+ *                                  together; they may include files from the game folder
+ *   games/<name>/scripts/<n>.sca   scripts in assembly (packages/sci/src/script/assembly.ts)
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
  *                                  sounds and anything else made by code
  *
@@ -22,20 +24,25 @@ export interface BuiltGame {
   resources: ResourceData[];
   selectors: string[];
   classes: Map<number, { name: string; script: number }>;
+  /** The assembly compiled from each .sc file, by script number. */
+  generated: Map<number, string>;
 }
 
-/** The object header, in slot order. */
-const HEADER = ["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-script-", "-super-", "-info-", "name"];
+const HEADER = OBJECT_HEADER;
 
 export class GameBuildError extends Error {}
 
 export async function buildGame(dir: string): Promise<BuiltGame> {
   const scriptsDir = join(dir, "scripts");
   if (!existsSync(scriptsDir)) throw new GameBuildError(`${dir}: no scripts/ folder`);
-  const sources = readdirSync(scriptsDir)
-    .filter((f) => /^\d+\.sca$/.test(f))
-    .map((f) => ({ file: join(scriptsDir, f), text: readFileSync(join(scriptsDir, f), "utf8") }));
-  if (!sources.some((s) => s.file.endsWith("/0.sca"))) throw new GameBuildError(`${dir}: no scripts/0.sca (script 0 exports the game object)`);
+  const files = readdirSync(scriptsDir).sort();
+  const load = (re: RegExp) => files.filter((f) => re.test(f)).map((f) => ({ file: join(scriptsDir, f), text: readFileSync(join(scriptsDir, f), "utf8") }));
+  const sources = load(/^\d+\.sca$/);
+  const compiled = load(/^\d+\.sc$/);
+  const numbers = [...sources, ...compiled].map((s) => Number(s.file.replace(/.*\//, "").split(".")[0]));
+  if (!numbers.includes(0)) throw new GameBuildError(`${dir}: no scripts/0.sc or 0.sca (script 0 exports the game object)`);
+  const repeated = numbers.find((n, i) => numbers.indexOf(n) !== i);
+  if (repeated !== undefined) throw new GameBuildError(`${dir}: script ${repeated} is there twice`);
 
   const selectors = [...HEADER];
   const classes = new Map<number, ScriptObject & { script: number }>();
@@ -51,16 +58,53 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
     newSelector: (name) => selectors.push(name) - 1,
   };
 
+  // Compiled scripts may subclass classes from assembled ones (known once those are built),
+  // so the compiler runs inside the same loop.
+  const generated = new Map<number, string>();
+  const takenSpecies = new Set(sources.flatMap((s) => [...s.text.matchAll(/^\s*class\s+\S+\s+of\s+\S+\s+species\s+(\d+)/gm)].map((m) => Number(m[1]))));
+  let compileError: CompileError | undefined;
+  const tryCompile = (): { file: string; text: string }[] => {
+    if (!compiled.length) return [];
+    try {
+      const out = compileScripts(
+        compiled.map((s) => ({ file: relative(process.cwd(), s.file), text: s.text })),
+        {
+          kernelNames,
+          takenSpecies,
+          externalClass: (name) => {
+            const species = byName.get(name);
+            const c = species === undefined ? undefined : classes.get(species);
+            if (!c) return undefined;
+            const props = c.propSelectors!.slice(HEADER.length);
+            return { species: c.species, properties: props.map((sel, i) => ({ name: selectors[sel]!, value: c.properties[HEADER.length + i]! })) };
+          },
+          include: (name) => {
+            const path = join(dir, name);
+            return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+          },
+        },
+      );
+      compiled.length = 0;
+      compileError = undefined;
+      for (const c of out) generated.set(c.number, c.assembly);
+      return out.map((c) => ({ file: c.file, text: c.assembly }));
+    } catch (e) {
+      if (!(e instanceof CompileError)) throw e;
+      compileError = e;
+      return [];
+    }
+  };
+
   // A script can only be assembled once the classes it uses are known, so keep going round
   // until everything is built or nothing more can be.
   const resources: ResourceData[] = [];
-  let pending = sources;
-  while (pending.length) {
+  let pending = [...sources, ...tryCompile()];
+  while (pending.length || compiled.length) {
     const failed: { file: string; text: string; error: AsmError }[] = [];
     for (const src of pending) {
       try {
         const built = assemble(src.text, ctx);
-        if (!src.file.endsWith(`/${built.number}.sca`)) throw new GameBuildError(`${src.file} says it is script ${built.number}`);
+        if (Number(basename(src.file).split(".")[0]) !== built.number) throw new GameBuildError(`${src.file} says it is script ${built.number}`);
         resources.push({ type: ResourceType.Script, number: built.number, data: built.code }, { type: ResourceType.Heap, number: built.number, data: built.heap });
         for (const o of parseScript(built.number, built.code, built.heap).objects) {
           if (!o.isClass) continue;
@@ -75,10 +119,12 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
         failed.push({ ...src, error: e });
       }
     }
-    if (failed.length === pending.length) {
+    const more = tryCompile();
+    if (failed.length === pending.length && !more.length) {
+      if (compileError) throw new GameBuildError(compileError.message);
       throw new GameBuildError(failed.map((f) => `${f.file}: ${f.error.message}`).join("\n"));
     }
-    pending = failed;
+    pending = [...failed, ...more];
   }
 
   const classTable = Array.from({ length: Math.max(-1, ...classes.keys()) + 1 }, (_, species) => classes.get(species)?.script ?? 0);
@@ -103,5 +149,6 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
     resources,
     selectors,
     classes: new Map([...classes].map(([species, c]) => [species, { name: c.name, script: c.script }])),
+    generated,
   };
 }

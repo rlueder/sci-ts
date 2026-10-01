@@ -73,7 +73,7 @@ describe("games/hello", async () => {
 
   it("numbers selectors from the object header on, and lists its classes", () => {
     expect(game.selectors.slice(0, 9)).toEqual(["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-script-", "-super-", "-info-", "name"]);
-    expect([...game.classes.values()].map((c) => c.name).sort()).toEqual(["Event", "Game", "Obj", "Plane", "Sprite"]);
+    expect([...game.classes.values()].map((c) => c.name).sort()).toEqual(["Event", "Game", "Label", "Obj", "Plane", "Sprite"]);
     expect(game.classes.get(0)).toEqual({ name: "Obj", script: 999 });
   });
 
@@ -124,6 +124,6 @@ describe("game build errors", () => {
   });
 
   it("needs script 0", async () => {
-    await expect(buildGame(game({ 999: obj }))).rejects.toThrow(/no scripts\/0\.sca/);
+    await expect(buildGame(game({ 999: obj }))).rejects.toThrow(/no scripts\/0\.sc or 0\.sca/);
   });
 });

@@ -2,7 +2,8 @@
  * Games built from their own sources (see tools/game/build.ts):
  *
  *   pnpm game build games/<name> [out dir]   RESOURCE.MAP + RESOURCE.000, by default in
- *                                            out/games/<name>
+ *                                            out/games/<name>, and in src/ the assembly
+ *                                            compiled from each .sc script
  *
  * Play one in the browser with SCI_GAME=out/games/<name> pnpm viewer (then /play.html), or
  * headless with SCI_GAME=out/games/<name> pnpm play.
@@ -24,6 +25,11 @@ try {
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, "RESOURCE.MAP"), map);
   writeFileSync(join(out, "RESOURCE.000"), volume);
+  // What the compiler made of the .sc scripts, to read when something doesn't work.
+  if (game.generated.size) {
+    mkdirSync(join(out, "src"), { recursive: true });
+    for (const [n, text] of game.generated) writeFileSync(join(out, "src", `${n}.sca`), text);
+  }
   console.log(`${relative(process.cwd(), out) || "."}: ${game.resources.length} resources, ${game.selectors.length} selectors, ${game.classes.size} classes`);
 } catch (e) {
   if (!(e instanceof GameBuildError)) throw e;

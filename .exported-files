@@ -34,8 +34,8 @@ apps/viewer/src/sound-preview.ts
 apps/viewer/src/style.css
 apps/viewer/vite.config.ts
 games/hello/resources.ts
-games/hello/scripts/0.sca
-games/hello/scripts/999.sca
+games/hello/scripts/0.sc
+games/hello/scripts/999.sc
 packages/content/package.json
 packages/content/room.schema.json
 packages/content/src/index.ts
@@ -66,10 +66,12 @@ packages/sci/src/resource/manager.ts
 packages/sci/src/resource/map.ts
 packages/sci/src/resource/types.ts
 packages/sci/src/script/assembly.ts
+packages/sci/src/script/compiler.ts
 packages/sci/src/script/disasm.ts
 packages/sci/src/script/kernel-names.ts
 packages/sci/src/script/opcodes.ts
 packages/sci/src/script/script.ts
+packages/sci/src/script/sexpr.ts
 packages/sci/src/script/vocab.ts
 packages/sci/src/script/world.ts
 packages/sci/src/text/font.ts
@@ -91,6 +93,7 @@ packages/sci/src/vm/savegame.ts
 packages/sci/src/vm/value.ts
 packages/sci/src/vm/vm.ts
 packages/sci/test/adlib.test.ts
+packages/sci/test/compiler.test.ts
 packages/sci/test/formats.test.ts
 packages/sci/test/game-build.test.ts
 packages/sci/test/lzs.test.ts
