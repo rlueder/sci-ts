@@ -1,5 +1,6 @@
 /**
- * The npm package: one `sci-ts` package from this workspace, in out/package.
+ * The npm package: one package from this workspace, in out/package, published as sci2-ts
+ * (npm keeps "sci-ts" for being too close to an older name); its command is still sci-ts.
  *
  *   pnpm tsx tools/package.ts [out dir]     then: cd out/package && npm publish
  *
@@ -97,7 +98,7 @@ const viewer = JSON.parse(readFileSync(join(ROOT, "apps/viewer/package.json"), "
 const content = JSON.parse(readFileSync(join(ROOT, "packages/content/package.json"), "utf8"));
 const entry = (path: string) => ({ types: `./${path}.d.ts`, default: `./${path}.js` });
 const pkg = {
-  name: "sci-ts",
+  name: "sci2-ts",
   version: root.version ?? "0.0.0",
   description: root.description,
   license: "MIT",
@@ -142,4 +143,4 @@ child.on("exit", (code, signal) => (signal ? process.kill(process.pid, signal) :
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => child.kill(signal));
 `, { mode: 0o755 });
 
-console.log(`${relative(process.cwd(), out)}: sci-ts ${pkg.version}, ${files.length} source files`);
+console.log(`${relative(process.cwd(), out)}: ${pkg.name} ${pkg.version}, ${files.length} source files`);

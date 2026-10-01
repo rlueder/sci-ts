@@ -10,7 +10,7 @@ const ROOT = resolve(import.meta.dirname, "../..");
  * A new game in `target` (a folder that doesn't exist yet), from the template. NAME becomes
  * the folder's name and Name the same in capitals (the game's class). KIT and SCHEMA become
  * the art kit and the room schema: by path for a game inside this repository, through the
- * `sci-ts` package for one outside it. `.tmpl` files lose the suffix (they aren't type
+ * sci2-ts package for one outside it. `.tmpl` files lose the suffix (they aren't type
  * checked where they stand). `refs` overrides that choice. Returns the game's folder.
  */
 export function newGame(target: string, refs?: "path" | "package"): string {
@@ -19,10 +19,10 @@ export function newGame(target: string, refs?: "path" | "package"): string {
   if (existsSync(target) && readdirSync(target).some((f) => f === "scripts" || f === "rooms")) throw new GameBuildError(`${target} is already there`);
   const inside = refs ? refs === "path" : !relative(ROOT, resolve(target)).startsWith("..");
   const slash = (p: string) => p.replaceAll("\\", "/");
-  const kit = inside ? slash(relative(resolve(target), join(ROOT, "tools/game/kit.ts"))) : "sci-ts/kit";
+  const kit = inside ? slash(relative(resolve(target), join(ROOT, "tools/game/kit.ts"))) : "sci2-ts/kit";
   const schema = inside
     ? slash(relative(join(resolve(target), "rooms"), join(ROOT, "packages/content/room.schema.json")))
-    : "../node_modules/sci-ts/packages/content/room.schema.json";
+    : "../node_modules/sci2-ts/packages/content/room.schema.json";
   const Name = name.replace(/(^|-)([a-z])/g, (_, __, c: string) => c.toUpperCase());
   const fill = (text: string) =>
     text.replaceAll('"KIT"', JSON.stringify(kit)).replaceAll("SCHEMA", schema).replaceAll("NAME", name).replaceAll("Name", Name);

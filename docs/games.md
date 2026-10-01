@@ -92,12 +92,12 @@ without the library has to declare its own.
 
 ## A game in its own repository
 
-A game doesn't have to live in this repository: sci-ts is a package, and its `sci-ts`
-command does what `pnpm game` does here. The Sherlock Holmes teaser is set up this way.
+A game doesn't have to live in this repository: sci-ts is a package on npm, `sci2-ts`, and
+its `sci-ts` command does what `pnpm game` does here. The Sherlock Holmes teaser is set up this way.
 
 ```json
 {
-  "devDependencies": { "sci-ts": "^0.2.0" },
+  "devDependencies": { "sci2-ts": "^0.2.1" },
   "scripts": { "build": "sci-ts build", "play": "sci-ts play", "edit": "sci-ts edit" }
 }
 ```
@@ -115,13 +115,13 @@ Code in the game imports what it needs from the package:
 
 | import | |
 |---|---|
-| `sci-ts` | the engine: resources, the VM and its kernels, graphics, sound, writers |
-| `sci-ts/kit` | for `resources.ts`: writers, the base palette's colours, the pixel font |
-| `sci-ts/build` | `buildGame`, for scripts that build and run the game (tests, previews) |
-| `sci-ts/art` | `buildArt`, for art from a paint program ([art.md](art.md)) |
-| `sci-ts/png` | reading and writing PNGs |
-| `sci-ts/viewer` | `GameSession`, to put the game in a page of your own |
-| `sci-ts/vite` | `sciGame`, a Vite plugin serving the built game to such a page |
+| `sci2-ts` | the engine: resources, the VM and its kernels, graphics, sound, writers |
+| `sci2-ts/kit` | for `resources.ts`: writers, the base palette's colours, the pixel font |
+| `sci2-ts/build` | `buildGame`, for scripts that build and run the game (tests, previews) |
+| `sci2-ts/art` | `buildArt`, for art from a paint program ([art.md](art.md)) |
+| `sci2-ts/png` | reading and writing PNGs |
+| `sci2-ts/viewer` | `GameSession`, to put the game in a page of your own |
+| `sci2-ts/vite` | `sciGame`, a Vite plugin serving the built game to such a page |
 
 The class library, the default font, palette and cursors, and the room compiler come with
 the build: nothing to import. A game's own page uses the plugin:
@@ -129,13 +129,13 @@ the build: nothing to import. A game's own page uses the plugin:
 ```ts
 // vite.config.ts
 import { defineConfig } from "vite";
-import { sciGame } from "sci-ts/vite";
+import { sciGame } from "sci2-ts/vite";
 export default defineConfig({ plugins: [sciGame({ game: "out/game" })] });
 ```
 
 ```ts
 // src/main.ts
-import { GameSession } from "sci-ts/viewer";
+import { GameSession } from "sci2-ts/viewer";
 const session = await GameSession.create({ canvas: document.querySelector("canvas")! });
 session.start();
 ```
@@ -143,5 +143,5 @@ session.start();
 The package is compiled JavaScript with type declarations; the `sci-ts` command runs
 through `tsx`, so a game's own TypeScript (`resources.ts`) needs no build step. The player
 ships as source, for Vite. To work on sci-ts and a game together, depend on a checkout
-instead: `"sci-ts": "link:../sci-ts"`.
+instead: `"sci2-ts": "link:../sci-ts"`.
 

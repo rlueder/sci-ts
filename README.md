@@ -20,7 +20,7 @@ nothing from Sierra: `games/hello` here, and a Sherlock Holmes teaser in progres
 
 ```sh
 mkdir night-walk && cd night-walk
-npm init -y && npm install --save-dev sci-ts
+npm init -y && npm install --save-dev sci2-ts
 npx sci-ts new .          # a room in YAML and Yarn, a hero, placeholder art
 npx sci-ts play           # build it and play it in the browser
 npx sci-ts edit           # the live editor for its rooms

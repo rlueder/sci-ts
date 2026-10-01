@@ -14,7 +14,7 @@ A game takes the art in through `resources.ts`:
 
 ```ts
 import { fileURLToPath } from "node:url";
-import { buildArt } from "sci-ts/art";
+import { buildArt } from "sci2-ts/art";
 export default () => buildArt(fileURLToPath(new URL("./art/art.json", import.meta.url))).resources;
 ```
 
