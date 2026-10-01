@@ -93,8 +93,9 @@
     (if bitmap (Bitmap BITMAP_DISPOSE bitmap) (= bitmap 0))
     (super dispose:)))
 
-;; Shows a line until it's been there long enough to read, or the player clicks; then
-;; cues whoever asked. The narrator speaks for no one in particular.
+;; Shows a line until it's been there long enough to read (as long as `textSpeed` says), or
+;; the player clicks or presses Enter, Space or "."; then cues whoever asked. The narrator
+;; speaks for no one in particular.
 (class Narrator of Obj
   (properties
     caller 0
@@ -119,15 +120,26 @@
         yourself:))
     (box init:)
     (= talking self)
-    ;; Two seconds, and more for longer lines.
-    (= until (+ gameTime 120 (* 3 (String STRING_LENGTH txt)))))
+    (= until (self readingTime: (String STRING_LENGTH txt))))
+
+  ;; Game time to read a line of n characters: normally two seconds, and more for longer
+  ;; lines; -1 is until the player dismisses it.
+  (method (readingTime n)
+    (switch textSpeed
+      (TEXT_SLOW (return (+ gameTime 180 (* 5 n))))
+      (TEXT_FAST (return (+ gameTime 70 (* 2 n))))
+      (TEXT_CLICK (return -1))
+      (else (return (+ gameTime 120 (* 3 n))))))
 
   (method (doit)
-    (if (and box (>= gameTime until)) (self done:)))
+    (if (and box (!= until -1) (>= gameTime until)) (self done:)))
 
-  ;; A click while a line is up dismisses it (and nothing else).
+  ;; A click, Enter, Space or "." while a line is up dismisses it (and nothing else).
   (method (handleEvent event)
-    (if (and box (== (event type?) EV_MOUSE_DOWN))
+    (if (and box
+          (or (== (event type?) EV_MOUSE_DOWN)
+            (and (== (event type?) EV_KEY_DOWN)
+              (or (== (event message?) KEY_ENTER) (== (event message?) KEY_SPACE) (== (event message?) KEY_PERIOD)))))
       (event claimed: TRUE)
       (self done:)
       (return TRUE))

@@ -31,7 +31,8 @@
   textStyle       ; how text boxes and menus look (a TextStyle)
   inventory       ; what the hero carries (an Inventory)
   theItem         ; the item picked to use, or 0
-  iconBar)        ; the icon bar (an IconBar)
+  iconBar         ; the icon bar (an IconBar)
+  textSpeed)      ; how long a line stays up: TEXT_NORMAL, TEXT_SLOW, TEXT_FAST, TEXT_CLICK
 
 (procedure (SetFlag n)
   (|= [gameFlags (/ n 16)] (<< 1 (mod n 16))))
