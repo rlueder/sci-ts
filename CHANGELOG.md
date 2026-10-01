@@ -4,6 +4,21 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.3.0](https://github.com/rlueder/sci-ts/compare/v0.2.2...v0.3.0) (2026-10-01)
+
+### Added
+
+* **content:** close-ups from Yarn ([0546752](https://github.com/rlueder/sci-ts/commit/054675216342747bc5565301aff3d39d27a900c2))
+* **lib:** a text style for every box and menu ([0350a4e](https://github.com/rlueder/sci-ts/commit/0350a4e28a57d951277372ff6144bd8e9e534bee))
+* **lib:** an inventory and close-ups ([6d401d8](https://github.com/rlueder/sci-ts/commit/6d401d8f92d33a4b694dcc617adbb1d5878da246))
+* **lib:** cursors a game can replace, and a wait cursor ([aa55d11](https://github.com/rlueder/sci-ts/commit/aa55d1142568aeb4b14681e44881a4223192d5d2))
+* **lib:** portraits at the top left, with blinking eyes ([8fd6aa1](https://github.com/rlueder/sci-ts/commit/8fd6aa16e83f9608666f67fd998ac852be1a5a99))
+* **tools:** fonts from sheets of glyphs drawn in a paint program ([cb13669](https://github.com/rlueder/sci-ts/commit/cb13669363fb419425b0a54f0a5afb9ca1576dcf))
+
+### Maintenance
+
+* release from CI with semantic-release ([1757412](https://github.com/rlueder/sci-ts/commit/17574126c257961dd1058f596c6174445f3d9f16))
+
 ## [0.2.2] - 2026-10-01
 
 ### Fixed
@@ -74,5 +89,3 @@ and the entries are generated from commit messages
 
 - Workspace, typecheck, tests and CI
 - Build every game, and publish the site to GitHub Pages by hand
-
-
