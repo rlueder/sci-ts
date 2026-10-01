@@ -26,11 +26,14 @@ All of these are ours to write: the engine never needed Sierra's, it only read t
 Exported from the private research repo by an allowlist; a check refuses any file that
 contains Sierra's text or looks like a game resource. MIT.
 
-### 1. Building a game from nothing
-- Resource map and volume *writers* (today there are readers), or a patch-only game folder.
+### 1. Building a game from nothing (done)
+- Resource map and volume writers.
 - Vocab 997/996 writers: selectors and classes numbered by the build.
-- A font of our own (a pixel font drawn by a script), a palette, cursor views.
+- A font of our own (a pixel font drawn in code), a palette, a cursor.
 - `pnpm game build games/<name>` puts it together; the viewer opens it like any game.
+
+The first game, `games/hello`, is a night sky with a lantern that goes where you click,
+written in assembly. See [games.md](games.md).
 
 ### 2. A script compiler
 Sierra's games were written in a Lisp-like language that maps one to one onto the bytecode:

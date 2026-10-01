@@ -64,11 +64,21 @@ pnpm asm dump 100            # a script as assembly text (round-trips byte for b
 pnpm play --frames 1500      # headless run
 ```
 
+## Making a game
+
+```sh
+pnpm game build games/hello
+SCI_GAME=out/games/hello pnpm viewer   # /play.html
+```
+
+`games/hello` is built from nothing: its scripts, art, font, palette and cursor are all in
+this repository. See [docs/games.md](docs/games.md).
+
 ## Status
 
-The engine and tools work with SCI2 games you own. Making games without one, the plan in
-[docs/plan.md](docs/plan.md), is the work in progress: a compiler for Sierra's script dialect,
-a class library of our own, and a first story built with them.
+The engine and tools work with SCI2 games you own, and games can be built without one
+(scripts in assembly for now). Next, in [docs/plan.md](docs/plan.md): a compiler for Sierra's
+script dialect, a class library of our own, and a first story built with them.
 
 Building rooms (the mod builder and the room editor) needs a *target* for the game: a module
 in `tools/targets/` that tells the content compiler the game's room class, globals and verbs,
