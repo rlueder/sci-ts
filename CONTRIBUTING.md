@@ -55,7 +55,7 @@ in CI:
 | `test` | tests only | Tests |
 | `build`, `ci`, `chore`, `style` | everything else | Maintenance |
 
-Scopes are optional: `sci`, `content`, `viewer`, `editor`, `tools`, `docs`, `game`, `deps`,
+Scopes are optional: `sci`, `lib`, `content`, `viewer`, `editor`, `tools`, `docs`, `game`, `deps`,
 `ci`, `release`. A breaking change gets a `!` after the type (`feat(sci)!: ...`) or a
 `BREAKING CHANGE:` footer.
 

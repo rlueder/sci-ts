@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { basename, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  AsmError, CompileError, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, parseScript, resourceKey,
-  writeClassTable, writeSelectorNames, type AsmContext, type ResourceData, type ScriptObject,
+  AsmError, CompileError, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
+  resourceKey, writeClassTable, writeMessages, writeSelectorNames, type AsmContext, type ResourceData, type ScriptObject,
 } from "@sci-ts/sci";
 import { defaultResources } from "./defaults.ts";
 
@@ -13,11 +13,13 @@ import { defaultResources } from "./defaults.ts";
  *   games/<name>/scripts/<n>.sc    scripts (see packages/sci/src/script/compiler.ts), compiled
  *                                  together; they may include files from the game folder
  *   games/<name>/scripts/<n>.sca   scripts in assembly (packages/sci/src/script/assembly.ts)
+ *   games/<name>/messages/<n>.msg  message files, as text (`pnpm msg` writes the same form)
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
  *                                  sounds and anything else made by code
+ *   games/<name>/game.json         optional: { "library": false } to build without lib/
  *
- * plus font 0, palette 999 and cursor view 999 (tools/game/defaults.ts) unless the game makes
- * its own. Selectors are numbered as the scripts use them, starting with the nine object
+ * plus the class library (lib/: its scripts and resources) and font 0, palette 999 and cursor
+ * view 999 (tools/game/defaults.ts), unless the game makes its own. Selectors are numbered as the scripts use them, starting with the nine object
  * header slots; vocab 997 lists them and vocab 996 says which script defines each class.
  */
 export interface BuiltGame {
@@ -26,23 +28,37 @@ export interface BuiltGame {
   classes: Map<number, { name: string; script: number }>;
   /** The assembly compiled from each .sc file, by script number. */
   generated: Map<number, string>;
+  /** The globals' names, by number (when script 0 is compiled). */
+  globals: string[];
 }
 
 const HEADER = OBJECT_HEADER;
 
 export class GameBuildError extends Error {}
 
-export async function buildGame(dir: string): Promise<BuiltGame> {
+/** sci-ts's class library: scripts every game gets, and the resources they use. */
+export const LIBRARY_DIR = resolve(import.meta.dirname, "../../lib");
+
+export async function buildGame(dir: string, options: { library?: boolean } = {}): Promise<BuiltGame> {
   const scriptsDir = join(dir, "scripts");
   if (!existsSync(scriptsDir)) throw new GameBuildError(`${dir}: no scripts/ folder`);
-  const files = readdirSync(scriptsDir).sort();
-  const load = (re: RegExp) => files.filter((f) => re.test(f)).map((f) => ({ file: join(scriptsDir, f), text: readFileSync(join(scriptsDir, f), "utf8") }));
-  const sources = load(/^\d+\.sca$/);
-  const compiled = load(/^\d+\.sc$/);
-  const numbers = [...sources, ...compiled].map((s) => Number(s.file.replace(/.*\//, "").split(".")[0]));
+  const config = existsSync(join(dir, "game.json")) ? (JSON.parse(readFileSync(join(dir, "game.json"), "utf8")) as { library?: boolean }) : {};
+  const library = options.library ?? config.library ?? true;
+  const load = (from: string, re: RegExp) =>
+    readdirSync(from).sort().filter((f) => re.test(f)).map((f) => ({ file: join(from, f), text: readFileSync(join(from, f), "utf8") }));
+  const sources = load(scriptsDir, /^\d+\.sca$/);
+  const compiled = load(scriptsDir, /^\d+\.sc$/);
+  const numberOf = (file: string) => Number(basename(file).split(".")[0]);
+  const numbers = [...sources, ...compiled].map((s) => numberOf(s.file));
   if (!numbers.includes(0)) throw new GameBuildError(`${dir}: no scripts/0.sc or 0.sca (script 0 exports the game object)`);
   const repeated = numbers.find((n, i) => numbers.indexOf(n) !== i);
   if (repeated !== undefined) throw new GameBuildError(`${dir}: script ${repeated} is there twice`);
+  if (library) {
+    const lib = load(LIBRARY_DIR, /^\d+\.sc$/);
+    const clash = lib.find((l) => numbers.includes(numberOf(l.file)));
+    if (clash) throw new GameBuildError(`${dir}: script ${numberOf(clash.file)} is the library's (${relative(process.cwd(), clash.file)})`);
+    compiled.push(...lib);
+  }
 
   const selectors = [...HEADER];
   const classes = new Map<number, ScriptObject & { script: number }>();
@@ -61,6 +77,7 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
   // Compiled scripts may subclass classes from assembled ones (known once those are built),
   // so the compiler runs inside the same loop.
   const generated = new Map<number, string>();
+  let globals: string[] = [];
   const takenSpecies = new Set(sources.flatMap((s) => [...s.text.matchAll(/^\s*class\s+\S+\s+of\s+\S+\s+species\s+(\d+)/gm)].map((m) => Number(m[1]))));
   let compileError: CompileError | undefined;
   const tryCompile = (): { file: string; text: string }[] => {
@@ -78,15 +95,17 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
             const props = c.propSelectors!.slice(HEADER.length);
             return { species: c.species, properties: props.map((sel, i) => ({ name: selectors[sel]!, value: c.properties[HEADER.length + i]! })) };
           },
-          include: (name) => {
-            const path = join(dir, name);
-            return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+          // Next to the including file, then in the game folder, then in the library.
+          include: (name, from) => {
+            const path = [join(dirname(from), name), join(dir, name), join(LIBRARY_DIR, name)].find((p) => existsSync(p));
+            return path ? readFileSync(path, "utf8") : undefined;
           },
         },
       );
       compiled.length = 0;
       compileError = undefined;
       for (const c of out) generated.set(c.number, c.assembly);
+      globals = out.find((c) => c.number === 0)?.variables ?? [];
       return out.map((c) => ({ file: c.file, text: c.assembly }));
     } catch (e) {
       if (!(e instanceof CompileError)) throw e;
@@ -133,13 +152,31 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
     { type: ResourceType.Vocab, number: 996, data: writeClassTable(classTable) },
   );
 
-  const own = join(dir, "resources.ts");
-  if (existsSync(own)) {
-    const mod = (await import(pathToFileURL(resolve(own)).href)) as { default: () => ResourceData[] | Promise<ResourceData[]> };
-    resources.push(...(await mod.default()));
+  // Messages, as text.
+  const messagesDir = join(dir, "messages");
+  if (existsSync(messagesDir)) {
+    for (const { file, text } of load(messagesDir, /^\d+\.msg$/)) {
+      let parsed: ReturnType<typeof messagesFromText>;
+      try {
+        parsed = messagesFromText(text);
+      } catch (e) {
+        throw new GameBuildError(`${relative(process.cwd(), file)}: ${(e as Error).message}`);
+      }
+      if (parsed.number !== numberOf(file)) throw new GameBuildError(`${file} says it is message file ${parsed.number}`);
+      resources.push({ type: ResourceType.Message, number: parsed.number, data: writeMessages(parsed.file) });
+    }
   }
+
+  // Resources made in code: the game's, then the library's and the defaults for what's left.
+  const made = async (path: string) => {
+    if (!existsSync(path)) return [];
+    const mod = (await import(pathToFileURL(resolve(path)).href)) as { default: () => ResourceData[] | Promise<ResourceData[]> };
+    return mod.default();
+  };
+  resources.push(...(await made(join(dir, "resources.ts"))));
   const have = new Set(resources.map(resourceKey));
-  for (const r of defaultResources()) if (!have.has(resourceKey(r))) resources.push(r);
+  const fallback = [...(library ? await made(join(LIBRARY_DIR, "resources.ts")) : []), ...defaultResources()];
+  for (const r of fallback) if (!have.has(resourceKey(r))) (resources.push(r), have.add(resourceKey(r)));
 
   const keys = resources.map(resourceKey);
   const twice = keys.find((k, i) => keys.indexOf(k) !== i);
@@ -150,5 +187,6 @@ export async function buildGame(dir: string): Promise<BuiltGame> {
     selectors,
     classes: new Map([...classes].map(([species, c]) => [species, { name: c.name, script: c.script }])),
     generated,
+    globals,
   };
 }
