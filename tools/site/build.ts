@@ -11,12 +11,13 @@ import { markdown } from "./markdown.ts";
  *   docs/...                             docs/**.md as pages, and their screenshots
  *   play/play.html                       the player, with the game in play/game/
  *
- * The SoundFont for music is copied from assets/soundfonts/ if it's there (it isn't part
- * of the repository); without it, games play silently.
+ * The SoundFont for music (GeneralUser-GS.sf2) is copied from the game's assets/soundfonts/,
+ * or else this repository's, if it's there (it isn't part of either repository: a game's
+ * publishing workflow fetches it); without it, games play silently.
  */
 const ROOT = resolve(import.meta.dirname, "../..");
 const VIEWER = join(ROOT, "apps/viewer");
-const SOUNDFONT = join(ROOT, "assets/soundfonts/GeneralUser-GS.sf2");
+const SOUNDFONT = "assets/soundfonts/GeneralUser-GS.sf2";
 
 export async function buildSite(
   gameDir: string,
@@ -46,8 +47,9 @@ export async function buildSite(
   for (const [name, data] of Object.entries(files)) writeFileSync(join(play, "game", name), data);
   // What the player lists in place of the dev server's directory listings.
   writeFileSync(join(play, "game/files.json"), JSON.stringify({ "": Object.keys(files) }));
-  const soundFont = existsSync(SOUNDFONT);
-  if (soundFont) cpSync(SOUNDFONT, join(play, "soundfonts", basename(SOUNDFONT)));
+  const sf2 = [join(resolve(gameDir), SOUNDFONT), join(ROOT, SOUNDFONT)].find((f) => existsSync(f));
+  const soundFont = sf2 !== undefined;
+  if (sf2) cpSync(sf2, join(play, "soundfonts", basename(sf2)));
 
   // The pages.
   const sources = [

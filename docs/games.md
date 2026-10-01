@@ -98,7 +98,7 @@ its `sci-ts` command does what `pnpm game` does here. The Sherlock Holmes teaser
 
 ```json
 {
-  "devDependencies": { "sci2-ts": "^0.2.1" },
+  "devDependencies": { "sci2-ts": "^0.6.0" },
   "scripts": { "build": "sci-ts build", "play": "sci-ts play", "edit": "sci-ts edit" }
 }
 ```
@@ -111,6 +111,11 @@ sci-ts edit               # build, then the live editor for its rooms and script
 sci-ts site               # the game's README and docs, and the game, as a static site
 sci-ts art check art/art.json
 ```
+
+The site plays music if the game has a SoundFont at `assets/soundfonts/GeneralUser-GS.sf2`
+([GeneralUser GS](https://github.com/mrbumpy409/GeneralUser-GS), free to use in software).
+It's 32 MB, so rather than keeping it in the repository, a publishing workflow can fetch it
+before `sci-ts site`; without it, the game plays silently.
 
 Code in the game imports what it needs from the package:
 
