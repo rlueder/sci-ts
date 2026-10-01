@@ -20,6 +20,8 @@ export interface Target {
     /** The Sound object playing the music, and the one for sound effects. */
     music: number;
     sound: number;
+    /** The collection of what the hero carries (`add:`, `delete:`), if the target has one. */
+    inventory?: number;
   };
   /** Message talker number for narration (no speaker). */
   narrator: number;
@@ -51,6 +53,11 @@ export interface Target {
    * instance takes `show: view loop cel caller` and cues the caller when it's dismissed.
    */
   closeUp?: string;
+  /**
+   * Items rooms can give and take (<<get lens>>, <<drop lens>>): objects exported by
+   * `script`, by name, added to and deleted from the inventory global.
+   */
+  items?: { script: number; exports: Record<string, number> };
   /** Verb number for "said on arrival" messages. */
   narrationVerb: number;
   /** Verb names as used in Yarn node titles (lower case) -> verb numbers. */

@@ -110,6 +110,9 @@ importers:
       '@sci-ts/sci':
         specifier: workspace:*
         version: link:../packages/sci
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
 
 packages:
 

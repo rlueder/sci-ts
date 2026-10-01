@@ -194,12 +194,16 @@ The player opens the inventory with I or Tab, or a script does with `(inventory 
 the icons in a box at the top of the screen, in the text style. A right-click on one says its
 `description`; a click picks it, and it becomes the cursor. Clicking something with it sends
 that thing `doVerb:` with the item's verb, so the room's messages for that noun and verb
-answer. In Yarn that's a node named for the item, `filings.lens`; the game lists its items'
-verbs in `items.yaml`:
+answer. In Yarn that's a node named for the item, `filings.lens`; the game lists its items in
+`items.yaml`. With a view, the build makes the item itself (in script 989), and a room gives
+it with `<<get lens>>` and takes it back with `<<drop lens>>`:
 
 ```yaml
-lens: 10
+lens: { verb: 10, view: 250, description: "A brass magnifying lens." }
 ```
+
+A game whose scripts make the item (like the `lens` instance above) gives just the verb,
+`lens: 10`, and adds it with `(inventory add: lens)`.
 
 The item stays picked until right-click, which goes on to walking (from talk, right-click
 goes to the item first). `theItem` is the item picked, or 0.

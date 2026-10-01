@@ -646,11 +646,22 @@ class RoomCompiler {
           "pushi #show", "pushi 4", ...pushVal(int(view, "view", 0, 65535)), ...pushVal(int(loop, "loop", 0, 255)), ...pushVal(int(cel, "cel", 0, 255)), "pushSelf", "send 12",
         ] }];
       }
+      case "get":
+      case "drop": {
+        arity(1, "<item>");
+        const { items, globals } = this.target;
+        const n = items?.exports[args[0]!];
+        if (n === undefined || globals.inventory === undefined) {
+          return fail(`no item called "${args[0]}"${items && Object.keys(items.exports).length ? ` (items: ${Object.keys(items.exports).join(", ")})` : " (items with a view in items.yaml)"}`);
+        }
+        const item: Val = { code: [`pushi 2`, `pushi ${items!.script}`, `pushi ${n}`, "callk ScriptID 4"] };
+        return [{ op: "code", code: send({ global: globals.inventory }, [[name === "get" ? "add" : "delete", [item]]]) }];
+      }
       case "room":
         arity(1, "number");
         return [{ op: "code", code: send({ global: g.curRoom }, [["newRoom", [int(args[0], "room", 0, 65535)]]]) }];
       default:
-        return fail("unknown command (known: walk, face, wait, hide, show, loop, cel, animate, stop, music, sound, closeup, room; and set, if)");
+        return fail("unknown command (known: walk, face, wait, hide, show, loop, cel, animate, stop, music, sound, closeup, get, drop, room; and set, if)");
     }
   }
 

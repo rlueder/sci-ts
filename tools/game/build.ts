@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parse as parseYaml } from "yaml";
 import {
   AsmError, CompileError, GLOBAL_NAMES_VOCAB, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
   resourceKey, writeClassTable, writeEffects, writeMessages, writeSelectorNames, writeSol, writeSound, type AsmContext,
@@ -10,7 +11,7 @@ import { ContentError, compileRoom } from "@sci-ts/content";
 import { modFlags } from "../mod-build.ts";
 import { AudioFileError, readMidiFile, readWav } from "./audio.ts";
 import { defaultResources } from "./defaults.ts";
-import { libraryTarget } from "./target.ts";
+import { ITEMS_SCRIPT, libraryTarget } from "./target.ts";
 
 /**
  * Builds a game from its sources, needing nothing from any other game:
@@ -22,8 +23,9 @@ import { libraryTarget } from "./target.ts";
  *   games/<name>/rooms/<n>.room.yaml (+ <n>.yarn)  rooms as data (packages/content), compiled
  *                                  for the class library; their Yarn variables are flags
  *                                  numbered in flags.yaml
- *   games/<name>/items.yaml        optional: the verbs of the things the hero can carry
- *                                  (`lens: 10`), so rooms' Yarn can answer them (filings.lens)
+ *   games/<name>/items.yaml        optional: the things the hero can carry: their verbs, so
+ *                                  rooms' Yarn can answer them (filings.lens), and with a view
+ *                                  the item itself, made in script ITEMS_SCRIPT (<<get lens>>)
  *   games/<name>/music/<n>.mid     music: sound n, from a Standard MIDI File (General MIDI)
  *   games/<name>/sounds/<n>.wav    digital effects: sound n plays this instead of music
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
@@ -71,6 +73,13 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   if (!numbers.includes(0)) throw new GameBuildError(`${dir}: no scripts/0.sc or 0.sca (script 0 exports the game object)`);
   const repeated = numbers.find((n, i) => numbers.indexOf(n) !== i);
   if (repeated !== undefined) throw new GameBuildError(`${dir}: script ${repeated} is there twice`);
+  // Items described in items.yaml are made by a script of their own.
+  const items = gameItems(dir);
+  const madeItems = library ? itemsScript(items) : undefined;
+  if (madeItems) {
+    if (numbers.includes(ITEMS_SCRIPT)) throw new GameBuildError(`${dir}: script ${ITEMS_SCRIPT} is where the build makes the items in items.yaml`);
+    compiled.push({ file: join(dir, `${ITEMS_SCRIPT}.items.sc`), text: madeItems });
+  }
   if (library) {
     const lib = load(LIBRARY_DIR, /^\d+\.sc$/);
     const clash = lib.find((l) => numbers.includes(numberOf(l.file)));
@@ -142,7 +151,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   const compileRooms = (): { file: string; text: string }[] => {
     const roomsDir = join(dir, "rooms");
     if (!existsSync(roomsDir)) return [];
-    const target = libraryTarget(globals, itemVerbs(dir));
+    const target = libraryTarget(globals, items);
     const flags = modFlags(dir, { content: target });
     const out: { file: string; text: string }[] = [];
     for (const { file, text } of load(roomsDir, /^\d+\.room\.yaml$/)) {
@@ -284,23 +293,58 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   };
 }
 
-/** items.yaml: `name: verb` lines, each item's verb from 10 to 255 (1 to 4 are the player's). */
-export function itemVerbs(dir: string): Record<string, number> {
+/** An item from items.yaml: its verb, and if it has a view, everything the build needs to make it. */
+export interface GameItem {
+  verb: number;
+  view?: number;
+  description?: string;
+}
+
+/**
+ * items.yaml: each thing the hero can carry, by name. `lens: 10` names just its verb (10 to
+ * 255; 1 to 4 are the player's), for a game whose scripts make the item; with a view, the
+ * build makes it too, in script ITEMS_SCRIPT, and rooms can give it (`<<get lens>>`):
+ *
+ *   lens: { verb: 10, view: 250, description: "Holmes's lens." }
+ */
+export function gameItems(dir: string): Record<string, GameItem> {
   const file = join(dir, "items.yaml");
   if (!existsSync(file)) return {};
   const where = relative(process.cwd(), file);
-  const verbs: Record<string, number> = {};
-  readFileSync(file, "utf8").split("\n").forEach((raw, i) => {
-    const line = raw.replace(/#.*/, "").trim();
-    if (!line) return;
-    const at = `${where}:${i + 1}`;
-    const m = /^([A-Za-z]\w*)\s*:\s*(\d+)$/.exec(line);
-    if (!m) throw new GameBuildError(`${at}: expected item: verb`);
-    const [, name, n] = m, verb = Number(n);
-    if (!/^[a-z][A-Za-z0-9]*$/.test(name!) || ["look", "talk", "walk", "do", "enter"].includes(name!)) throw new GameBuildError(`${at}: "${name}" can't name an item (lower camelCase, and not a verb)`);
-    if (verb < 10 || verb > 255) throw new GameBuildError(`${at}: ${name}: the verb is a number from 10 to 255`);
-    if (Object.values(verbs).includes(verb)) throw new GameBuildError(`${at}: ${name}: verb ${verb} is used twice`);
-    verbs[name!] = verb;
-  });
-  return verbs;
+  const fail = (message: string): never => { throw new GameBuildError(`${where}: ${message}`); };
+  let data: unknown;
+  try { data = parseYaml(readFileSync(file, "utf8")); }
+  catch (e) { return fail((e as Error).message.split("\n")[0]!); }
+  if (data === null || data === undefined) return {};
+  if (typeof data !== "object" || Array.isArray(data)) return fail("expected item: verb, or item: { verb, view, description }");
+  const items: Record<string, GameItem> = {};
+  for (const [name, value] of Object.entries(data as Record<string, unknown>)) {
+    if (!/^[a-z][A-Za-z0-9]*$/.test(name) || ["look", "talk", "walk", "do", "enter"].includes(name)) fail(`"${name}" can't name an item (lower camelCase, and not a verb)`);
+    const spec = typeof value === "number" ? { verb: value } : value;
+    if (!spec || typeof spec !== "object" || Array.isArray(spec)) return fail(`${name}: expected a verb, or { verb, view, description }`);
+    const { verb, view, description, ...rest } = spec as Record<string, unknown>;
+    const unknown = Object.keys(rest)[0];
+    if (unknown) fail(`${name}: unknown key ${unknown}`);
+    if (typeof verb !== "number" || !Number.isInteger(verb) || verb < 10 || verb > 255) fail(`${name}: the verb is a number from 10 to 255`);
+    if (Object.values(items).some((i) => i.verb === verb)) fail(`${name}: verb ${verb} is used twice`);
+    if (view !== undefined && (typeof view !== "number" || !Number.isInteger(view) || view < 0 || view > 65535)) fail(`${name}: view is a view number`);
+    if (description !== undefined && (typeof description !== "string" || /["\\]/.test(description))) fail(`${name}: description is text without quotes or backslashes`);
+    if (description !== undefined && view === undefined) fail(`${name}: an item the build makes needs a view`);
+    items[name] = { verb: verb as number, view: view as number | undefined, description: description as string | undefined };
+  }
+  return items;
+}
+
+/** The script making the items that have views, exported in items.yaml's order. */
+function itemsScript(items: Record<string, GameItem>): string | undefined {
+  const made = Object.entries(items).filter(([, i]) => i.view !== undefined);
+  if (!made.length) return undefined;
+  return [
+    ";;; The items in items.yaml, made by the build.",
+    `(script ${ITEMS_SCRIPT})`,
+    '(include "system.sh")',
+    `(public ${made.map(([name], i) => `${name} ${i}`).join(" ")})`,
+    ...made.map(([name, i]) => `(instance ${name} of InvItem (properties view ${i.view} verb ${i.verb}${i.description ? ` description "${i.description}"` : ""}))`),
+    "",
+  ].join("\n");
 }

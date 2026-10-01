@@ -468,7 +468,66 @@ export default () => [...art(), { type: ResourceType.View, number: 250, data: wr
   it("refuses an item verb the player's verbs already use", async () => {
     const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-inv-")), "bad-items"), "path");
     writeFileSync(join(dir, "items.yaml"), "lens: 4\n");
-    await expect(buildGame(dir)).rejects.toThrow(/items\.yaml:1: lens: the verb is a number from 10 to 255/);
+    await expect(buildGame(dir)).rejects.toThrow(/items\.yaml: lens: the verb is a number from 10 to 255/);
+  });
+
+  it("makes the items items.yaml describes, which rooms give and take", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-inv-")), "made-items"), "path");
+    writeFileSync(join(dir, "items.yaml"), "key: { verb: 11, view: 250, description: A small iron key. }\n");
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+title: window.do
+---
+<<if not $tookKey>>
+A key on the sill.
+<<get key>>
+<<set $tookKey to true>>
+<<else>>
+<<drop key>>
+You leave the key on the sill.
+<<set $tookKey to false>>
+<<endif>>
+===
+`);
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (size, c) => ({ width: size, height: size, displaceX: size >> 1, displaceY: size - 1, skipColor: 254, pixels: new Uint8Array(size * size).fill(c) });
+export default () => [...art(), { type: ResourceType.View, number: 250, data: writeView({ flags: 1, loops: [
+  { link: -1, mirror: false, cels: [cel(24, 40)] }, { link: -1, mirror: false, cels: [cel(8, 41)] }], palette: undefined }) }];`);
+    const game = await buildGame(dir);
+    expect(game.warnings).toEqual([]);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const carried = () => vm.getProp(global("inventory"), "size");
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    click(10, 100); // the first line
+    click(10, 100, true); // walk -> do
+    expect(carried()).toBe(0);
+    click(160, 70);
+    frames(3);
+    expect(carried()).toBe(0); // the line first, then the key
+    click(10, 100);
+    frames(3);
+    expect(carried()).toBe(1);
+    const key = vm.memory.list(vm.getProp(global("inventory"), "elements")!)!.first!.value;
+    expect([vm.object(key).name, g.prop(key, "view"), g.prop(key, "verb")]).toEqual(["key", 250, 11]);
+    expect(stringHelpers.str(vm, vm.getProp(key, "description")!)).toBe("A small iron key.");
+    click(160, 70);
+    frames(3);
+    expect(carried()).toBe(0);
   });
 });
 
