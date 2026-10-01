@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.6.1](https://github.com/rlueder/sci-ts/compare/v0.6.0...v0.6.1) (2026-10-01)
+
+### Fixed
+
+* **tools:** the site uses the game's own SoundFont ([#5](https://github.com/rlueder/sci-ts/issues/5)) ([b275b0d](https://github.com/rlueder/sci-ts/commit/b275b0d89479c233153e3efb31fafabdbc5fdcdb))
+
 ## [0.6.0](https://github.com/rlueder/sci-ts/compare/v0.5.0...v0.6.0) (2026-10-01)
 
 ### Added
