@@ -33,6 +33,7 @@
     (= narrator (Narrator new:))
     (= textStyle (TextStyle new:))
     (= inventory (Inventory new:))
+    (= iconBar (IconBar new:))
     (= music (Sound new:))
     (= sfx (Sound new:))
     (= uiPlane ((Plane new:) priority: 200 picture: -2 yourself:))

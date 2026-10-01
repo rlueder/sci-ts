@@ -26,6 +26,17 @@
 
 ;; Saved games: a description is up to SAVE_DESCRIPTION - 1 characters; the menus show the
 ;; newest SAVES_SHOWN. What SaveRestore's open menu is for:
+;; The icon bar: icons are ICON_SIZE pixels square, ICON_GAP apart; it opens when the
+;; pointer is within ICON_BAR_EDGE pixels of the top and closes ICON_BAR_SLACK below it.
+;; Besides verbs, an icon can stand for the inventory or the game menu.
+(define ICON_SIZE 24)
+(define ICON_GAP 4)
+(define ICON_BAR_VIEW 990)
+(define ICON_BAR_EDGE 3)
+(define ICON_BAR_SLACK 12)
+(define ICON_INVENTORY 100)
+(define ICON_MENU 101)
+
 (define SAVE_DESCRIPTION 36)
 (define SAVES_SHOWN 8)
 (define SR_MENU 1)

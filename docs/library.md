@@ -14,11 +14,12 @@ nothing about any particular game. `games/hello` uses all of it.
 | 994 | `lib/994.sc` | `Sound` |
 | 993 | `lib/993.sc` | things: `InvItem`, `Inventory`, `CloseUp` |
 | 992 | `lib/992.sc` | the game menu: `SaveRestore`, `EditField` |
+| 991 | `lib/991.sc` | the icon bar: `IconBar`, `Icon` |
 
 `lib/system.sh` has the constants games share with the library (verbs, event types,
 polygon types); include it with `(include "system.sh")`. The library also brings a cursor
-for each verb (views 991 to 994), one for waiting (995) and the shade behind close-ups (996),
-in `lib/resources.ts`. A game that wants none of this says so
+for each verb (views 991 to 994), one for waiting (995), the shade behind close-ups (996)
+and the icon bar's icons (990), in `lib/resources.ts`. A game that wants none of this says so
 in `game.json`: `{ "library": false }`.
 
 ## A game
@@ -111,6 +112,15 @@ own sets them in its `init`:
 ```
 
 A cursor's hotspot is its cel's anchor. Any it leaves alone stay the library's.
+
+Without a right button (on a touch screen, or a trackpad), the icon bar does the same: it
+slides down when the pointer reaches the top edge of the screen, or on a tap there, with
+an icon for each verb, the item in use, the inventory and the game menu. The picked verb's
+icon is shown picked; choosing an icon, or a click or the pointer well below the bar,
+closes it. Its icons are a view, `iconBar`'s `view`: loop 0 as they are and loop 1 picked,
+six cels 24 pixels square anchored at their top-left corner, in the order walk, look, do,
+talk, inventory, menu (the item in use shows its own icon). The library's are plain black
+and white (view 990); a game with its own sets `(iconBar view: 266)` in its `init`.
 
 ## Messages
 
@@ -255,6 +265,6 @@ when they finish, and so does the messager.
 loops sound 100, `(sfx number: 50 play: self)` plays 50 once and cues the caller when it
 ends. Their numbers are the game's `music/` and `sounds/` files ([games.md](games.md)).
 
-## Not there yet
+## What's next
 
-An icon bar. See [plan.md](plan.md).
+See [plan.md](plan.md) for what's next.
