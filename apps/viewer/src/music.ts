@@ -13,10 +13,12 @@ export class SoundFontMidi implements MidiOutput {
   constructor(private readonly ctx: AudioContext) {}
 
   async load(soundFontUrl: string): Promise<void> {
+    const res = await fetch(soundFontUrl);
+    if (!res.ok) throw new Error(`no SoundFont at ${soundFontUrl} (${res.status}): music is silent`);
+    const bank = await res.arrayBuffer();
     await this.ctx.audioWorklet.addModule(processorUrl);
     const synth = new WorkletSynthesizer(this.ctx);
     synth.connect(this.ctx.destination);
-    const bank = await (await fetch(soundFontUrl)).arrayBuffer();
     await synth.soundBankManager.addSoundBank(bank, "main");
     await synth.isReady;
     this.synth = synth;

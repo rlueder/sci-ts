@@ -14,7 +14,8 @@ interface Audio {
   out: WebAudioOutput;
   gm: SoundFontMidi;
   gmReady: Promise<void>;
-  adlib: AdLibOutput;
+  /** Only for games with an AdLib instrument bank (patch 3). */
+  adlib: AdLibOutput | undefined;
   index: AudioIndex;
 }
 
@@ -25,7 +26,9 @@ const openAudio = (rm: ResourceManager) =>
     const out = new WebAudioOutput(httpFiles, (name) => rm.file(name));
     const gm = new SoundFontMidi(out.ctx);
     const gmReady = gm.load(`${BASE}soundfonts/GeneralUser-GS.sf2`);
-    const adlib = await AdLibOutput.create(out.ctx, parseAdLibBank(rm.loadSync({ type: ResourceType.Patch, number: 3 }).data));
+    gmReady.catch((e) => console.warn("SoundFont unavailable:", e));
+    const bank = { type: ResourceType.Patch, number: 3 };
+    const adlib = rm.has(bank) ? await AdLibOutput.create(out.ctx, parseAdLibBank(rm.loadSync(bank).data)) : undefined;
     return { out, gm, gmReady, adlib, index: AudioIndex.build(rm) };
   })());
 
@@ -73,7 +76,8 @@ export async function renderSound(rm: ResourceManager, number: number, data: Uin
   const gmSong = parseSound(data, SoundDevice.GeneralMidi);
   const adlibSong = parseSound(data, SoundDevice.AdLib);
   if (gmSong) songs.gm = gmSong;
-  if (adlibSong) songs.adlib = adlibSong;
+  // The AdLib track needs the game's instrument bank.
+  if (adlibSong && rm.has({ type: ResourceType.Patch, number: 3 })) songs.adlib = adlibSong;
 
   const wrap = make("div", { className: "sound" });
   const info = make("p", { className: "meta" });
@@ -163,8 +167,8 @@ export async function renderSound(rm: ResourceManager, number: number, data: Uin
         await a.gmReady.catch(() => undefined); // the SoundFont is 32 MB: the first time takes a moment
         midi = a.gm;
       } else {
-        a.adlib.reset();
-        midi = a.adlib;
+        a.adlib!.reset();
+        midi = a.adlib!;
       }
       player = new SongPlayer(songs[s]!, midi, loopBox.checked, 127, nowTicks());
       if (from) player.seek(from, nowTicks());
