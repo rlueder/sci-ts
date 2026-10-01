@@ -27,6 +27,7 @@ export * from "./audio/index.ts";
 export * from "./audio/midi.ts";
 export * from "./audio/opl2.ts";
 export * from "./audio/adlib.ts";
+export * from "./audio/write.ts";
 export * from "./motion/pathfinding.ts";
 export * from "./vm/savegame.ts";
 export * from "./analysis/game.ts";
