@@ -1,4 +1,4 @@
-// Commit messages follow Conventional Commits; CHANGELOG.md is generated from them (cliff.toml).
+// Commit messages follow Conventional Commits; CHANGELOG.md is generated from them when a release is made (release.config.js).
 export default {
   extends: ["@commitlint/config-conventional"],
   rules: {

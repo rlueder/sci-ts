@@ -61,21 +61,39 @@ Scopes are optional: `sci`, `lib`, `content`, `viewer`, `editor`, `tools`, `docs
 
 ## Changelog and releases
 
-[CHANGELOG.md](CHANGELOG.md) is generated from the commit messages by
-[git-cliff](https://git-cliff.org) (configured in `cliff.toml`); don't edit it by hand.
+Releases are made by CI. On every push to main, [semantic-release](https://semantic-release.gitbook.io)
+reads the commits since the last tag (configured in `release.config.js`). If any of them is
+a `feat`, `fix`, `perf`, `refactor` or `revert`, and something that goes into the package
+changed (`packages`, `tools`, `lib`, `apps/viewer`, `package.json`, the README or the
+license), it:
+
+1. picks the version: a `feat` bumps the minor version, the others the patch version, and
+   before 1.0 a breaking change bumps the minor version too;
+2. adds the release to [CHANGELOG.md](CHANGELOG.md), in the sections in the table above, and
+   sets the version in package.json;
+3. commits both as `chore(release): vX.Y.Z [skip ci]`, tags the commit `vX.Y.Z` and makes the
+   GitHub release;
+4. builds the package from that commit (`pnpm package`) and publishes it to npm with
+   provenance, after approval in the `npm-publish` environment if it has reviewers. There
+   is no npm token: npm trusts `ci.yml` in that environment (trusted publishing).
+
+So the changelog is only as good as the commit messages: write them for someone reading the
+release notes, and don't edit CHANGELOG.md by hand. To see what the next release would be:
 
 ```sh
-pnpm changelog:next  # what the next release would add, and its version
-pnpm release         # write CHANGELOG.md for the next version
+pnpm release:next    # a dry run: the version and the notes, nothing written
 ```
 
-Then commit it as `chore(release): vX.Y.Z`, tag it `vX.Y.Z`, and publish the npm package:
+If a release was tagged but its publish didn't finish, publish the tag by hand:
 
 ```sh
-pnpm package                 # out/package: one sci-ts package, compiled, with its checks
-cd out/package && npm publish
+gh workflow run ci.yml -f tag=vX.Y.Z
 ```
+
+`publish-watch.yml` checks every day that npm and the tags agree and opens an issue if not.
+
+To try the package locally, `pnpm package` builds it into out/package; `npm pack` there
+makes the tarball a game can install.
 
 The package build refuses files that look like a game's resources; everything in it has
-already been checked for any game's text and names on its way into this repository. Before 1.0, a breaking change
-bumps the minor version and everything else the patch version.
+already been checked for any game's text and names on its way into this repository.

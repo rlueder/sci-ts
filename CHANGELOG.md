@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-versions follow [Semantic Versioning](https://semver.org/), and the entries are generated
-from commit messages ([Conventional Commits](https://www.conventionalcommits.org/)).
+All notable changes to this project. Versions follow [Semantic Versioning](https://semver.org/),
+and the entries are generated from commit messages
+([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
 ## [0.2.2] - 2026-10-01
 

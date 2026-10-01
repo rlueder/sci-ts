@@ -1,0 +1,70 @@
+name: Publish watch
+
+# Once a day: checks that the version npm serves as latest has a tag here, and that the
+# version in package.json made it to npm. Either mismatch opens an issue (or comments on the
+# open one): a version on npm without a tag was published outside CI; a tagged version
+# missing from npm is a release whose publish didn't finish (`gh workflow run ci.yml -f tag=...`).
+# The job itself doesn't fail, so a red daily run doesn't become noise.
+
+on:
+  schedule:
+    - cron: "23 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      - name: Compare npm and the tags
+        id: check
+        run: |
+          problems=""
+          repo=$(node -p 'require("./package.json").version')
+          npm=$(npm view sci2-ts version 2>/dev/null || true)
+          if [ -n "$npm" ] && ! git rev-parse -q --verify "refs/tags/v$npm" >/dev/null; then
+            problems="${problems}- sci2-ts@$npm is on npm, but there is no tag v$npm\n"
+          fi
+          if ! npm view "sci2-ts@$repo" version >/dev/null 2>&1; then
+            problems="${problems}- package.json is at $repo, which is not on npm\n"
+          fi
+          echo "npm latest: ${npm:-none}, package.json: $repo"
+          if [ -n "$problems" ]; then
+            # The text includes what the registry answered: a random delimiter, so no line of
+            # it can end the block early.
+            delim="EOF_${RANDOM}${RANDOM}"
+            { echo "problems<<$delim"; printf "%b" "$problems"; echo "$delim"; } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open an issue
+        if: steps.check.outputs.problems != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PROBLEMS: ${{ steps.check.outputs.problems }}
+        with:
+          script: |
+            const title = "publish-watch: npm and the tags disagree";
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              process.env.PROBLEMS,
+              "",
+              "A version on npm without a tag was published outside CI: check `npm view sci2-ts time` against the publish runs, and treat one with no run as a compromise (check the trusted publisher and the maintainers on npm, deprecate the version).",
+              "A tagged version missing from npm: `gh workflow run ci.yml -f tag=v<version>`.",
+              "",
+              `Run: ${run}`,
+            ].join("\n");
+            const { data: open } = await github.rest.issues.listForRepo({
+              ...context.repo, state: "open", labels: "publish-watch", per_page: 50,
+            });
+            const issue = open.find((i) => i.title === title);
+            if (issue) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: ["publish-watch"] });
+            }
