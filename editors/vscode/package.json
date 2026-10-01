@@ -1,0 +1,22 @@
+{
+  "name": "sci-script",
+  "displayName": "SCI Script",
+  "description": "Highlighting for SCI's Lisp-like script language (.sc) and its headers (.sh), as sci-ts compiles it.",
+  "version": "0.1.0",
+  "publisher": "sci-ts",
+  "license": "MIT",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Programming Languages"],
+  "contributes": {
+    "languages": [
+      {
+        "id": "sci",
+        "aliases": ["SCI Script", "sci"],
+        "extensions": [".sc"],
+        "filenamePatterns": ["**/games/**/*.sh", "**/lib/*.sh"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [{ "language": "sci", "scopeName": "source.sci", "path": "./syntaxes/sci.tmLanguage.json" }]
+  }
+}

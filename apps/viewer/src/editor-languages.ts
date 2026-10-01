@@ -95,3 +95,41 @@ export const sciMessages = StreamLanguage.define({
     return null;
   },
 });
+
+/** SCI script source (.sc, .sh): the Lisp-like language games are written in. */
+const SCRIPT_KEYWORDS = new Set([
+  "script", "include", "define", "enum", "public", "local", "global", "extern", "class", "instance", "of", "kindof",
+  "properties", "method", "procedure", "if", "else", "cond", "switch", "switchto", "while", "repeat", "for", "break",
+  "continue", "return", "and", "or", "not", "send", "super", "self", "argc", "&rest", "&tmp",
+]);
+
+const scriptParser: StreamParser<{ braces: number }> = {
+  name: "sci",
+  startState: () => ({ braces: 0 }),
+  token(stream, state) {
+    if (state.braces) {
+      // Inside a {string}: to its end.
+      while (!stream.eol()) if (stream.next() === "}") return (state.braces = 0), "string";
+      return "string";
+    }
+    if (stream.eatSpace()) return null;
+    if (stream.match(";")) return stream.skipToEnd(), "comment";
+    if (stream.match(/^"(?:[^"\\]|\\.)*"?/)) return "string";
+    if (stream.eat("{")) return (state.braces = 1), "string";
+    if (stream.match(/^(-?\$[0-9a-fA-F]+|%[01]+|-?\d+)(?=[\s()[\]]|$)/) || stream.match(/^`\^?./)) return "number";
+    if (stream.match(/^#[\w-]+/)) return "atom";
+    if (stream.match(/^@\w+/)) return "variableName.special";
+    if (stream.match(/^[()[\]]/)) return "bracket";
+    const word = stream.match(/^[^\s()[\]"{;]+/) as RegExpMatchArray | null;
+    if (!word) return stream.next(), null;
+    const w = word[0];
+    if (/^[\w-]+[:?]$/.test(w)) return "propertyName";
+    if (SCRIPT_KEYWORDS.has(w)) return "keyword";
+    if (/^[A-Z][A-Z0-9_]+$/.test(w)) return "atom";
+    if (/^[A-Z]/.test(w)) return "typeName";
+    if (/^[-+*/=<>!&|^~u]+$|^mod$/.test(w)) return "operator";
+    return "variableName";
+  },
+};
+
+export const sciScript = StreamLanguage.define(scriptParser);

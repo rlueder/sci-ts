@@ -8,7 +8,7 @@ import { ResourceManager, gameGlobal, drawnItems, graphics, heroInPlay, replaceR
 import { basicSetup } from "codemirror";
 import { parse as parseYaml } from "yaml";
 import { EditLayer, type EditMode } from "./editor-handles.ts";
-import { sciAssembly, sciMessages, yarn } from "./editor-languages.ts";
+import { sciAssembly, sciMessages, sciScript, yarn } from "./editor-languages.ts";
 import { httpFiles } from "./files.ts";
 import { OVERLAY_COLORS, createOverlay, drawRoomOverlay } from "./overlay.ts";
 import { gameProfile } from "./game-profile.ts";
@@ -68,13 +68,17 @@ document.title = `${mod.name} ${room} · Room Editor`;
 const files = (await (await fetch(`/__editor/files?mod=${mod.name}`)).json()) as Record<string, string>;
 const yamlName = `${room}.room.yaml`, yarnName = `${room}.yarn`;
 const scaName = `${room}.sca (compiled)`, msgName = `${room}.msg (compiled)`;
-const editableNames = [yamlName, yarnName];
-const tabNames = [...editableNames, "flags.yaml", scaName, msgName];
+// A room written as a script (a game of ours): its .sc and message file, not YAML.
+const scriptName = `${room}.sc`, messagesName = `${room}.msg`;
+const scriptMode = files[yamlName] === undefined && files[scriptName] !== undefined;
+const editableNames = scriptMode ? [scriptName, ...(files[messagesName] !== undefined ? [messagesName] : [])] : [yamlName, yarnName];
+const tabNames = scriptMode ? [...editableNames, scaName] : [...editableNames, "flags.yaml", scaName, msgName];
 /** What was last sent to the server, per editable file. */
 const saved = new Map(editableNames.map((n) => [n, files[n] ?? ""]));
 
 const languageOf = (name: string): Extension =>
-  name.endsWith(".yaml") ? yamlLanguage() : name.endsWith(".yarn") ? yarn : name === scaName ? sciAssembly : name === msgName ? sciMessages : [];
+  name.endsWith(".yaml") ? yamlLanguage() : name.endsWith(".yarn") ? yarn : name.endsWith(".sc") ? sciScript
+    : name === scaName ? sciAssembly : name === msgName || name === messagesName ? sciMessages : [];
 
 const theme = EditorView.theme({
   "&": { height: "100%" },
@@ -109,7 +113,7 @@ const states = new Map<string, EditorState>(tabNames.map((n) => [
   n,
   makeState(n, n === "flags.yaml" ? files[n] ?? "# No variables yet: <<set $name to true>> in Yarn adds them here.\n" : editableNames.includes(n) ? files[n] ?? "" : "Builds on save."),
 ]));
-let current = yamlName;
+let current = editableNames[0]!;
 const view = new EditorView({ parent: $("code"), state: states.get(current)! });
 let error: BuildResult["error"];
 
@@ -238,9 +242,9 @@ function applyResult(result: BuildResult): void {
       location.reload();
       return;
     }
-    if (result.flags !== undefined) setView("flags.yaml", result.flags);
+    if (result.flags !== undefined && tabNames.includes("flags.yaml")) setView("flags.yaml", result.flags);
     setView(scaName, result.generated?.[`${room}.sca`] ?? "");
-    setView(msgName, result.generated?.[`${room}.msg`] ?? "");
+    if (tabNames.includes(msgName)) setView(msgName, result.generated?.[`${room}.msg`] ?? "");
     readExits();
     const resources = (result.resources ?? []).map((r) => ({ type: r.type, number: r.number, data: Uint8Array.from(atob(r.data), (c) => c.charCodeAt(0)) }));
     if (session) {
@@ -391,6 +395,8 @@ const setMode = (mode: EditMode) => {
   overlay.style.filter = mode === "play" ? "" : "opacity(0.35)";
 };
 for (const b of modeButtons) b.onclick = () => setMode(b.dataset.mode as EditMode);
+// Dragging and drawing change YAML: a room written as a script is edited as text.
+if (scriptMode) for (const b of modeButtons) b.hidden = b.dataset.mode !== "play";
 setMode("play");
 // Handles follow what's drawn (props move, the YAML changes); not mid-drag, which redraws itself.
 session.onDraw.push(() => {

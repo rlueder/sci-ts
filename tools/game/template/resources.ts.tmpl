@@ -1,0 +1,43 @@
+import { Colour, ResourceType, basePalette, cube, writePic, writeView, type ResourceData, type ViewFile } from "KIT";
+
+/**
+ * Placeholder art, drawn here: the room (picture 100) and the hero (view 200: loop 0 east,
+ * 1 west, 2 south, 3 north). Replace it with your own: draw it here, or see the docs.
+ */
+export default function resources(): ResourceData[] {
+  return [
+    { type: ResourceType.Pic, number: 100, data: writePic(room()) },
+    { type: ResourceType.View, number: 200, data: writeView(hero()) },
+  ];
+}
+
+const W = 320, H = 200;
+
+function room() {
+  const pixels = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) pixels.fill(y < 150 ? cube(204, 204, 153) : cube(153, 102, 51), y * W, (y + 1) * W);
+  // A window.
+  for (let y = 40; y <= 100; y++) for (let x = 130; x <= 190; x++) pixels[y * W + x] = x === 130 || x === 190 || y === 40 || y === 100 || x === 160 || y === 70 ? cube(102, 51, 0) : cube(153, 204, 255);
+  return {
+    resolution: [W, H] as [number, number],
+    cels: [{ width: W, height: H, displaceX: 0, displaceY: 0, skipColor: Colour.Transparent, pixels, priority: 0, x: 0, y: 0, unknown16: 0 }],
+    palette: basePalette(),
+  };
+}
+
+/** A figure 9 pixels wide; its legs move in cels 1 and 3. */
+function hero(): ViewFile {
+  const colours: Record<string, number> = { H: cube(51, 51, 51), S: cube(255, 204, 153), C: cube(51, 102, 153), L: cube(51, 51, 51) };
+  const body = ["..HHHHH..", "..SSSSS..", "..SSSSS..", "...SSS...", "..CCCCC..", ".CCCCCCC.", ".CCCCCCC.", ".SCCCCCS.", "..CCCCC.."];
+  const legs = [["..LL.LL..", "..LL.LL..", "..LL.LL.."], [".LL...LL.", ".LL...LL.", "LL.....LL"], ["..LL.LL..", "..LL.LL..", "..LL.LL.."], ["...LLL...", "...LLL...", "...LLL..."]];
+  const cels = legs.map((l) => {
+    const rows = [...body, ...l];
+    const pixels = Uint8Array.from(rows.join(""), (c) => colours[c] ?? Colour.Transparent);
+    return { width: 9, height: rows.length, displaceX: 0, displaceY: 0, skipColor: Colour.Transparent, pixels };
+  });
+  return {
+    flags: 1,
+    loops: [{ link: -1, mirror: false, cels }, { link: 0, mirror: true, cels: [] }, { link: -1, mirror: false, cels }, { link: -1, mirror: false, cels }],
+    palette: undefined,
+  };
+}

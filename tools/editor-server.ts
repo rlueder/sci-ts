@@ -19,8 +19,9 @@ import { writePatch } from "./patches.ts";
 const ROOT = resolve(import.meta.dirname, "..");
 const MODS = join(ROOT, "mods");
 const GAMES = join(ROOT, "games");
-/** The files the editor shows and may write. */
+/** The files the editor shows and may write: rooms as data; for our games, scripts and messages too. */
 const EDITABLE = /^(\d+\.room\.yaml|\d+\.yarn|flags\.yaml)$/;
+const GAME_EDITABLE = /^(\d+\.room\.yaml|\d+\.yarn|flags\.yaml|\d+\.sc|\d+\.msg)$/;
 
 /** The game of ours the dev server serves (SCI_GAME=out/games/<name>), if it is one. */
 const servedGame = (() => {
@@ -34,7 +35,7 @@ function filesDir(name: string): { dir: string; game: boolean } {
   return { dir: modDir(name), game: false };
 }
 const fileIn = (where: { dir: string; game: boolean }, file: string) =>
-  join(where.dir, where.game && file !== "flags.yaml" ? "rooms" : "", file);
+  join(where.dir, !where.game || file === "flags.yaml" ? "" : file.endsWith(".sc") ? "scripts" : file.endsWith(".msg") ? "messages" : "rooms", file);
 
 let game: Promise<{ rm: ResourceManager; world: ScriptWorld; ctx: AsmContext }> | undefined;
 const openGame = () =>
@@ -54,7 +55,14 @@ const roomsIn = (dir: string) =>
   existsSync(dir) ? readdirSync(dir).flatMap((f) => /^(\d+)\.room\.yaml$/.exec(f)?.[1] ?? []).map(Number).sort((a, b) => a - b) : [];
 
 export function listMods(): { name: string; kind: "mod" | "game"; rooms: number[] }[] {
-  if (servedGame) return [{ name: servedGame, kind: "game", rooms: roomsIn(join(GAMES, servedGame, "rooms")) }];
+  if (servedGame) {
+    // Rooms as data, and scripts (besides 0, the game) that may be rooms.
+    const scripts = existsSync(join(GAMES, servedGame, "scripts"))
+      ? readdirSync(join(GAMES, servedGame, "scripts")).flatMap((f) => /^(\d+)\.sc$/.exec(f)?.[1] ?? []).map(Number).filter((n) => n !== 0)
+      : [];
+    const rooms = [...new Set([...roomsIn(join(GAMES, servedGame, "rooms")), ...scripts])].sort((a, b) => a - b);
+    return [{ name: servedGame, kind: "game", rooms }];
+  }
   return readdirSync(MODS)
     .filter((d) => statSync(join(MODS, d)).isDirectory())
     .map((name) => ({ name, kind: "mod" as const, rooms: roomsIn(join(MODS, name)) }));
@@ -62,10 +70,12 @@ export function listMods(): { name: string; kind: "mod" | "game"; rooms: number[
 
 export function readFiles(name: string): Record<string, string> {
   const where = filesDir(name);
+  const list = (sub: string) => (existsSync(join(where.dir, sub)) ? readdirSync(join(where.dir, sub)) : []);
   const names = where.game
-    ? [...readdirSync(join(where.dir, "rooms")), ...(existsSync(join(where.dir, "flags.yaml")) ? ["flags.yaml"] : [])]
+    ? [...list("rooms"), ...list("scripts"), ...list("messages"), ...(existsSync(join(where.dir, "flags.yaml")) ? ["flags.yaml"] : [])]
     : readdirSync(where.dir);
-  return Object.fromEntries(names.filter((f) => EDITABLE.test(f)).map((f) => [f, readFileSync(fileIn(where, f), "utf8")]));
+  const editable = where.game ? GAME_EDITABLE : EDITABLE;
+  return Object.fromEntries(names.filter((f) => editable.test(f)).map((f) => [f, readFileSync(fileIn(where, f), "utf8")]));
 }
 
 export interface BuildResult {
@@ -91,7 +101,7 @@ export function save(mod: string, files: Record<string, string>): Promise<BuildR
     try {
       const where = filesDir(mod);
       for (const [name, text] of Object.entries(files)) {
-        if (!EDITABLE.test(name)) throw new Error(`the editor doesn't write ${name}`);
+        if (!(where.game ? GAME_EDITABLE : EDITABLE).test(name)) throw new Error(`the editor doesn't write ${name}`);
         const path = fileIn(where, name);
         if (!existsSync(path) || readFileSync(path, "utf8") !== text) writeFileSync(path, text);
       }
@@ -114,7 +124,9 @@ export function save(mod: string, files: Record<string, string>): Promise<BuildR
       const message = (e as Error).message;
       // Compiler errors start with file:line.
       const at = /^(?:.*\/)?([^/:\s]+):(\d+):/.exec(message);
-      return { ok: false, error: { message: message.replace(ROOT + "/", ""), file: at?.[1], line: at ? Number(at[2]) : undefined }, ms: Date.now() - started };
+      // Paths in messages are relative to the dev server's folder (apps/viewer): from the repository's instead.
+      const shown = message.replaceAll(ROOT + "/", "").replace(/^(\.\.\/)+/, "");
+      return { ok: false, error: { message: shown, file: at?.[1], line: at ? Number(at[2]) : undefined }, ms: Date.now() - started };
     }
   };
   const result = queue.then(run, run);
@@ -141,6 +153,7 @@ async function buildServedGame(name: string): Promise<BuildResult> {
   mkdirSync(out, { recursive: true });
   writeFileSync(join(out, "RESOURCE.MAP"), map);
   writeFileSync(join(out, "RESOURCE.000"), volume);
+  for (const [file, data] of Object.entries(game.files)) writeFileSync(join(out, file), data);
   // The running VM read its selector and class tables when it started.
   const reload = changed.some((r) => r.type === ResourceType.Vocab);
   const generated: Record<string, string> = {};

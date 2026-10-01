@@ -3,10 +3,12 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   AsmError, CompileError, GLOBAL_NAMES_VOCAB, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
-  resourceKey, writeClassTable, writeMessages, writeSelectorNames, type AsmContext, type ResourceData, type ScriptObject,
+  resourceKey, writeClassTable, writeEffects, writeMessages, writeSelectorNames, writeSol, writeSound, type AsmContext,
+  type ResourceData, type ScriptObject,
 } from "@sci-ts/sci";
 import { ContentError, compileRoom } from "@sci-ts/content";
 import { modFlags } from "../mod-build.ts";
+import { AudioFileError, readMidiFile, readWav } from "./audio.ts";
 import { defaultResources } from "./defaults.ts";
 import { libraryTarget } from "./target.ts";
 
@@ -20,8 +22,10 @@ import { libraryTarget } from "./target.ts";
  *   games/<name>/rooms/<n>.room.yaml (+ <n>.yarn)  rooms as data (packages/content), compiled
  *                                  for the class library; their Yarn variables are flags
  *                                  numbered in flags.yaml
+ *   games/<name>/music/<n>.mid     music: sound n, from a Standard MIDI File (General MIDI)
+ *   games/<name>/sounds/<n>.wav    digital effects: sound n plays this instead of music
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
- *                                  sounds and anything else made by code
+ *                                  music and anything else made by code
  *   games/<name>/game.json         optional: { "library": false } to build without lib/
  *
  * plus the class library (lib/: its scripts and resources) and font 0, palette 999 and cursor
@@ -38,6 +42,10 @@ export interface BuiltGame {
   globals: string[];
   /** The message text compiled from each YAML room's Yarn, by room. */
   roomMessages: Map<number, string>;
+  /** Files that go next to RESOURCE.MAP and RESOURCE.000 (RESOURCE.SFX, the effects). */
+  files: Record<string, Uint8Array>;
+  /** Likely mistakes that still built, as file:line: message. */
+  warnings: string[];
 }
 
 const HEADER = OBJECT_HEADER;
@@ -88,6 +96,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   let globals: string[] = [];
   const takenSpecies = new Set(sources.flatMap((s) => [...s.text.matchAll(/^\s*class\s+\S+\s+of\s+\S+\s+species\s+(\d+)/gm)].map((m) => Number(m[1]))));
   let compileError: CompileError | undefined;
+  const warnings: string[] = [];
   const tryCompile = (): { file: string; text: string }[] => {
     if (!compiled.length) return [];
     try {
@@ -96,6 +105,8 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
         {
           kernelNames,
           takenSpecies,
+          // Only when every class is compiled: hand-written scripts' methods can't be seen.
+          onWarning: sources.length ? undefined : (w) => warnings.push(`${w.file}:${w.line}: ${w.message}`),
           externalClass: (name) => {
             const species = byName.get(name);
             const c = species === undefined ? undefined : classes.get(species);
@@ -210,6 +221,38 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     }
   }
 
+  // Music (MIDI files) and digital effects (WAV files).
+  const audioFile = <T>(file: string, read: () => T): T => {
+    try {
+      return read();
+    } catch (e) {
+      if (e instanceof AudioFileError) throw new GameBuildError(`${relative(process.cwd(), file)}: ${e.message}`);
+      throw e;
+    }
+  };
+  const musicDir = join(dir, "music");
+  if (existsSync(musicDir)) {
+    for (const f of readdirSync(musicDir).filter((x) => /^\d+\.midi?$/i.test(x)).sort()) {
+      const file = join(musicDir, f);
+      const spec = audioFile(file, () => readMidiFile(new Uint8Array(readFileSync(file))));
+      resources.push({ type: ResourceType.Sound, number: numberOf(file), data: writeSound(spec) });
+    }
+  }
+  const files: Record<string, Uint8Array> = {};
+  const soundsDir = join(dir, "sounds");
+  if (existsSync(soundsDir)) {
+    const clips = readdirSync(soundsDir).filter((x) => /^\d+\.wav$/i.test(x)).sort().map((f) => {
+      const file = join(soundsDir, f);
+      const { samples, rate } = audioFile(file, () => readWav(new Uint8Array(readFileSync(file))));
+      return { number: numberOf(file), sol: writeSol(samples, rate) };
+    });
+    if (clips.length) {
+      const { sfx, map } = writeEffects(clips);
+      files["RESOURCE.SFX"] = sfx;
+      resources.push({ type: ResourceType.Map, number: 65535, data: map });
+    }
+  }
+
   // Resources made in code: the game's, then the library's and the defaults for what's left.
   const made = async (path: string) => {
     if (!existsSync(path)) return [];
@@ -232,5 +275,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     generated,
     globals,
     roomMessages: roomMessageText,
+    files,
+    warnings: [...new Set(warnings)],
   };
 }

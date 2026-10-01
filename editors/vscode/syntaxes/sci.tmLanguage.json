@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SCI Script",
+  "scopeName": "source.sci",
+  "patterns": [
+    { "name": "comment.line.semicolon.sci", "match": ";.*$" },
+    { "name": "string.quoted.double.sci", "begin": "\"", "end": "\"", "patterns": [{ "name": "constant.character.escape.sci", "match": "\\\\(n|t|[0-9a-fA-F]{2}|.)" }] },
+    { "name": "string.quoted.other.sci", "begin": "\\{", "end": "\\}" },
+    { "name": "constant.numeric.sci", "match": "(?<![\\w-])(-?\\$[0-9a-fA-F]+|%[01]+|-?\\d+)(?![\\w-])" },
+    { "name": "constant.character.sci", "match": "`\\^?." },
+    { "name": "constant.other.selector.sci", "match": "#[\\w-]+" },
+    { "name": "variable.other.address.sci", "match": "@[\\w-]+" },
+    { "name": "keyword.declaration.sci", "match": "(?<=\\()(script|include|define|enum|public|local|global|extern|class|instance|properties|method|procedure)(?=[\\s)])" },
+    { "name": "keyword.control.sci", "match": "(?<=\\()(if|cond|switch|switchto|while|repeat|for|break|continue|return|and|or|not|send)(?=[\\s)])" },
+    { "name": "keyword.other.sci", "match": "(?<![\\w-])(of|kindof|else|&rest|&tmp)(?![\\w-])" },
+    { "name": "variable.language.sci", "match": "(?<![\\w-])(self|super|argc)(?![\\w-])" },
+    { "name": "entity.other.attribute-name.selector.sci", "match": "(?<![\\w-])[A-Za-z_-][\\w-]*[:?](?![\\w-])" },
+    { "name": "constant.other.define.sci", "match": "(?<![\\w-])[A-Z][A-Z0-9_]+(?![\\w-])" },
+    { "name": "entity.name.type.class.sci", "match": "(?<![\\w-])[A-Z][\\w-]*(?![\\w-])" },
+    { "name": "keyword.operator.sci", "match": "(?<=\\()(\\+=|-=|\\*=|/=|\\|=|&=|\\^=|<<=|>>=|\\+\\+|--|==|!=|<=|>=|u<=|u>=|u<|u>|<<|>>|[-+*/<>=&|^~]|mod)(?=[\\s)])" }
+  ]
+}

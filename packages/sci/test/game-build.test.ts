@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GameBuildError, buildGame } from "../../../tools/game/build.ts";
+import { newGame } from "../../../tools/game/new.ts";
 import { pixelFont } from "../../../tools/game/font.ts";
 import { stringHelpers } from "../src/vm/kernels/arrays.ts";
 import {
-  EventType, ResourceManager, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
+  EventType, ResourceManager, audio, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
   writeClassTable, writeFont, writeResourceArchive, writeSelectorNames, type FileSource, type Value,
 } from "../src/index.ts";
 
@@ -18,9 +19,9 @@ const memoryFiles = (files: Record<string, Uint8Array>): FileSource => ({
   list: async (dir) => (dir === "" ? Object.keys(files) : []),
 });
 
-async function open(resources: Parameters<typeof writeResourceArchive>[0]) {
+async function open(resources: Parameters<typeof writeResourceArchive>[0], files: Record<string, Uint8Array> = {}) {
   const { map, volume } = writeResourceArchive(resources);
-  const rm = await ResourceManager.open(memoryFiles({ "RESOURCE.MAP": map, "RESOURCE.000": volume }));
+  const rm = await ResourceManager.open(memoryFiles({ "RESOURCE.MAP": map, "RESOURCE.000": volume, ...files }));
   await rm.preload();
   return rm;
 }
@@ -73,7 +74,7 @@ describe("games/hello, on the class library", async () => {
   const game = await buildGame("games/hello");
 
   it("numbers selectors from the object header on, and the root class first", () => {
-    expect(game.selectors.slice(0, 9)).toEqual(["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-script-", "-super-", "-info-", "name"]);
+    expect(game.selectors.slice(0, 9)).toEqual(["-objID-", "-size-", "-propDict-", "-methDict-", "-classScript-", "-species-", "-super-", "-info-", "name"]);
     expect(game.classes.get(0)).toEqual({ name: "Obj", script: 999 });
     for (const name of ["Game", "Room", "Ego", "PolyPath", "Messager", "User", "Sound"]) {
       expect([...game.classes.values()].some((c) => c.name === name), name).toBe(true);
@@ -81,7 +82,7 @@ describe("games/hello, on the class library", async () => {
   });
 
   it("plays: walks, looks, reads messages, goes to the next room and has a conversation", async () => {
-    const vm = new Vm(await open(game.resources));
+    const vm = new Vm(await open(game.resources, game.files));
     vm.registerKernels(allKernels);
     const g = graphics(vm);
     vm.clock = () => (g.frames * 1000) / 60;
@@ -124,6 +125,11 @@ describe("games/hello, on the class library", async () => {
     expect(global("curRoomNum")).toBe(1);
     const ego = global("ego");
     expect([prop(ego, "x"), prop(ego, "y")]).toEqual([40, 175]);
+    // The night's tune (made in code: sound 100) is playing, on a loop.
+    const music = global("music");
+    expect(prop(music, "number")).toBe(100);
+    const player = audio(vm).songs.get(music);
+    expect(player?.loop).toBe(true);
 
     // Walk (the first verb) to a point on the grass, facing east as he goes.
     click(200, 180);
@@ -155,6 +161,19 @@ describe("games/hello, on the class library", async () => {
     frames(300);
     expect(line()).toBe("");
 
+    // Do on the lantern: it chimes (sounds/50.wav, a digital effect), then speaks.
+    click(0, 0, true);
+    click(0, 0, true);
+    click(0, 0, true);
+    expect(g.cursor.view).toBe(994);
+    click(160, 168);
+    expect(prop(global("sfx"), "number")).toBe(50);
+    expect(vm.getProp(global("sfx"), "handle")).not.toBe(0);
+    expect(audio(vm).index.effects.has(50)).toBe(true);
+    expect(line()).toBe("It's warm. Whoever left it will be back for it.");
+    click(10, 10);
+    click(0, 0, true); // do -> look
+
     // Back to walking (look -> talk -> walk), and east, off the edge of the hill.
     click(0, 0, true);
     click(0, 0, true);
@@ -164,6 +183,8 @@ describe("games/hello, on the class library", async () => {
     expect(global("curRoomNum")).toBe(2);
     expect(global("prevRoomNum")).toBe(1);
     expect(prop(global("ego"), "x")).toBe(10);
+    // The road plays the same tune: it carries on rather than starting again.
+    expect(audio(vm).songs.get(global("music"))).toBe(player);
 
     // Room 2 is YAML and Yarn. Arriving the first time, a line (set by a flag).
     frames(3);
@@ -240,6 +261,27 @@ describe("the class library", () => {
     const out = vm.loadedScripts.find((s) => s.number === 0)!.locals.slice(0, 4);
     expect(out[0]).not.toBe(0);
     expect(out.slice(1)).toEqual([0, 1, 0]);
+  });
+});
+
+describe("pnpm game new", () => {
+  it("starts a game that builds and plays: a room, a hero, a first line", async () => {
+    const games = mkdtempSync(join(tmpdir(), "sci-new-"));
+    const dir = newGame("night-walk", games);
+    const game = await buildGame(dir);
+    expect(game.warnings).toEqual([]);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 5; i++) vm.run();
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    expect(global("curRoomNum")).toBe(1);
+    const box = vm.getProp(global("talking"), "box")!;
+    expect(stringHelpers.str(vm, vm.getProp(box, "text")!)).toMatch(/^You're here\./);
+    expect(() => newGame("night-walk", games)).toThrow(/already there/);
+    expect(() => newGame("Bad Name", games)).toThrow(/lower-case/);
   });
 });
 

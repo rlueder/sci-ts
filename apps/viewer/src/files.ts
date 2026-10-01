@@ -1,20 +1,29 @@
 import { APP_ID } from "./app.ts";
 import { ResourceManager, type FileSource } from "@sci-ts/sci";
 
-/** FileSource over the dev server's /game/ mount (see vite.config.ts). */
+/** Where the page is served from: / in development, wherever a built site is put. */
+export const BASE = import.meta.env.BASE_URL;
+
+/**
+ * FileSource over game/: the dev server's mount (see vite.config.ts), or the game copied
+ * next to a built site, with its file names in game/files.json (`pnpm game site`).
+ */
 export const httpFiles: FileSource = {
   async read(path) {
-    const res = await fetch(`/game/${path}`);
+    const res = await fetch(`${BASE}game/${path}`);
     return res.ok ? new Uint8Array(await res.arrayBuffer()) : undefined;
   },
   async readRange(path, offset, length) {
-    const res = await fetch(`/game/${path}`, { headers: { Range: `bytes=${offset}-${offset + length - 1}` } });
+    const res = await fetch(`${BASE}game/${path}`, { headers: { Range: `bytes=${offset}-${offset + length - 1}` } });
     return new Uint8Array(await res.arrayBuffer());
   },
   async list(dir) {
-    return (await fetch(`/__list?dir=${encodeURIComponent(dir)}`)).json();
+    if (import.meta.env.DEV) return (await fetch(`/__list?dir=${encodeURIComponent(dir)}`)).json();
+    staticListing ??= fetch(`${BASE}game/files.json`).then((r) => (r.ok ? r.json() : {}));
+    return (await staticListing)[dir] ?? [];
   },
 };
+let staticListing: Promise<Record<string, string[]>> | undefined;
 
 // --- Mods -------------------------------------------------------------------------------
 
@@ -45,8 +54,9 @@ export function rememberMods(mods: string[]): void {
   }
 }
 
-/** Mods built into out/mods (see `pnpm mod build`). */
+/** Mods built into out/mods (see `pnpm mod build`); a built site has none. */
 export async function availableMods(): Promise<string[]> {
+  if (!import.meta.env.DEV) return [];
   try {
     return await (await fetch("/__mods")).json();
   } catch {

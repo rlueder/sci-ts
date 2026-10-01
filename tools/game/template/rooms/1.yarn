@@ -1,0 +1,17 @@
+title: room.enter
+---
+<<if not $started>>
+You're here. Right-click for the next verb; click to use it.
+<<set $started to true>>
+<<endif>>
+===
+
+title: room.look
+---
+An empty room, waiting for a story.
+===
+
+title: window.look
+---
+Nothing out there yet.
+===

@@ -1,7 +1,7 @@
 import { AudioIndex, ResourceType, SongPlayer, SoundDevice, parseAdLibBank, parseSound, type MidiOutput, type ResourceManager, type Song } from "@sci-ts/sci";
 import { AdLibOutput } from "./adlib.ts";
 import { WebAudioOutput } from "./audio.ts";
-import { httpFiles } from "./files.ts";
+import { BASE, httpFiles } from "./files.ts";
 import { SoundFontMidi } from "./music.ts";
 
 /**
@@ -24,7 +24,7 @@ const openAudio = (rm: ResourceManager) =>
     await rm.preload(); // the audio maps and the AdLib bank are read synchronously
     const out = new WebAudioOutput(httpFiles, (name) => rm.file(name));
     const gm = new SoundFontMidi(out.ctx);
-    const gmReady = gm.load("/soundfonts/GeneralUser-GS.sf2");
+    const gmReady = gm.load(`${BASE}soundfonts/GeneralUser-GS.sf2`);
     const adlib = await AdLibOutput.create(out.ctx, parseAdLibBank(rm.loadSync({ type: ResourceType.Patch, number: 3 }).data));
     return { out, gm, gmReady, adlib, index: AudioIndex.build(rm) };
   })());

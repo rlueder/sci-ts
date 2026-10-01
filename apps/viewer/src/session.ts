@@ -4,7 +4,7 @@ import {
 } from "@sci-ts/sci";
 import { AdLibOutput } from "./adlib.ts";
 import { WebAudioOutput } from "./audio.ts";
-import { httpFiles } from "./files.ts";
+import { BASE, httpFiles } from "./files.ts";
 import { SoundFontMidi } from "./music.ts";
 import { APP_ID } from "./app.ts";
 import { browserSaveStore } from "./saves.ts";
@@ -86,7 +86,7 @@ export class GameSession {
     // Music: General MIDI through a SoundFont (loads in the background), or the AdLib track
     // through Sierra's driver and an OPL2 emulator: what most players heard in 1994.
     const music = new SoundFontMidi(sound.ctx);
-    music.load("/soundfonts/GeneralUser-GS.sf2").catch((e) => console.warn("SoundFont unavailable:", e));
+    music.load(`${BASE}soundfonts/GeneralUser-GS.sf2`).catch((e) => console.warn("SoundFont unavailable:", e));
     const bank = { type: ResourceType.Patch, number: 3 };
     const adlib = rm.has(bank) ? await AdLibOutput.create(sound.ctx, parseAdLibBank(rm.loadSync(bank).data)) : undefined;
 

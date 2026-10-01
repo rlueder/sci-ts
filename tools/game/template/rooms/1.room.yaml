@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../../packages/content/room.schema.json
+# The first room. What's here and where you can walk; what's said is in 1.yarn.
+room: 1
+picture: 100
+hero:
+  at: [60, 170]
+walkable: [[0, 150], [319, 150], [319, 189], [0, 189]]
+features:
+  window: { rect: [130, 40, 190, 100] }
