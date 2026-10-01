@@ -34,7 +34,7 @@ ${more.top ?? ""}
 (instance t of Obj
   (method (play) ${body}))`,
     ...more.scripts,
-  }));
+  }), { library: false });
   const { map, volume } = writeResourceArchive(game.resources);
   const rm = await ResourceManager.open(memoryFiles({ "RESOURCE.MAP": map, "RESOURCE.000": volume }));
   await rm.preload();

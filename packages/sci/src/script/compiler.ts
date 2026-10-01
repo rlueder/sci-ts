@@ -10,6 +10,7 @@ import { read, show, ReadError, type Node } from "./sexpr.ts";
  *   (define SPEED 6) (enum 1 LOOK DO TALK)       constants
  *   (public lantern 0 helper 1)                  exports, by index
  *   (local count [buf 10] (= name "x"))          script variables; script 0's are the globals
+ *   (global ego (= speed 6))                     more globals, declared by any script
  *   (extern helper 100 1)                        a procedure exported by a script not compiled here
  *   (class Lantern of Prop                       a class (no `of`: a root class)
  *     (properties lit 0)
@@ -21,7 +22,8 @@ import { read, show, ReadError, type Node } from "./sexpr.ts";
  * == != < > <= >= u< u> u<= u>=, (and ...) (or ...) (not e), (if c ... else ...), (cond ...),
  * (switch v (k ...) (else ...)), (while c ...), (repeat ...), (for (init) c (step) ...),
  * (break), (continue), (return e). Sends: (obj sel: args sel2: args), (self ...),
- * (super ...), (send e sel: ...); `sel?` reads a property. Calls: (proc args), (Kernel args),
+ * (super ...), (send e sel: ...); `sel?` reads a property; (obj [s] args) sends the
+ * selector in s. Calls: (proc args), (Kernel args),
  * `&rest` passes on the caller's remaining arguments. [buf i] is an array element, @buf its
  * address, #sel a selector, `a a character, $1F hex.
  */
@@ -53,6 +55,8 @@ export interface CompiledScript {
   assembly: string;
   /** Classes this script defines, by name. */
   classes: Map<string, number>;
+  /** Its variables, by slot (an array's elements are name[i]); script 0's are the globals. */
+  variables: string[];
 }
 
 export class CompileError extends Error {
@@ -96,6 +100,7 @@ interface Unit {
   number: number;
   defines: Map<string, Node>;
   locals: Var[];
+  globals: Var[];
   publics: { name: string; index: number; line: number }[];
   externs: Map<string, { script: number; index: number }>;
   objects: Obj[];
@@ -137,9 +142,19 @@ export function compileScripts(sources: readonly CompileSource[], ctx: CompileCo
   };
   for (const c of classes.values()) number(c, new Set());
 
-  // Globals: script 0's variables.
+  // Globals: script 0's variables, then those other scripts declare with (global ...), in
+  // script order; they all live in script 0.
   const globals = new Map<string, { index: number; size: number }>();
   const zero = byNumber.get(0);
+  const declared = [...units].sort((a, b) => a.number - b.number).flatMap((u) => u.globals.map((v) => ({ v, u })));
+  if (declared.length && !zero) {
+    throw new CompileError("(global ...) needs script 0 to be compiled with it (globals live there)", declared[0]!.u.file, declared[0]!.v.line);
+  }
+  for (const { v, u } of declared) {
+    const other = zero!.locals.find((x) => x.name === v.name);
+    if (other) throw new CompileError(`global ${v.name} is declared twice`, u.file, v.line);
+    zero!.locals.push(v);
+  }
   if (zero) {
     let i = 0;
     for (const v of zero.locals) (globals.set(v.name, { index: i, size: v.size }), (i += v.size));
@@ -157,12 +172,13 @@ export function compileScripts(sources: readonly CompileSource[], ctx: CompileCo
     number: u.number,
     assembly: new ScriptCompiler(u, project).compile(),
     classes: new Map(u.objects.filter((o) => o.kind === "class").map((o) => [o.name, o.species])),
+    variables: u.locals.flatMap((v) => (v.size === 1 ? [v.name] : Array.from({ length: v.size }, (_, i) => `${v.name}[${i}]`))),
   }));
 }
 
 /** Reads a source file's top-level forms into declarations. */
 function declare(src: CompileSource, ctx: CompileContext): Unit {
-  const unit: Unit = { file: src.file, number: -1, defines: new Map(), locals: [], publics: [], externs: new Map(), objects: [], procedures: [] };
+  const unit: Unit = { file: src.file, number: -1, defines: new Map(), locals: [], globals: [], publics: [], externs: new Map(), objects: [], procedures: [] };
   const fail = (msg: string, line: number, file = src.file): never => {
     throw new CompileError(msg, file, line);
   };
@@ -226,6 +242,10 @@ function declare(src: CompileSource, ctx: CompileContext): Unit {
         case "local":
           onlyInScript();
           unit.locals.push(...variables(rest, (m, l) => fail(m, l)));
+          break;
+        case "global":
+          onlyInScript();
+          unit.globals.push(...variables(rest, (m, l) => fail(m, l)));
           break;
         case "class":
         case "instance":
@@ -384,6 +404,10 @@ interface FnState {
 }
 
 const SEND_SELECTOR = /^([A-Za-z_-][\w-]*)[:?]$/;
+/** A message in a send starts with a selector (`x:`, `x?`) or `[expr]`, a selector computed at run time. */
+const isMessageHead = (n: Node | undefined) =>
+  (n?.kind === "sym" && SEND_SELECTOR.test(n.name)) || (n?.kind === "index" && n.items.length === 1);
+
 const BINARY: Record<string, string> = {
   "+": "add", "-": "sub", "*": "mul", "/": "div", mod: "mod", "<<": "shl", ">>": "shr", "&": "and", "|": "or", "^": "xor",
 };
@@ -677,8 +701,8 @@ class ScriptCompiler {
   private form(n: Node & { kind: "list" }): void {
     const [head, ...args] = n.items;
     if (!head) this.fail("() is empty", n.line);
-    // A send: (target sel: ...).
-    if (args[0]?.kind === "sym" && SEND_SELECTOR.test(args[0].name)) return this.send(head!, args, n.line);
+    // A send: (target sel: ...), or (target [s] ...) with the selector in s.
+    if (isMessageHead(args[0])) return this.send(head!, args, n.line);
     if (head!.kind !== "sym") {
       if (head!.kind === "list" || head!.kind === "index") this.fail(`expected a selector after ${show(head!)} (a send)`, n.line);
       this.fail(`can't call ${show(head!)}`, n.line);
@@ -906,12 +930,12 @@ class ScriptCompiler {
     let frame = 0;
     for (let i = 0; i < messages.length; ) {
       const sel = messages[i]!;
-      const m = sel.kind === "sym" ? SEND_SELECTOR.exec(sel.name) : null;
-      if (!m) this.fail(`expected a selector like x: or init:, got ${show(sel)}`, sel.line);
+      if (!isMessageHead(sel)) this.fail(`expected a selector like x: or init:, got ${show(sel)}`, sel.line);
       let j = i + 1;
-      while (j < messages.length && !(messages[j]!.kind === "sym" && SEND_SELECTOR.test((messages[j] as { name: string }).name))) j++;
+      while (j < messages.length && !isMessageHead(messages[j])) j++;
       const args = this.restSplit(messages.slice(i + 1, j), sel.line);
-      this.op(`pushi #${m![1]}`);
+      if (sel.kind === "sym") this.op(`pushi #${SEND_SELECTOR.exec(sel.name)![1]}`);
+      else this.push((sel as { items: Node[] }).items[0]!);
       this.push({ kind: "num", value: args.explicit.length, line });
       frame += 4 + this.pushArgs(args);
       i = j;
