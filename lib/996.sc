@@ -22,6 +22,7 @@
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
 ;; item in the UI plane. Set text (and width, x, y), then init; it's as tall as the text
 ;; unless height is set. Font, colours and frame come from the textStyle unless set here.
+;; With bottom set, y is worked out so the box ends there: it grows upwards with the text.
 (class TextItem of Obj
   (properties
     x 0 y 0 z 0
@@ -40,7 +41,8 @@
     frame -2        ; -1: none
     textLeft 0 textTop 0 textRight -1 textBottom -1
     width 200
-    height 0)
+    height 0
+    bottom -1)      ; -1: placed at y
 
   (method (init &tmp r m padL padT padR padB)
     (if (== font -1) (= font (textStyle font?)))
@@ -65,6 +67,7 @@
     (= textTop padT)
     (= textRight (- width (+ padR 1)))
     (= textBottom (- height (+ padB 1)))
+    (if (!= bottom -1) (= y (- bottom height)))
     (= plane uiPlane)
     (= bitmap (CreateTextBitmap 0 width height self))
     (if (!= frame -1) (self drawFrame:))
@@ -111,7 +114,7 @@
     noun 0 verb 0 cond 0 seq 0
     font -1         ; -1: the textStyle's
     x -1            ; -1: centred
-    y 16
+    y 16            ; below 0: that far above the bottom of the screen, growing upwards
     width 220)
 
   (method (say txt whoCares)
@@ -128,7 +131,8 @@
           font: font
           width: width
           x: (if (== x -1) (/ (- SCREEN_WIDTH width) 2) else x)
-          y: y
+          y: (if (< y 0) 0 else y)
+          bottom: (if (< y 0) (+ SCREEN_HEIGHT y) else -1)
           yourself:))
       (box init:))
     (= talking self)
@@ -294,25 +298,53 @@
     (String ARRAY_FREE text)
     (super dispose:)))
 
-;; Choices in boxes, one under another; the first click on one ends it. While it's open it
-;; gets every click (it's the `dialog`). The caller hears the choice by `choose: value`.
+;; Choices one under another in a box (the textStyle's frame around them all); the first
+;; click on one ends it. While it's open it gets every click (it's the `dialog`). The caller
+;; hears the choice by `choose: value`.
 (class Menu of Obj
   (properties
     items 0
     caller 0
-    y 20
-    width 240)
+    panel 0
+    y 20            ; the top of the box
+    width 240
+    next 0)         ; where the next choice goes
 
-  (method (add v txt &tmp item)
-    (if (not items) (= items (List new:)))
-    (= item ((MenuItem new:) value: v text: txt width: width x: (/ (- SCREEN_WIDTH width) 2) y: y yourself:))
+  (method (add v txt &tmp item f)
+    (= f (textStyle frame?))
+    (if (not items)
+      (= items (List new:))
+      (= next (+ y (if (!= f -1) (CelHigh f 0 4) else 1))))
+    (= item
+      ((MenuItem new:)
+        value: v
+        text: txt
+        frame: -1
+        borderColor: -1
+        width: (- width (if (!= f -1) (+ (CelWide f 0 6) (CelWide f 0 7)) else 2))
+        x: (+ (/ (- SCREEN_WIDTH width) 2) (if (!= f -1) (CelWide f 0 6) else 1))
+        y: next
+        yourself:))
     (item init:)
-    (+= y (+ (item height?) 2))
+    (+= next (item height?))
     (items add: item)
     (return self))
 
-  (method (show whoCares)
+  ;; The box behind the choices, then it waits for one.
+  (method (show whoCares &tmp f)
+    (= f (textStyle frame?))
     (= caller whoCares)
+    (if items
+      (= panel
+        ((TextItem new:)
+          text: ""
+          x: (/ (- SCREEN_WIDTH width) 2)
+          y: y
+          width: width
+          height: (+ (- next y) (if (!= f -1) (CelHigh f 0 5) else 1))
+          priority: 99
+          yourself:))
+      (panel init:))
     (= dialog self))
 
   (method (handleEvent event &tmp item v c)
@@ -336,6 +368,7 @@
       (items eachElementDo: #dispose)
       (items dispose:)
       (= items 0))
+    (if panel (panel dispose:) (= panel 0))
     (super dispose:)))
 
 ;; A conversation with something: talking to it opens a menu of topics, choosing one says
