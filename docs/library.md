@@ -195,7 +195,9 @@ The portrait goes at the top left facing right, or the top right facing left, wi
 beside it on the side towards the middle. A character takes the side of the hero they
 stand on: a room character's talker is told which prop in the room has its name (`who:`),
 and one with no prop takes the right. The hero takes the side opposite whoever spoke last,
-so a conversation's two portraits face each other. The hero can have a portrait too: a
+so a conversation's two portraits face each other. A portrait doesn't cover a face: if on
+its side it would be over the speaker or the hero (someone standing at the top of the
+room), it goes on the other side. The hero can have a portrait too: a
 `PortraitTalker` with a `view` makes its own parts.
 
 ```lisp
@@ -293,6 +295,12 @@ lens: { verb: 10, view: 250, description: "A brass magnifying lens." }
 
 A game whose scripts make the item (like the `lens` instance above) gives just the verb,
 `lens: 10`, and adds it with `(inventory add: lens)`.
+
+An item that magnifies, a lens, has `magnify` (how much bigger, 2 to 8) and its glass as
+loop 2 of its view, placed like the cursor: while it's in use, the room shows through the
+glass that many times larger, centred on the hotspot. `items.yaml` takes it too:
+`lens: { verb: 10, view: 250, magnify: 2 }`. Under it is `(AddMagnify view loop cel zoom)`
+and `(DeleteMagnify)`, which a script can use for a magnifier of its own.
 
 The item stays picked until right-click, which goes on to walking (from talk, right-click
 goes to the item first). `theItem` is the item picked, or 0.

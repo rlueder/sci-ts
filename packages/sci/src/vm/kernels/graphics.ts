@@ -90,6 +90,11 @@ export class Graphics {
   readonly transitions = new Map<Value, Transition>();
   /** The mouse cursor: a view cel drawn on top at the mouse position (its origin = hotspot). */
   cursor = { view: -1, loop: 0, cel: 0, visible: true, x: 160, y: 100 };
+  /**
+   * The cursor as a magnifying glass (AddMagnify): where this cel is opaque, placed like the
+   * cursor, the screen under the cursor's hotspot shows `zoom` times larger.
+   */
+  magnify: { view: number; loop: number; cel: number; zoom: number } | undefined;
   /** Palette range affected by fade show styles (SetPalStyleRange). */
   styleRange = { from: 0, to: 255 };
   lastFrame: Frame | undefined;
@@ -224,8 +229,25 @@ export class Graphics {
       }
       for (const d of draws) blit(pixels, d, clip, remap);
     }
-    // The cursor goes on top of everything.
+    // The cursor goes on top of everything: first what a magnifier shows through its glass.
     const cur = this.cursor;
+    const mag = this.magnify;
+    const glass = cur.visible && mag ? this.cel(mag.view, mag.loop, mag.cel) : undefined;
+    if (glass && mag) {
+      const scene = pixels.slice();
+      const o = celOrigin(glass.cel, glass.mirror);
+      const { width: w, height: h, skipColor } = glass.cel;
+      for (let gy = 0; gy < h; gy++) {
+        for (let gx = 0; gx < w; gx++) {
+          if (glass.cel.pixels[gy * w + (glass.mirror ? w - 1 - gx : gx)] === skipColor) continue;
+          const x = cur.x - o.x + gx, y = cur.y - o.y + gy;
+          if (x < 0 || y < 0 || x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) continue;
+          const sx = cur.x + Math.floor((x - cur.x) / mag.zoom), sy = cur.y + Math.floor((y - cur.y) / mag.zoom);
+          if (sx < 0 || sy < 0 || sx >= SCREEN_WIDTH || sy >= SCREEN_HEIGHT) continue;
+          pixels[y * SCREEN_WIDTH + x] = scene[sy * SCREEN_WIDTH + sx]!;
+        }
+      }
+    }
     if (cur.visible && cur.view >= 0) {
       const found = this.cel(cur.view, cur.loop, cur.cel);
       if (found) {
@@ -501,8 +523,17 @@ export const graphicsKernels: Record<string, KernelFn> = {
   HaveMouse: () => 1,
   ShakeScreen: () => 0,
   SetScroll: () => 0,
-  AddMagnify: () => 0,
-  DeleteMagnify: () => 0,
+  // AddMagnify(view, loop, cel, zoom): sci-ts makes the cursor a magnifying glass, the cel's
+  // opaque pixels its glass (placed like the cursor), showing what's under the hotspot zoom
+  // times larger. DeleteMagnify() stops it.
+  AddMagnify: (vm, [view = 0, loop = 0, cel = 0, zoom = 2]) => {
+    graphics(vm).magnify = { view: toSigned(view), loop, cel, zoom: Math.max(1, toSigned(zoom)) };
+    return 0;
+  },
+  DeleteMagnify: (vm) => {
+    graphics(vm).magnify = undefined;
+    return 0;
+  },
   GetHighItemPri: () => 0,
   SetFontRes: () => 0,
   NULL_: () => NULL,
