@@ -448,13 +448,20 @@ export const graphicsKernels: Record<string, KernelFn> = {
     vm.setProp(obj, "brBottom", fromInt(bottom));
     vm.setProp(obj, "brTop", fromInt(bottom - g.prop(obj, "yStep")));
   },
-  IsOnMe: (vm, [x = 0, y = 0, obj = 0]) => {
+  // IsOnMe(x, y, obj, checkPixels): with checkPixels, only where the cel isn't transparent.
+  IsOnMe: (vm, [x = 0, y = 0, obj = 0, checkPixels = 0]) => {
     const g = graphics(vm);
     const px = toSigned(x), py = toSigned(y);
     // Like SSCI, a screen item is hit where its cel is actually drawn (scaled, current
     // position): its ns* props can be stale, since only SetNowSeen updates them.
     const r = g.items.has(obj) ? g.viewRect(obj) : undefined;
-    if (r) return bool(px >= r.x && px < r.x + r.width && py >= r.y && py < r.y + r.height);
+    if (r) {
+      if (!(px >= r.x && px < r.x + r.width && py >= r.y && py < r.y + r.height)) return 0;
+      if (!checkPixels) return 1;
+      const cx = Math.min(r.cel.width - 1, Math.floor((px - r.x) / r.sx));
+      const cy = Math.min(r.cel.height - 1, Math.floor((py - r.y) / r.sy));
+      return bool(r.cel.pixels[cy * r.cel.width + (r.mirror ? r.cel.width - 1 - cx : cx)] !== r.cel.skipColor);
+    }
     return bool(px >= g.prop(obj, "nsLeft") && px <= g.prop(obj, "nsRight") && py >= g.prop(obj, "nsTop") && py <= g.prop(obj, "nsBottom"));
   },
   IsHiRes: () => 0,

@@ -913,6 +913,26 @@ title: window.do
     const walker = [...g.items].find((it) => vm.object(it).name === "walker")!;
     expect(vm.getProp(walker, "x")).toBe(200);
   });
+
+  it("are hit only where they're drawn, not anywhere in their cel", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-actors-")), "pixels"), "path");
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 3; i++) vm.run();
+    const ego = vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf("ego")]!;
+    const r = g.viewRect(ego)!;
+    // A transparent pixel and a drawn one inside the hero's cel.
+    const at = (want: (c: number) => boolean) => {
+      for (let i = 0; i < r.cel.pixels.length; i++) if (want(r.cel.pixels[i]!)) return [r.x + (r.mirror ? r.cel.width - 1 - (i % r.cel.width) : i % r.cel.width), r.y + Math.floor(i / r.cel.width)];
+      throw new Error("no such pixel");
+    };
+    const onMe = (p: number[]) => vm.invoke(ego, vm.selector("onMe"), p);
+    expect(onMe(at((c) => c === r.cel.skipColor))).toBe(0);
+    expect(onMe(at((c) => c !== r.cel.skipColor))).toBe(1);
+  });
 });
 
 describe("pnpm game new", () => {

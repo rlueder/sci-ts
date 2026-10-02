@@ -117,7 +117,9 @@ Actors walk through one another: `ignoreActors` is 1 unless a game sets it to 0.
 interpreter measures an actor's footprint by its whole cel, and characters are often drawn
 on canvases much wider than they are, so blocking would stop them while still far apart,
 and a cutscene waiting for one to arrive would wait for ever. Obstacles and the walkable
-floor still apply.
+floor still apply. For the same reason an actor is clicked only where it's drawn
+(`checkPixels`, 1 for actors), so a click just beside the hero reaches what's behind him;
+any View can set it.
 
 ## Verbs and clicks
 
