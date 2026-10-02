@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.10.0](https://github.com/rlueder/sci-ts/compare/v0.9.0...v0.10.0) (2026-10-02)
+
+### Added
+
+* perspective for rooms, and spoken lines ([#12](https://github.com/rlueder/sci-ts/issues/12)) ([b8a504b](https://github.com/rlueder/sci-ts/commit/b8a504bc972c85818f37f00597ac209ff6916843)), closes [#11](https://github.com/rlueder/sci-ts/issues/11)
+
 ## [0.9.0](https://github.com/rlueder/sci-ts/compare/v0.8.2...v0.9.0) (2026-10-02)
 
 ### Added
