@@ -17,7 +17,10 @@
     back 255        ; paper
     border 0        ; a one-pixel border's colour; -1: none
     frame -1        ; a frame view, or -1
-    margin 4))      ; between the text and the border or frame
+    margin 4        ; between the text and the border or frame
+    portraitFrame -1 ; a view around portraits: loop 0 behind the face, loop 1 over its edges
+    portraitX 8     ; where a portrait's face goes on the left (mirrored on the right)
+    portraitY 8))
 
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
 ;; item in the UI plane. Set text (and width, x, y), then init; it's as tall as the text
@@ -191,34 +194,80 @@
     (super say: line &rest whoCares)))
 
 ;; Someone with a portrait: a view whose loop 0 is the bust, loop 1 the mouth and loop 2 the
-;; eyes, every cel the same size and anchored at its top-left corner. The room's talker hands
-;; its parts to init: mouth bust eyes frame, where frame is drawn first (the bust), placed
-;; where the portrait goes (the top left of the screen). The text goes to its right. While
-;; the line is said the mouth moves, then closes; the eyes blink.
+;; eyes, every cel the same size and anchored at its top-left corner; loops 3 to 5, if there
+;; are any, are the same facing left. A room's talker is handed its parts (init: mouth bust
+;; eyes frame, where frame is drawn as the bust); one with a view of its own (the hero's)
+;; makes them. While the line is said the mouth moves, then closes; the eyes blink.
+;;
+;; The portrait goes at the top left facing right, or the top right facing left, with the
+;; text beside it on the side towards the middle. A character takes the side of the hero
+;; it stands on (who: is its body in the room; without one, the right); the hero takes the
+;; side opposite whoever spoke last. The textStyle places it (portraitX, portraitY) and can
+;; frame it (portraitFrame).
 (class PortraitTalker of Talker
   (properties
     mouth 0 bust 0 eyes 0 frame 0
+    view -1         ; the portrait's view, for a talker that makes its own parts
+    who 0           ; the character's body in the room
+    side 0          ; where the portrait is: 0 the left, 1 the right
+    otherSide 1     ; the hero's: the side of whoever spoke last
+    back 0 front 0  ; the portraitFrame, behind the face and over its edges
     priority 150
     mouthFor 0)     ; cycles the mouth moves for
 
   (method (init theMouth theBust theEyes theFrame)
-    (= mouth theMouth)
-    (= bust theBust)
-    (= eyes theEyes)
-    (= frame theFrame))
+    (if argc
+      (= mouth theMouth)
+      (= bust theBust)
+      (= eyes theEyes)
+      (= frame theFrame)))
 
-  (method (say txt whoCares &tmp portrait)
-    (self init:)
-    (= portrait (if frame frame else bust))
-    (if portrait
-      (= x (+ (portrait x?) (CelWide (portrait view?) (portrait loop?) (portrait cel?)) 6))
-      (= y (portrait y?))
-      (= width (- SCREEN_WIDTH (+ x 6))))
+  (method (makeParts)
+    (if (and (!= view -1) (not bust) (not frame))
+      (= bust ((View new:) view: view yourself:))
+      (= mouth ((Prop new:) view: view yourself:))
+      (= eyes ((Prop new:) view: view yourself:))))
+
+  ;; This line's side: see above.
+  (method (pickSide &tmp s)
+    (if (== self heroTalker) (return (- 1 otherSide)))
+    (= s (if (and who ego (< (who x?) (ego x?))) 0 else 1))
+    (if (and heroTalker (!= heroTalker self) (heroTalker respondsTo: #otherSide)) (heroTalker otherSide: s))
+    (return s))
+
+  (method (say txt whoCares &tmp face l pw f fx fy over)
+    (self init: makeParts:)
+    (= face (if frame frame else bust))
+    (if face
+      (= side (self pickSide:))
+      (= l (if (and side (>= (NumLoops face) 6)) 3 else 0))
+      (= pw (CelWide (face view?) l 0))
+      (= f (textStyle portraitFrame?))
+      (= over (if (!= f -1) (/ (- (CelWide f 0 0) pw) 2) else 0))
+      (= fx (if side (- SCREEN_WIDTH (+ (textStyle portraitX?) pw)) else (textStyle portraitX?)))
+      (= fy (textStyle portraitY?))
+      (face x: fx y: fy loop: l cel: 0)
+      (if mouth (mouth x: fx y: fy loop: (+ l 1) cel: 0))
+      (if eyes (eyes x: fx y: fy loop: (+ l 2) cel: 0))
+      (if (!= f -1)
+        (if (not back) (= back ((View new:) view: f loop: 0 cel: 0 yourself:)))
+        (back x: fx y: fy)
+        (if (and (not front) (>= (NumLoops back) 2)) (= front ((View new:) view: f loop: 1 cel: 0 yourself:)))
+        (if front (front x: fx y: fy)))
+      ;; The text beside it, towards the middle.
+      (= y fy)
+      (if side
+        (= x 6)
+        (= width (- fx (+ over 12)))
+       else
+        (= x (+ fx pw over 6))
+        (= width (- SCREEN_WIDTH (+ x 6)))))
     (super say: txt &rest whoCares)
-    (self showPart: frame priority)
-    (self showPart: bust priority)
-    (self showPart: eyes (+ priority 1))
+    (self showPart: back (- priority 1))
+    (self showPart: face priority)
     (self showPart: mouth (+ priority 1))
+    (self showPart: eyes (+ priority 1))
+    (self showPart: front (+ priority 2))
     (if eyes (eyes setCycle: Blink))
     (if mouth
       (mouth setCycle: Forward)
@@ -236,11 +285,19 @@
       (part init:)
       (part plane: uiPlane setPri: pri)))
 
+  ;; Off the screen, kept for the next line.
+  (method (hidePart part)
+    (if part
+      (DeleteScreenItem part)
+      (cast delete: part)))
+
   (method (clear)
-    (if frame (frame dispose:))
-    (if bust (bust dispose:))
-    (if eyes (eyes dispose:))
-    (if mouth (mouth dispose:))
+    (self hidePart: front)
+    (self hidePart: back)
+    (self hidePart: frame)
+    (self hidePart: bust)
+    (self hidePart: eyes)
+    (self hidePart: mouth)
     (super clear:)))
 
 ;; Says the lines of a message file for a noun, verb and condition, in sequence:

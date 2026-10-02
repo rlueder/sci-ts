@@ -975,6 +975,8 @@ class RoomCompiler {
         "&rest 1", `super ${p.class} 12`,
         "pushi #setPri", "push1", "pTos priority", "ldi 1", "add", "push", `lofsa @${key}Mouth`, "send 6",
         "pushi #setPri", "push1", "pTos priority", "ldi 1", "add", "push", `lofsa @${key}Eyes`, "send 6",
+        // Its body in the room, if a prop has its name: where it stands picks the portrait's side.
+        ...(p.who && this.spec.props?.[key] ? send("self", [["who", [{ obj: key }]]]) : []),
         "ret",
       ],
       "",
