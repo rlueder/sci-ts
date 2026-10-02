@@ -222,6 +222,11 @@
           "moves": {
             "type": "boolean",
             "description": "It walks or floats about in cutscenes (<<walk name x y>>): an Actor instead of a Prop"
+          },
+          "script": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Za-z0-9]*$",
+            "description": "A Script class of the game's: an instance of it runs on the prop, e.g. an ambient behaviour"
           }
         }
       }

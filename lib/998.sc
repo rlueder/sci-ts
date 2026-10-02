@@ -364,12 +364,50 @@
     (if scaler (scaler dispose:) (= scaler 0))
     (super dispose:)))
 
-;; The hero: walks where the player clicks, and goes from room to room.
+;; The hero: walks where the player clicks, and goes from room to room. Standing still
+;; for idleAfter seconds while the player can act, he plays a loop of idleView once (a
+;; puff on the pipe, a glance at a watch), chosen at random, then stands again.
 (class Ego of Actor
-  ;; Back to walking: cycling as he moves, turning as he goes, seen.
+  (properties
+    normalView -1   ; the walking view (the first view he's normalized with)
+    idleView -1     ; -1: no idles
+    idleAfter 8
+    stillSince 0    ; the game time he was last busy
+    idling 0)
+
+  ;; Back to walking: his walking view, cycling as he moves, turning as he goes, seen.
   (method (normalize)
+    (if (== normalView -1) (= normalView view) else (= view normalView))
+    (= idling 0)
     (self setLoop: -1 setCycle: Walk show:)
     (return self))
+
+  (method (doit)
+    (super doit:)
+    (self checkIdle:))
+
+  (method (checkIdle)
+    (cond
+      ((== idleView -1) 0)
+      ;; Busy, or someone else is in charge: no idle, and one under way stops.
+      ((or mover talking dialog (not (user canInput?)) (and (not idling) (!= view normalView)))
+        (if idling (self normalize:))
+        (= stillSince gameTime))
+      (idling 0)
+      ((>= (- gameTime stillSince) (* idleAfter 60))
+        (= idling 1)
+        (= view idleView)
+        (self setLoop: (Random 0 (- (NumLoops self) 1)) setCel: 0 setCycle: End self))))
+
+  ;; An idle has played through.
+  (method (cue)
+    (if idling
+      (self normalize:)
+      (= stillSince gameTime)))
+
+  (method (setMotion)
+    (if idling (self normalize:))
+    (super setMotion: &rest))
 
   (method (roomDisposed)
     (self setMotion: 0)

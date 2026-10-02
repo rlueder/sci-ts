@@ -85,6 +85,8 @@ interface PropSpec {
   /** forward: loop the animation forever. */
   cycle?: "forward";
   sightAngle?: number;
+  /** A Script class of the game's: an instance of it runs on the prop (ambient behaviour). */
+  script?: string;
 }
 
 export interface CompiledRoom {
@@ -186,7 +188,8 @@ class SpecChecker {
         names.add(name);
         const t = this.map(value, path);
         if (group === "props") {
-          this.known(t, path, ["view", "at", "loop", "cel", "cycle", "sightAngle", "moves"]);
+          this.known(t, path, ["view", "at", "loop", "cel", "cycle", "sightAngle", "moves", "script"]);
+          if (t.script !== undefined && (typeof t.script !== "string" || !/^[A-Z][A-Za-z0-9]*$/.test(t.script))) this.fail([...path, "script"], "expected a class name, e.g. Scurry");
           if (t.moves !== undefined && typeof t.moves !== "boolean") this.fail([...path, "moves"], "expected true or false");
           this.int(t.view, [...path, "view"], 0, 65535);
           this.point(t.at, [...path, "at"]);
@@ -622,6 +625,13 @@ class RoomCompiler {
         if (args[1] === "forever") return [{ op: "code", code: send(to, [["setCycle", [{ cls: this.target.forwardCycle }]]]) }];
         return fail("expected once or forever");
       }
+      case "view":
+        arity(2, "hero|<prop> view");
+        return [{ op: "code", code: send(who(args[0], false), [["view", [int(args[1], "view", 0, 65535)]], ["setCel", [0]]]) }];
+      case "normal":
+        arity(1, "hero");
+        if (args[0] !== "hero") fail("only the hero goes back to normal (walking, turning as he goes)");
+        return [{ op: "code", code: send({ global: g.ego }, [["normalize", []]]) }];
       case "stop":
         arity(1, "<prop>");
         return [{ op: "code", code: send(who(args[0], false), [["setCycle", [0]]]) }];
@@ -661,7 +671,7 @@ class RoomCompiler {
         arity(1, "number");
         return [{ op: "code", code: send({ global: g.curRoom }, [["newRoom", [int(args[0], "room", 0, 65535)]]]) }];
       default:
-        return fail("unknown command (known: walk, face, wait, hide, show, loop, cel, animate, stop, music, sound, closeup, get, drop, room; and set, if)");
+        return fail("unknown command (known: walk, face, wait, hide, show, view, loop, cel, animate, normal, stop, music, sound, closeup, get, drop, room; and set, if)");
     }
   }
 
@@ -831,7 +841,12 @@ class RoomCompiler {
     if (spec.music !== undefined) c.push(...this.playMusic(spec.music));
     for (const name of [...Object.keys(spec.features ?? {}), ...Object.keys(spec.exits ?? {})]) c.push(...send({ obj: name }, [["init", []]]));
     for (const [name, p] of Object.entries(spec.props ?? {})) {
-      c.push(...send({ obj: name }, [["init", []], ...(p.cycle === "forward" ? [["setCycle", [{ cls: this.target.forwardCycle }]] as [string, Val[]]] : [])]));
+      c.push(...send({ obj: name }, [
+        ["init", []],
+        ...(p.cycle === "forward" ? [["setCycle", [{ cls: this.target.forwardCycle }]] as [string, Val[]]] : []),
+        // A new instance of the game's Script class, running on the prop.
+        ...(p.script ? [["setScript", [{ code: ["pushi #new", "push0", `class ${p.script}`, "send 4"] }]] as [string, Val[]]] : []),
+      ]));
     }
     const polygons: [number, [number, number][]][] = [
       ...(spec.walkable ? [[3, spec.walkable] as [number, [number, number][]]] : []),

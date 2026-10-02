@@ -96,6 +96,21 @@ the heading again), `setCel:` and `setPri:` (a fixed priority; -1 to sort by y a
 `(thing doVerb: verb)` says the line for its `noun` and the verb in the room's message file
 (the room answers if there isn't one).
 
+## The hero at rest
+
+Standing still while the player can act, the hero plays an idle now and then: after
+`idleAfter` seconds (8 unless set), one loop of `idleView`, chosen at random, once through,
+then he stands again. Walking, a line, a menu or a cutscene stops one at once. Without an
+`idleView` there are none:
+
+```lisp
+(instance holmes of Ego (properties view 200 idleView 206 idleAfter 10))
+```
+
+`normalize` puts him back to walking: his walking view (the one he was first normalized
+with), cycling as he moves and turning as he goes. In Yarn, `<<view hero 204>>` switches to
+a pose and `<<normal hero>>` back.
+
 ## Verbs and clicks
 
 The player has four verbs: walk (the first), do, look and talk. Right-click goes to the
