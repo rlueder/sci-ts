@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { writeResourceArchive } from "@sci-ts/sci";
@@ -46,7 +47,8 @@ export async function buildSite(
   mkdirSync(join(play, "game"), { recursive: true });
   for (const [name, data] of Object.entries(files)) writeFileSync(join(play, "game", name), data);
   // What the player lists in place of the dev server's directory listings.
-  writeFileSync(join(play, "game/files.json"), JSON.stringify({ "": Object.keys(files) }));
+  // With the build's version, which the player fetches every file with (apps/viewer/src/files.ts).
+  writeFileSync(join(play, "game/files.json"), JSON.stringify({ "": Object.keys(files), version: buildVersion(files) }));
   const sf2 = [join(resolve(gameDir), SOUNDFONT), join(ROOT, SOUNDFONT)].find((f) => existsSync(f));
   const soundFont = sf2 !== undefined;
   if (sf2) cpSync(sf2, join(play, "soundfonts", basename(sf2)));
@@ -115,4 +117,11 @@ ${body}
 </body>
 </html>
 `;
+}
+
+/** A short hash of the game's files: changes whenever any of them does. */
+export function buildVersion(files: Record<string, Uint8Array>): string {
+  const hash = createHash("sha256");
+  for (const name of Object.keys(files).sort()) hash.update(name).update(files[name]!);
+  return hash.digest("hex").slice(0, 12);
 }
