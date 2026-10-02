@@ -4,6 +4,16 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.8.1](https://github.com/rlueder/sci-ts/compare/v0.8.0...v0.8.1) (2026-10-02)
+
+### Fixed
+
+* timers past 32767 cycles, waits on missing sounds, methods hidden by properties ([#9](https://github.com/rlueder/sci-ts/issues/9)) ([7ec09d7](https://github.com/rlueder/sci-ts/commit/7ec09d765ab2818cf0171d5e96d9fa1b6744b576))
+
+### Documentation
+
+* AGENTS.md for people and agents working here ([#8](https://github.com/rlueder/sci-ts/issues/8)) ([42bec1f](https://github.com/rlueder/sci-ts/commit/42bec1fafbb2798b26539923608882fef0c5118d))
+
 ## [0.8.0](https://github.com/rlueder/sci-ts/compare/v0.7.0...v0.8.0) (2026-10-02)
 
 ### Added
