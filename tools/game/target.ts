@@ -33,8 +33,8 @@ export function libraryTarget(globals: readonly string[], items: Record<string, 
     heroTalker: 98,
     firstRoomTalker: 200,
     voice: { class: "Talker", props: {} },
-    // Portraits stand at the top left, the text beside them.
-    portrait: { class: "PortraitTalker", props: {}, at: [8, 8], frameSignal: 0, partSignal: 0 },
+    // Portraits stand at the top, left or right by where the character is (who:).
+    portrait: { class: "PortraitTalker", props: {}, at: [8, 8], frameSignal: 0, partSignal: 0, who: true },
     teller: { class: "Teller", props: {}, verb: 2 },
     forwardCycle: "Forward",
     closeUp: "CloseUp",

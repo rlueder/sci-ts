@@ -37,9 +37,10 @@ export interface Target {
   /**
    * A character with a portrait view: loop 0 the bust, loop 1 mouth shapes, loop 2 eyes
    * (cel 0 open), all cels the same size so the parts line up. The talker class gets
-   * `init: mouth bust eyes frame`; parts are a View (bust) and Props at `at`.
+   * `init: mouth bust eyes frame`; parts are a View (bust) and Props at `at`. With `who`,
+   * the talker is also told the character's prop in the room, if it has one (`who:`).
    */
-  portrait: { class: string; props: Record<string, number>; at: [number, number]; frameSignal: number; partSignal: number };
+  portrait: { class: string; props: Record<string, number>; at: [number, number]; frameSignal: number; partSignal: number; who?: boolean };
   /**
    * Conversations: an instance of this class runs a menu of topics for a thing (e.g. a
    * Teller with `init: client modNum sayNoun verb rootNoun`; topic labels are messages at

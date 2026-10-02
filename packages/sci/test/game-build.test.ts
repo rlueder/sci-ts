@@ -213,12 +213,13 @@ describe("games/hello, on the class library", async () => {
     };
     choose("Was that your lantern on the hill?");
     expect(line()).toBe("Traveller: I left it burning for whoever came next.");
-    // He has a portrait at the top left, and the line goes beside it.
+    // He stands to the hero's right, so his portrait is at the top right (his view has no
+    // left-facing loops, so it stays as drawn), and the line goes beside it, towards the middle.
     const part = (name: string) => [...g.items].find((it) => vm.object(it).name === name);
     const bust = part("travellerBust")!;
-    expect([prop(bust, "x"), prop(bust, "y")]).toEqual([8, 8]);
+    expect([prop(bust, "x"), prop(bust, "y"), prop(bust, "loop")]).toEqual([320 - 8 - 34, 8, 0]);
     const box = vm.getProp(global("talking"), "box")!;
-    expect([prop(box, "x"), prop(box, "y")]).toEqual([8 + 34 + 6, 8]);
+    expect([prop(box, "x"), prop(box, "y"), prop(box, "width")]).toEqual([6, 8, 320 - 8 - 34 - 12]);
     // His mouth moves while he says it, then closes while the line stays up; his eyes blink.
     const mouthCels = new Set<number>(), eyeCels = new Set<number>();
     for (let i = 0; i < 200; i++) {
@@ -1215,5 +1216,88 @@ describe("perspective", () => {
     frames(5);
     expect(global("curRoomNum")).toBe(2);
     expect(size(ego()).pct).toBe(100);
+  });
+});
+
+describe("portraits", () => {
+  it("go on the side their character stands, facing the middle, framed, and the hero answers from the other side", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-portraits-")), "faces"), "path");
+    const script = readFileSync(join(dir, "scripts/0.sc"), "utf8")
+      .replace("(super init:)", "(super init:)\n    (textStyle portraitFrame: 302 portraitX: 12 portraitY: 22)")
+      .replace("(instance heroVoice of Talker\n  (properties name \"You\"))", "(instance heroVoice of PortraitTalker\n  (properties name \"You\" view 301))");
+    writeFileSync(join(dir, "scripts/0.sc"), script);
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:\n  cat: { view: 200, at: [20, 170] }\ncharacters:\n  cat: { name: Cat, portrait: 300 }\n`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}\ntitle: cat.talk\n---\nCat: Meow.\nHero: Hello, cat.\nCat: Meow again.\n===\n`);
+    // Portraits 300 and 301: six loops of one 20x24 cel (right-facing bust, mouth, eyes, then
+    // left-facing), each loop its own colour, anchored top-left. View 302: a 36x40 surround
+    // (loop 0) and frame (loop 1) that sit 8 left of and 10 above the face.
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (w, h, c, dx = 0, dy = 0) => ({ width: w, height: h, displaceX: (w >> 1) + dx, displaceY: h - 1 + dy, skipColor: 254, pixels: new Uint8Array(w * h).fill(c) });
+const view = (loops) => writeView({ flags: 1, loops: loops.map((cels) => ({ link: -1, mirror: false, cels })), palette: undefined });
+const face = (base) => view([0, 1, 2, 3, 4, 5].map((l) => [cel(20, 24, base + l)]));
+export default () => [...art(),
+  { type: ResourceType.View, number: 300, data: face(40) },
+  { type: ResourceType.View, number: 301, data: face(50) },
+  { type: ResourceType.View, number: 302, data: view([[cel(36, 40, 60, 8, 10)], [cel(36, 40, 61, 8, 10)]]) }];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    const key = (message: number) => (inp.push({ type: EventType.KeyDown, message, modifiers: 0 }), frames(1));
+    const line = () => {
+      const box = global("talking") ? vm.getProp(global("talking"), "box") : 0;
+      return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+    /** The portrait on screen: each part's view, loop, place and priority, and the text box's place. */
+    const shown = () => {
+      const t = global("talking");
+      const part = (p: string) => {
+        const o = vm.getProp(t, p)!;
+        return [g.prop(o, "view"), g.prop(o, "loop"), g.prop(o, "x"), g.prop(o, "y"), g.prop(o, "priority")];
+      };
+      const face = vm.getProp(t, "frame") || vm.getProp(t, "bust");
+      const box = vm.getProp(t, "box")!;
+      return { face: [g.prop(face!, "view"), g.prop(face!, "loop"), g.prop(face!, "x"), g.prop(face!, "y")], mouth: part("mouth"), back: part("back"), front: part("front"), box: [g.prop(box, "x"), g.prop(box, "width")] };
+    };
+
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) key(13);
+    vm.invoke(global("user"), vm.selector("setVerb"), [2]);
+    [inp.x, inp.y] = [20, 165];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    for (let i = 0; i < 600 && !line(); i++) frames(1);
+
+    // The cat stands left of the hero: its portrait at the top left, facing right, framed;
+    // the line to its right (12 + 20 + 8 of frame + 6).
+    expect(line()).toBe("Cat: Meow.");
+    expect(shown()).toEqual({
+      face: [300, 0, 12, 22], mouth: [300, 1, 12, 22, 151], back: [302, 0, 12, 22, 149], front: [302, 1, 12, 22, 152], box: [46, 320 - 46 - 6],
+    });
+    // The hero answers from the right, facing left; the line to the left of him.
+    key(13);
+    expect(line()).toBe("You: Hello, cat.");
+    const hero = shown();
+    expect(hero).toEqual({
+      face: [301, 3, 320 - 12 - 20, 22], mouth: [301, 4, 288, 22, 151], back: [302, 0, 288, 22, 149], front: [302, 1, 288, 22, 152], box: [6, 288 - 8 - 12],
+    });
+    const heroParts = ["bust", "mouth", "eyes"].map((p) => vm.getProp(global("heroTalker"), p)!);
+    key(13);
+    expect(line()).toBe("Cat: Meow again.");
+    expect(shown().face).toEqual([300, 0, 12, 22]);
+    // Between his lines the hero's portrait is off the screen, but kept for the next.
+    const castHas = (o: Value) => { for (let n = vm.memory.list(vm.getProp(global("cast"), "elements")!)?.first; n; n = n.next) if (n.value === o) return true; return false; };
+    expect(heroParts.some(castHas)).toBe(false);
+    expect(["bust", "mouth", "eyes"].map((p) => vm.getProp(global("heroTalker"), p))).toEqual(heroParts);
+    key(13);
+    expect(global("talking")).toBe(0);
   });
 });

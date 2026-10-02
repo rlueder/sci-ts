@@ -173,13 +173,33 @@ draws no box.
 Each line goes to its talker (the message's talker number): 99 the narrator, 98 the game's
 `heroTalker`, 200 and up the room's characters (its `findTalker:`). A `Narrator` shows
 the line in a box over the room; a `Talker` starts it with their name; a `PortraitTalker`
-shows their portrait at the top left of the screen and the line to its right.
+shows their portrait at the top of the screen and the line beside it.
 
-A portrait is a view with three loops, every cel the same size and anchored at its top-left
-corner: loop 0 the bust, loop 1 the mouth alone (cel 0 closed, then the open shapes) and
-loop 2 the eyes alone (cel 0 open, then the blink). While a line is said the mouth moves,
-for about as long as saying it takes, then closes; the eyes blink every few seconds
+A portrait is a view whose loop 0 is the bust, loop 1 the mouth alone (cel 0 closed, then
+the open shapes) and loop 2 the eyes alone (cel 0 open, then the blink), every cel the same
+size and anchored at its top-left corner. Loops 3 to 5, if the view has them, are the same
+facing left. While a line is said the mouth moves (while it's heard, for a recorded line;
+otherwise about as long as saying it takes), then closes; the eyes blink every few seconds
 (`Blink`).
+
+The portrait goes at the top left facing right, or the top right facing left, with the line
+beside it on the side towards the middle. A character takes the side of the hero they
+stand on: a room character's talker is told which prop in the room has its name (`who:`),
+and one with no prop takes the right. The hero takes the side opposite whoever spoke last,
+so a conversation's two portraits face each other. The hero can have a portrait too: a
+`PortraitTalker` with a `view` makes its own parts.
+
+```lisp
+(instance holmesVoice of PortraitTalker
+  (properties name "Holmes" view 213))
+```
+
+`textStyle` places portraits and can frame them:
+
+| property | | default |
+|---|---|---|
+| `portraitX`, `portraitY` | where the face goes on the left; on the right, the same distance from the right edge | 8, 8 |
+| `portraitFrame` | a view drawn behind every face (loop 0) and, if it has a loop 1, over its edges; anchor its cels so they sit around a face drawn at the same place | -1 |
 
 A `Teller` makes talking to something a conversation: a `Menu` of topics, each answered
 from the message file, back to the menu until the player says goodbye. Rooms written as

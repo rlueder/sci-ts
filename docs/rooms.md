@@ -39,7 +39,7 @@ properties:
 | `features` | rectangles of the picture that answer clicks |
 | `exits` | features that leave: *do* on one walks to `walkTo` and goes to room `to` |
 | `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk; `script: Scurry` runs a Script class of the game's on it (a mouse's comings and goings); `scale: true` sizes a still one by the room's perspective; under `properties`, `clickable: 0` makes one clicks pass through (rain on a window) |
-| `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, all cels the same size and anchored at the top left), shown at the top left of the screen |
+| `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, 3 to 5 the same facing left; all cels the same size and anchored at the top left), shown at the top of the screen on the side of the hero where the prop of the same name stands ([library.md](library.md)) |
 
 Rooms written this way and rooms written as scripts can be next to each other in one
 game: the hero walks between them the same way.
