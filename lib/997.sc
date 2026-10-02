@@ -173,18 +173,20 @@
 ;; (shut) and back to 0.
 (class Blink of Cycle
   (properties
-    nextBlink 0)
+    restSince 0
+    restFor 0)
 
   (method (init who)
     (super init: who)
     (self rest:))
 
   (method (rest)
-    (= nextBlink (+ gameTime 90 (Random 0 90))))
+    (= restSince gameTime)
+    (= restFor (+ 90 (Random 0 90))))
 
   (method (doit &tmp c)
     (if (== (client cel?) 0)
-      (if (and (>= gameTime nextBlink) (> (self lastCel:) 0))
+      (if (and (>= (- gameTime restSince) restFor) (> (self lastCel:) 0))
         (= cycleCnt gameTime)
         (client cel: 1))
      else

@@ -281,6 +281,19 @@ describe("warnings", () => {
       "x.sc:7: nothing defines hide (no class or object has a property or method by that name)",
     ]);
   });
+
+  it("name methods that a property of their object hides", () => {
+    const warnings: string[] = [];
+    compileScripts(
+      [{ file: "x.sc", text: "(script 1)\n(class Obj (properties x 0) (method (show)))\n(class Kid of Obj (properties y 0)\n  (method (x) 1)\n  (method (name n) n))\n(instance a of Kid (method (y) 2) (method (show) 3))" }],
+      { kernelNames, onWarning: (w) => warnings.push(`${w.file}:${w.line}: ${w.message}`) },
+    );
+    expect(warnings).toEqual([
+      "x.sc:4: method x: Kid has a property called x, so x: sets it and this never runs",
+      "x.sc:5: method name: Kid has a property called name, so name: sets it and this never runs",
+      "x.sc:6: method y: a has a property called y, so y: sets it and this never runs",
+    ]);
+  });
 });
 
 describe("errors", () => {
