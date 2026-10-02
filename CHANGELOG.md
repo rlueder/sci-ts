@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.15.0](https://github.com/rlueder/sci-ts/compare/v0.14.0...v0.15.0) (2026-10-02)
+
+### Added
+
+* bitmap fonts with bearings and advances, styled text, and skinned icon bar and inventory ([#17](https://github.com/rlueder/sci-ts/issues/17)) ([0cec83b](https://github.com/rlueder/sci-ts/commit/0cec83be7211ee532c6846a08826a2b09f462ee1))
+
 ## [0.14.0](https://github.com/rlueder/sci-ts/compare/v0.13.0...v0.14.0) (2026-10-02)
 
 ### Added
