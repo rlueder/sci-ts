@@ -8,7 +8,7 @@ nothing about any particular game. `games/hello` uses all of it.
 |---|---|---|
 | 999 | `lib/999.sc` | the core: `Obj`, `Code`, `Collection`, `List`, `Set`, `Script`; the globals and flags |
 | 998 | `lib/998.sc` | the world: `Game`, `Plane`, `Room`, `Feature`, `View`, `Prop`, `Actor`, `Ego` |
-| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg`, `Blink` |
+| 997 | `lib/997.sc` | motion: `Motion`, `MoveTo`, `PolyPath`, `Polygon`, `Scaler`, `FloorScaler`; `Cycle`, `Forward`, `Walk`, `End`, `Beg`, `Blink` |
 | 996 | `lib/996.sc` | talk: `TextStyle`, `TextItem`, `Narrator`, `Talker`, `PortraitTalker`, `Messager`, `Menu`, `Teller` |
 | 995 | `lib/995.sc` | input: `Event`, `User` |
 | 994 | `lib/994.sc` | `Sound` |
