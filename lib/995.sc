@@ -73,6 +73,7 @@
 
   (method (doit)
     (self showCursor:)
+    (if (and iconBar (iconBar box?)) (iconBar step:))
     (while (GetEvent EV_ALL theEvent)
       (self handleEvent: theEvent))
     ;; theEvent now says where the pointer is: at the top edge, the icon bar comes down.

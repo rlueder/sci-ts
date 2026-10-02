@@ -147,7 +147,8 @@ six cels 24 pixels square anchored at their top-left corner, in the order walk, 
 talk, inventory, menu (the item in use shows its own icon). The library's are plain black
 and white (view 990); a game with its own sets `(iconBar view: 266)` in its `init`.
 
-A painted bar is a `skin`: a view drawn across the top of the screen (loop 0, cel 0,
+It slides down from above the screen as it opens, easing to a stop, and back up when it
+closes; `(iconBar slides: FALSE)` makes it appear and go at once. A painted bar is a `skin`: a view drawn across the top of the screen (loop 0, cel 0,
 anchored at its top left) instead of the box. Its icons can be any `size`, at `left`,
 `left + spacing` and on, at `top`; the item in use takes the fifth place, between the verbs
 and the inventory.
@@ -196,8 +197,9 @@ beside it on the side towards the middle. A character takes the side of the hero
 stand on: a room character's talker is told which prop in the room has its name (`who:`),
 and one with no prop takes the right. The hero takes the side opposite whoever spoke last,
 so a conversation's two portraits face each other. A portrait doesn't cover a face: if on
-its side it would be over the speaker or the hero (someone standing at the top of the
-room), it goes on the other side. The hero can have a portrait too: a
+its side it would be over the speaker's or the hero's head, it goes on the other side. In a
+room where people's heads are near the top of the screen, portraits at the bottom keep clear
+of them altogether. The hero can have a portrait too: a
 `PortraitTalker` with a `view` makes its own parts.
 
 ```lisp
@@ -209,7 +211,7 @@ room), it goes on the other side. The hero can have a portrait too: a
 
 | property | | default |
 |---|---|---|
-| `portraitX`, `portraitY` | where the face goes on the left; on the right, the same distance from the right edge | 8, 8 |
+| `portraitX`, `portraitY` | where the face goes on the left; on the right, the same distance from the right edge. A negative `portraitY` puts it at the bottom of the screen, the face's bottom that far above it, with the text box ending level with the frame and growing upwards | 8, 8 |
 | `portraitFrame` | a view drawn behind every face (loop 0) and, if it has a loop 1, over its edges; anchor its cels so they sit around a face drawn at the same place | -1 |
 
 A `Teller` makes talking to something a conversation: a `Menu` of topics, each answered
