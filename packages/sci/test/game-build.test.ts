@@ -1301,3 +1301,41 @@ export default () => [...art(),
     expect(global("talking")).toBe(0);
   });
 });
+
+describe("measured perspective", () => {
+  it("sizes the hero by where he stands across the floor as well as how far back", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-floor-")), "angled"), "path");
+    const yaml = readFileSync(join(dir, "rooms/1.room.yaml"), "utf8");
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${yaml}perspective:
+  columns:
+    - { x: 40, back: [150, 50], front: [189, 80] }
+    - { x: 160, back: [150, 70], front: [189, 100] }
+    - { x: 280, back: [150, 90], front: [189, 120] }
+`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    const sizeAt = (x: number, y: number) => {
+      vm.setProp(global("ego"), "x", x);
+      vm.setProp(global("ego"), "y", y);
+      frames(1);
+      return Math.round(g.prop(global("ego"), "scaleX") / 1.28);
+    };
+    // At each place, its back and front sizes, in a straight line between.
+    expect([sizeAt(40, 150), sizeAt(40, 189), sizeAt(160, 150), sizeAt(280, 189)]).toEqual([50, 80, 70, 120]);
+    // The same height on the screen is bigger to the right, where the floor is nearer.
+    expect(sizeAt(280, 170)).toBeGreaterThan(sizeAt(40, 170));
+    // Between places, in a straight line across: halfway from the left to the middle at
+    // y 170 is between 65% (left) and 85% (middle).
+    expect(sizeAt(100, 170)).toBe(75);
+    // Beyond the outer places, their sizes.
+    expect(sizeAt(5, 150)).toBe(50);
+    expect(sizeAt(315, 150)).toBe(90);
+  });
+});

@@ -123,23 +123,74 @@
       }
     },
     "perspective": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "horizon",
-        "fullSize"
-      ],
-      "description": "The picture's camera: people are sized by how far below the horizon they stand. The hero and props that move are sized as they go.",
-      "properties": {
-        "horizon": {
-          "type": "integer",
-          "description": "The y the floor's lines meet at"
+      "description": "How people are sized by where they stand: a level camera's horizon and full-size line, or sizes measured at up to three places across the floor (for a picture painted at an angle)",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "horizon",
+            "fullSize"
+          ],
+          "properties": {
+            "horizon": {
+              "type": "integer",
+              "description": "The y the floor's lines meet at"
+            },
+            "fullSize": {
+              "type": "integer",
+              "description": "The y of a figure's feet where it's drawn at full size"
+            }
+          }
         },
-        "fullSize": {
-          "type": "integer",
-          "description": "The y of a figure's feet where it's drawn at full size"
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "columns"
+          ],
+          "properties": {
+            "columns": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "x",
+                  "back",
+                  "front"
+                ],
+                "properties": {
+                  "x": {
+                    "type": "integer",
+                    "description": "Where across the floor it was measured"
+                  },
+                  "back": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "[y, size in percent] at the back of the floor"
+                  },
+                  "front": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "description": "[y, size in percent] at the front of the floor"
+                  }
+                }
+              }
+            }
+          }
         }
-      }
+      ]
     },
     "walkable": {
       "$ref": "#/$defs/polygon",

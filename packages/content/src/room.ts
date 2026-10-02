@@ -41,8 +41,12 @@ export interface RoomSpec {
    * size. A figure's height is in proportion to how far below the horizon it stands, so it
    * shrinks towards the back and grows past fullSize at the front. The hero and props that
    * move are sized as they go; a still prop only with scale: true.
+   *
+   * A picture painted at an angle, where a line across the screen isn't one depth all the
+   * way along, gives sizes measured instead: `columns`, up to three places across the floor
+   * (left, middle, right), each with a size at the back and at the front of the floor.
    */
-  perspective?: { horizon: number; fullSize: number };
+  perspective?: { horizon: number; fullSize: number } | { columns: FloorColumn[] };
   /** The floor: a polygon the hero stays inside. */
   walkable?: Point[];
   /** Polygons the hero walks around. */
@@ -67,6 +71,13 @@ interface CharacterSpec {
 }
 
 type Point = [number, number];
+
+/** A place across the floor where sizes were measured: x, and [y, percent] at the back and front. */
+export interface FloorColumn {
+  x: number;
+  back: [number, number];
+  front: [number, number];
+}
 type Rect = [number, number, number, number];
 
 interface FeatureSpec {
@@ -212,10 +223,31 @@ class SpecChecker {
     }
     if (s.perspective !== undefined) {
       const pv = this.map(s.perspective, ["perspective"]);
-      this.known(pv, ["perspective"], ["horizon", "fullSize"]);
-      this.int(pv.horizon, ["perspective", "horizon"], -1000, 199);
-      this.int(pv.fullSize, ["perspective", "fullSize"], 0, 1000);
-      if ((pv.fullSize as number) <= (pv.horizon as number)) this.fail(["perspective", "fullSize"], "must be below the horizon (a bigger y)");
+      if (pv.columns !== undefined) {
+        this.known(pv, ["perspective"], ["columns"]);
+        if (!Array.isArray(pv.columns) || pv.columns.length < 1 || pv.columns.length > 3) this.fail(["perspective", "columns"], "expected one to three places across the floor");
+        let lastX = -Infinity;
+        (pv.columns as unknown[]).forEach((value, i) => {
+          const path = ["perspective", "columns", i];
+          const c = this.map(value, path);
+          this.known(c, path, ["x", "back", "front"]);
+          this.int(c.x, [...path, "x"], 0, 319);
+          if ((c.x as number) <= lastX) this.fail([...path, "x"], "places go left to right");
+          lastX = c.x as number;
+          for (const end of ["back", "front"] as const) {
+            const v = c[end];
+            if (!Array.isArray(v) || v.length !== 2) this.fail([...path, end], "expected [y, size in percent]");
+            this.int((v as unknown[])[0], [...path, end, 0], 0, 199);
+            this.int((v as unknown[])[1], [...path, end, 1], 1, 400);
+          }
+          if ((c.back as number[])[0]! >= (c.front as number[])[0]!) this.fail([...path, "front"], "the front is lower on the screen than the back (a bigger y)");
+        });
+      } else {
+        this.known(pv, ["perspective"], ["horizon", "fullSize", "columns"]);
+        this.int(pv.horizon, ["perspective", "horizon"], -1000, 199);
+        this.int(pv.fullSize, ["perspective", "fullSize"], 0, 1000);
+        if ((pv.fullSize as number) <= (pv.horizon as number)) this.fail(["perspective", "fullSize"], "must be below the horizon (a bigger y)");
+      }
     }
     if (s.walkable !== undefined) this.polygon(s.walkable, ["walkable"]);
     if (s.obstacles !== undefined) {
@@ -313,6 +345,28 @@ type Val = number | { obj: string } | { cls: string } | "self" | { code: string[
 type To = { global: number } | { obj: string } | { cls: string } | "self" | { superOf: string };
 
 const SCREEN_BOTTOM = 200;
+
+/** A column's size at y: the straight line through its back and front. */
+const along = (c: FloorColumn, y: number) => c.back[1] + ((c.front[1] - c.back[1]) * (y - c.back[0])) / (c.front[0] - c.back[0]);
+
+/** Three columns for the FloorScaler: one is used for all three, two get one between them. */
+function floorColumns(cols: FloorColumn[]): [FloorColumn, FloorColumn, FloorColumn] {
+  if (cols.length === 3) return cols as [FloorColumn, FloorColumn, FloorColumn];
+  const [a, b] = [cols[0]!, cols.at(-1)!];
+  if (cols.length === 1) return [a, { ...a, x: a.x + 1 }, { ...a, x: a.x + 2 }];
+  const mid = (y: number) => Math.round((along(a, y) + along(b, y)) / 2);
+  return [a, { x: Math.round((a.x + b.x) / 2), back: [a.back[0], mid(a.back[0])], front: [a.front[0], mid(a.front[0])] }, b];
+}
+
+/** A figure's size at x, y among three columns: straight lines in y at each, then in x between them. */
+function floorSize(cols: [FloorColumn, FloorColumn, FloorColumn], x: number, y: number): number {
+  const [a, b, c] = cols.map((col) => along(col, y)) as [number, number, number];
+  const [c1, c2, c3] = cols;
+  if (x <= c1.x) return a;
+  if (x < c2.x) return a + ((b - a) * (x - c1.x)) / (c2.x - c1.x);
+  if (x < c3.x) return b + ((c - b) * (x - c2.x)) / (c3.x - c2.x);
+  return c;
+}
 const num = (n: number) => (n < 0 ? `-$${(-n).toString(16)}` : String(n));
 
 function pushVal(v: Val): string[] {
@@ -899,7 +953,7 @@ class RoomCompiler {
     // Each room sizes the hero its own way, or not at all.
     const perspective = this.perspective();
     if (hero?.scale) egoCalls.push(["setScaler", [{ cls: "Scaler" }, hero.scale.front, hero.scale.back, hero.scale.frontY, hero.scale.backY]]);
-    else if (perspective) egoCalls.push(["setScaler", [{ cls: "Scaler" }, ...perspective]]);
+    else if (perspective) egoCalls.push(["setScaler", [{ cls: perspective.cls }, ...perspective.args]]);
     else egoCalls.push(["setScaler", [0]]);
     c.push(...send({ global: target.globals.ego }, egoCalls));
     if (spec.music !== undefined) c.push(...this.playMusic(spec.music));
@@ -907,7 +961,7 @@ class RoomCompiler {
     for (const [name, p] of Object.entries(spec.props ?? {})) {
       c.push(...send({ obj: name }, [
         ["init", []],
-        ...(perspective && p.moves && p.scale !== false ? [["setScaler", [{ cls: "Scaler" }, ...perspective]] as [string, Val[]]] : []),
+        ...(perspective && p.moves && p.scale !== false ? [["setScaler", [{ cls: perspective.cls }, ...perspective.args]] as [string, Val[]]] : []),
         ...(p.cycle === "forward" ? [["setCycle", [{ cls: this.target.forwardCycle }]] as [string, Val[]]] : []),
         // A new instance of the game's Script class, running on the prop.
         ...(p.script ? [["setScript", [{ code: ["pushi #new", "push0", `class ${p.script}`, "send 4"] }]] as [string, Val[]]] : []),
@@ -1041,33 +1095,63 @@ class RoomCompiler {
     if (cases.length) this.doVerb(name, "Feature", cases);
   }
 
-  /**
-   * The room's perspective as Scaler arguments (front, back, frontY, backY): sizes at the
-   * nearest and farthest places anyone stands (the floor, and where the hero and props that
-   * move start). Size is a straight line in y, so the Scaler's in-between is exact; keeping
-   * to that range keeps its 16-bit arithmetic from overflowing.
-   */
-  private perspective(): [number, number, number, number] | undefined {
-    const pv = this.spec.perspective;
-    if (!pv) return undefined;
-    const ys = [
+  /** The y range people stand in: the floor, and where the hero and props that move start. */
+  private standingYs(): number[] {
+    return [
       ...(this.spec.walkable ?? []).map((p) => p[1]),
       ...Object.values(this.spec.props ?? {}).filter((p) => p.moves).map((p) => p.at[1]),
       ...[this.spec.hero?.at, this.spec.hero?.enterTo].flatMap((p) => (p ? [p[1]] : [])),
-    ].filter((y) => y > pv.horizon);
+    ];
+  }
+
+  /**
+   * The room's perspective as a scaler class and its arguments.
+   *
+   * With a horizon, a Scaler (front, back, frontY, backY): sizes at the nearest and farthest
+   * places anyone stands. Size is a straight line in y, so the Scaler's in-between is exact;
+   * keeping to that range keeps its 16-bit arithmetic from overflowing.
+   *
+   * With measured columns, a FloorScaler with three of them (left, middle, right): one is
+   * used for all three, two get one halfway between them.
+   */
+  private perspective(): { cls: string; args: number[] } | undefined {
+    const pv = this.spec.perspective;
+    if (!pv) return undefined;
+    const fail = (why: string): never => { throw new ContentError(`room ${this.spec.room}: perspective: ${why}`); };
+    if ("columns" in pv) {
+      const cols = floorColumns(pv.columns);
+      const ys = this.standingYs();
+      const [lo, hi] = [Math.min(...ys, ...cols.map((c) => c.back[0])), Math.max(...ys, ...cols.map((c) => c.front[0]))];
+      // FloorScaler works out (front - back) * (y - backY), then (b - a) * (x - x1), in 16 bits.
+      for (const c of cols) {
+        for (const y of [lo, hi]) {
+          if (Math.abs((c.front[1] - c.back[1]) * (y - c.back[0])) > 32767) fail(`sizes from ${c.back[1]}% to ${c.front[1]}% at x ${c.x} are too much for the scaler at y ${y}`);
+          const size = along(c, y);
+          if (size < 1 || size > 255) fail(`at x ${c.x} a figure standing at y ${y} would be ${Math.round(size)}%`);
+        }
+      }
+      return { cls: "FloorScaler", args: cols.flatMap((c) => [c.x, c.back[0], c.back[1], c.front[0], c.front[1]]) };
+    }
+    const ys = this.standingYs().filter((y) => y > pv.horizon);
     const backY = ys.length ? Math.min(...ys) : pv.horizon + 1, frontY = ys.length ? Math.max(...ys) : SCREEN_BOTTOM - 1;
     const size = (y: number) => Math.round(((y - pv.horizon) / (pv.fullSize - pv.horizon)) * 100);
     const [front, back] = [size(frontY), size(backY)];
     // Scaler works out (front - back) * (y - backY) on the way.
-    if ((front - back) * (frontY - backY) > 32767) throw new ContentError(`room ${this.spec.room}: perspective: sizes from ${back}% to ${front}% over ${frontY - backY} lines are too much for the Scaler`);
-    return [front, back, Math.max(frontY, backY + 1), backY];
+    if ((front - back) * (frontY - backY) > 32767) fail(`sizes from ${back}% to ${front}% over ${frontY - backY} lines are too much for the Scaler`);
+    return { cls: "Scaler", args: [front, back, Math.max(frontY, backY + 1), backY] };
+  }
+
+  /** The size, in percent, of a figure standing at x, y. */
+  private sizeAt(x: number, y: number): number {
+    const pv = this.spec.perspective!;
+    if ("columns" in pv) return floorSize(floorColumns(pv.columns), x, y);
+    return ((y - pv.horizon) / (pv.fullSize - pv.horizon)) * 100;
   }
 
   private prop(name: string, p: PropSpec): void {
     const cases = this.scriptedVerbs.get(name) ?? [];
     // A still prop is sized once, for where it is.
-    const pv = this.spec.perspective;
-    const fixed = pv && p.scale === true && !p.moves ? Math.round(((p.at[1] - pv.horizon) / (pv.fullSize - pv.horizon)) * 128) : undefined;
+    const fixed = this.spec.perspective && p.scale === true && !p.moves ? Math.round((this.sizeAt(p.at[0], p.at[1]) / 100) * 128) : undefined;
     this.instance(
       name, p.moves ? "Actor" : "Prop",
       {
