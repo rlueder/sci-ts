@@ -370,6 +370,8 @@ export interface GameItem {
   verb: number;
   view?: number;
   description?: string;
+  /** How much bigger things look through it (a lens): its view's loop 2 is the glass. */
+  magnify?: number;
 }
 
 /**
@@ -377,7 +379,7 @@ export interface GameItem {
  * 255; 1 to 4 are the player's), for a game whose scripts make the item; with a view, the
  * build makes it too, in script ITEMS_SCRIPT, and rooms can give it (`<<get lens>>`):
  *
- *   lens: { verb: 10, view: 250, description: "Holmes's lens." }
+ *   lens: { verb: 10, view: 250, description: "Holmes's lens.", magnify: 2 }
  */
 export function gameItems(dir: string): Record<string, GameItem> {
   const file = join(dir, "items.yaml");
@@ -394,7 +396,7 @@ export function gameItems(dir: string): Record<string, GameItem> {
     if (!/^[a-z][A-Za-z0-9]*$/.test(name) || ["look", "talk", "walk", "do", "enter"].includes(name)) fail(`"${name}" can't name an item (lower camelCase, and not a verb)`);
     const spec = typeof value === "number" ? { verb: value } : value;
     if (!spec || typeof spec !== "object" || Array.isArray(spec)) return fail(`${name}: expected a verb, or { verb, view, description }`);
-    const { verb, view, description, ...rest } = spec as Record<string, unknown>;
+    const { verb, view, description, magnify, ...rest } = spec as Record<string, unknown>;
     const unknown = Object.keys(rest)[0];
     if (unknown) fail(`${name}: unknown key ${unknown}`);
     if (typeof verb !== "number" || !Number.isInteger(verb) || verb < 10 || verb > 255) fail(`${name}: the verb is a number from 10 to 255`);
@@ -402,7 +404,9 @@ export function gameItems(dir: string): Record<string, GameItem> {
     if (view !== undefined && (typeof view !== "number" || !Number.isInteger(view) || view < 0 || view > 65535)) fail(`${name}: view is a view number`);
     if (description !== undefined && (typeof description !== "string" || /["\\]/.test(description))) fail(`${name}: description is text without quotes or backslashes`);
     if (description !== undefined && view === undefined) fail(`${name}: an item the build makes needs a view`);
-    items[name] = { verb: verb as number, view: view as number | undefined, description: description as string | undefined };
+    if (magnify !== undefined && (typeof magnify !== "number" || !Number.isInteger(magnify) || magnify < 2 || magnify > 8)) fail(`${name}: magnify is how much bigger, 2 to 8`);
+    if (magnify !== undefined && view === undefined) fail(`${name}: an item that magnifies needs a view (its loop 2 is the glass)`);
+    items[name] = { verb: verb as number, view: view as number | undefined, description: description as string | undefined, ...(magnify === undefined ? {} : { magnify: magnify as number }) };
   }
   return items;
 }
@@ -416,7 +420,7 @@ function itemsScript(items: Record<string, GameItem>): string | undefined {
     `(script ${ITEMS_SCRIPT})`,
     '(include "system.sh")',
     `(public ${made.map(([name], i) => `${name} ${i}`).join(" ")})`,
-    ...made.map(([name, i]) => `(instance ${name} of InvItem (properties view ${i.view} verb ${i.verb}${i.description ? ` description "${i.description}"` : ""}))`),
+    ...made.map(([name, i]) => `(instance ${name} of InvItem (properties view ${i.view} verb ${i.verb}${i.magnify ? ` magnify ${i.magnify}` : ""}${i.description ? ` description "${i.description}"` : ""}))`),
     "",
   ].join("\n");
 }

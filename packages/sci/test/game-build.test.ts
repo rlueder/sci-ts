@@ -1227,7 +1227,7 @@ describe("portraits", () => {
       .replace("(instance heroVoice of Talker\n  (properties name \"You\"))", "(instance heroVoice of PortraitTalker\n  (properties name \"You\" view 301))");
     writeFileSync(join(dir, "scripts/0.sc"), script);
     writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:\n  cat: { view: 200, at: [20, 170] }\ncharacters:\n  cat: { name: Cat, portrait: 300 }\n`);
-    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}\ntitle: cat.talk\n---\nCat: Meow.\nHero: Hello, cat.\nCat: Meow again.\n===\n`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}\ntitle: cat.talk\n---\nCat: Meow.\nHero: Hello, cat.\nCat: Meow again.\nCat: Purr.\n===\n`);
     // Portraits 300 and 301: six loops of one 20x24 cel (right-facing bust, mouth, eyes, then
     // left-facing), each loop its own colour, anchored top-left. View 302: a 36x40 surround
     // (loop 0) and frame (loop 1) that sit 8 left of and 10 above the face.
@@ -1297,6 +1297,15 @@ export default () => [...art(),
     const castHas = (o: Value) => { for (let n = vm.memory.list(vm.getProp(global("cast"), "elements")!)?.first; n; n = n.next) if (n.value === o) return true; return false; };
     expect(heroParts.some(castHas)).toBe(false);
     expect(["bust", "mouth", "eyes"].map((p) => vm.getProp(global("heroTalker"), p))).toEqual(heroParts);
+    // Now the cat is up at the top right, right of the hero: its side, but its portrait there
+    // would be over it, so it goes on the left.
+    const cat = vm.loadedScripts.flatMap((sc) => [...g.items]).find((it) => vm.object(it).name === "cat") ?? 0;
+    expect(cat).not.toBe(0);
+    vm.setProp(cat, "x", 300);
+    vm.setProp(cat, "y", 40);
+    key(13);
+    expect(line()).toBe("Cat: Purr.");
+    expect(shown().face).toEqual([300, 0, 12, 22]);
     key(13);
     expect(global("talking")).toBe(0);
   });
@@ -1514,5 +1523,63 @@ export default () => [...art(),
     expect(g.prop(icons[4]!, "view")).toBe(250);
     expect(g.prop(vm.getProp(global("iconBar"), "box")!, "view")).toBe(267);
     expect(g.prop(global("iconBar"), "height")).toBe(48);
+  });
+});
+
+describe("a magnifying lens", () => {
+  it("shows the room under its glass twice as large while it's in use", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-lens-")), "lens"), "path");
+    writeFileSync(join(dir, "items.yaml"), "lens: { verb: 10, view: 250, magnify: 2, description: \"A lens.\" }\n");
+    writeFileSync(join(dir, "rooms/1.yarn"), readFileSync(join(dir, "rooms/1.yarn"), "utf8").replace("<<set $started to true>>", "<<set $started to true>>\n<<get lens>>"));
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    // View 250: an icon; a cursor that's all clear but one pixel (hotspot at its middle); a
+    // 6x6 glass around the hotspot.
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (w, h, px, ax = w >> 1, ay = h - 1) => ({ width: w, height: h, displaceX: ax, displaceY: ay, skipColor: 254, pixels: Uint8Array.from({ length: w * h }, (_, i) => px(i % w, Math.floor(i / w))) });
+const view = (loops) => writeView({ flags: 1, loops: loops.map((cels) => ({ link: -1, mirror: false, cels })), palette: undefined });
+// Anchored with the hotspot at (3, 3): displaceX = w/2 - 3, displaceY = h - 1 - 3.
+const at3 = (w, h, px) => cel(w, h, px, (w >> 1) - 3, h - 1 - 3);
+export default () => [...art(),
+  { type: ResourceType.View, number: 250, data: view([[cel(24, 24, () => 40)], [at3(8, 8, (x, y) => (x === 7 && y === 7 ? 41 : 254))], [at3(6, 6, () => 42)]]) }];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    let latest: { pixels: Uint8Array } | undefined;
+    g.onFrame = (f) => { latest = f; };
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    // Over the hero's head and shoulders (60, 162), where the picture has some detail.
+    [inp.x, inp.y] = [60, 162];
+    g.cursor.visible = false; // the room as it is, without a cursor on it
+    frames(1);
+    const plain = latest!.pixels.slice();
+    g.cursor.visible = true;
+    expect(g.magnify).toBeUndefined();
+    const lens = vm.memory.list(vm.getProp(global("inventory"), "elements")!)!.first!.value;
+    vm.invoke(global("user"), vm.selector("useItem"), [lens]);
+    frames(1);
+    expect(g.magnify).toEqual({ view: 250, loop: 2, cel: 0, zoom: 2 });
+    const at = (px: Uint8Array, x: number, y: number) => px[y * 320 + x];
+    // The glass is 6x6 around the hotspot: each of its pixels shows the room half as far from it.
+    let differs = 0;
+    for (let y = 159; y <= 164; y++) {
+      for (let x = 57; x <= 62; x++) {
+        expect(at(latest!.pixels, x, y)).toBe(at(plain, 60 + Math.floor((x - 60) / 2), 162 + Math.floor((y - 162) / 2)));
+        if (at(latest!.pixels, x, y) !== at(plain, x, y)) differs++;
+      }
+    }
+    expect(differs).toBeGreaterThan(3); // it isn't just what's under it
+    // Put away (right-click goes back to walking), it's a plain cursor again.
+    vm.invoke(global("user"), vm.selector("useItem"), [0]);
+    frames(1);
+    expect(g.magnify).toBeUndefined();
   });
 });

@@ -65,7 +65,11 @@
     (if (or (!= v cursor) (!= l cursorLoop))
       (= cursor v)
       (= cursorLoop l)
-      (SetCursor v l 0)))
+      (SetCursor v l 0)
+      (if (and (== l 1) theItem (theItem magnify?))
+        (AddMagnify v 2 0 (theItem magnify?))
+       else
+        (DeleteMagnify))))
 
   (method (doit)
     (self showCursor:)

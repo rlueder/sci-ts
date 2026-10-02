@@ -233,18 +233,47 @@
       (= mouth ((Prop new:) view: view yourself:))
       (= eyes ((Prop new:) view: view yourself:))))
 
-  ;; This line's side: see above.
-  (method (pickSide &tmp s)
-    (if (== self heroTalker) (return (- 1 otherSide)))
-    (= s (if (and who ego (< (who x?) (ego x?))) 0 else 1))
-    (if (and heroTalker (!= heroTalker self) (heroTalker respondsTo: #otherSide)) (heroTalker otherSide: s))
+  ;; This line's side: see above. A side whose portrait would cover the speaker or the hero
+  ;; (a face under the frame) gives way to the other, if that one covers no one.
+  (method (pickSide face &tmp s)
+    (= s
+      (cond
+        ((== self heroTalker) (- 1 otherSide))
+        ((and who ego (< (who x?) (ego x?))) 0)
+        (else 1)))
+    (if (and face (self covers: face s) (not (self covers: face (- 1 s)))) (= s (- 1 s)))
+    (if (and (!= self heroTalker) heroTalker (heroTalker respondsTo: #otherSide)) (heroTalker otherSide: s))
     (return s))
+
+  ;; Whether the portrait on side s (frame and all) would be over the speaker or the hero.
+  (method (covers face s &tmp pw ph over left right bottom)
+    (= pw (CelWide (face view?) 0 0))
+    (= ph (CelHigh (face view?) 0 0))
+    (= over (if (!= (textStyle portraitFrame?) -1) (/ (- (CelWide (textStyle portraitFrame?) 0 0) pw) 2) else 0))
+    (= left (if s (- SCREEN_WIDTH (+ (textStyle portraitX?) pw over)) else (- (textStyle portraitX?) over)))
+    (= right (+ left pw over over))
+    (= bottom (+ (textStyle portraitY?) ph over))
+    (return
+      (or
+        (self over: (if (== self heroTalker) ego else who) left right bottom)
+        (and (!= self heroTalker) (self over: ego left right bottom)))))
+
+  ;; Whether someone's figure reaches into the screen's top band from left to right, down to bottom.
+  (method (over body left right bottom &tmp w h)
+    (if (or (not body) (not (body respondsTo: #view)) (& (body signal?) SIG_HIDDEN)) (return FALSE))
+    (= w (CelWide (body view?) (body loop?) (body cel?)))
+    (= h (CelHigh (body view?) (body loop?) (body cel?)))
+    (if (& (body scaleSignal?) SCALE_ON)
+      (= w (/ (* w (body scaleX?)) 128))
+      (= h (/ (* h (body scaleY?)) 128)))
+    (return
+      (and (< (- (body x?) (/ w 2)) right) (> (+ (body x?) (/ w 2)) left) (< (- (body y?) h) bottom))))
 
   (method (say txt whoCares &tmp face l pw f fx fy over)
     (self init: makeParts:)
     (= face (if frame frame else bust))
     (if face
-      (= side (self pickSide:))
+      (= side (self pickSide: face))
       (= l (if (and side (>= (NumLoops face) 6)) 3 else 0))
       (= pw (CelWide (face view?) l 0))
       (= f (textStyle portraitFrame?))

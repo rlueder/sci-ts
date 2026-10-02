@@ -5,13 +5,15 @@
 
 ;; Something the hero can carry. Its view's loop 0 is its icon in the inventory window and
 ;; loop 1 the cursor while it's being used (the cel's anchor is the hotspot); both anchored
-;; at the top-left corner. Using it on something sends that thing doVerb: with the item's
+;; at the top-left corner. One that magnifies (a lens) has its glass as loop 2, placed like
+;; the cursor: while it's in use, the room shows through the glass `magnify` times larger. Using it on something sends that thing doVerb: with the item's
 ;; own verb, 10 and up, so the room answers with noun and that verb (in Yarn, a node like
 ;; filings.lens: the game names its items' verbs in items.yaml).
 (class InvItem of Obj
   (properties
     view -1
     verb 0
+    magnify 0       ; 0, or how much bigger things look through it
     description 0)  ; what looking at it in the window says
 
   ;; Looked at in the inventory window.
