@@ -878,6 +878,43 @@ describe("sounds that aren't there", () => {
   });
 });
 
+describe("actors", () => {
+  it("walk past each other in a cutscene rather than stopping", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-actors-")), "actors"), "path");
+    // A walker on the hero's line (he stands at 60, 170) has to cross where he stands.
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:
+  walker: { view: 200, at: [20, 170], moves: true }
+`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+title: window.do
+---
+<<walk walker 200 170>>
+===
+`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    click(10, 100); // the first line
+    click(10, 100, true); // walk -> do
+    click(160, 70);
+    frames(600);
+    const walker = [...g.items].find((it) => vm.object(it).name === "walker")!;
+    expect(vm.getProp(walker, "x")).toBe(200);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));

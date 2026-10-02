@@ -315,9 +315,12 @@
     (if script (script dispose:))
     (super dispose:)))
 
-;; A Prop that moves (a mover), facing where it goes.
+;; A Prop that moves (a mover), facing where it goes. Actors walk through each other unless
+;; ignoreActors is 0: the interpreter measures an actor by its whole cel, and characters are
+;; often drawn on canvases much wider than they are, so blocking would stop them far apart.
 (class Actor of Prop
   (properties
+    ignoreActors 1
     mover 0
     moveSpeed 2     ; cycles between steps
     heading 0
@@ -359,6 +362,7 @@
 
   ;; Whether another actor is in the way (DoBresen asks).
   (method (cantBeHere)
+    (if ignoreActors (return 0))
     (return (CantBeHere self (cast elements?))))
 
   (method (dispose)
