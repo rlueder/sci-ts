@@ -742,6 +742,81 @@ describe("the icon bar", async () => {
   });
 });
 
+describe("behaviours, poses and idles", () => {
+  it("runs a prop's script, switches the hero's view in Yarn and back, and plays idles", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-poses-")), "poses"), "path");
+    // A prop that a Script class of the game's moves along; idles for the hero (view 999, the
+    // arrow cursor, will do as a pose); a node that changes his view and then restores it.
+    writeFileSync(join(dir, "scripts/5.sc"), `(script 5)
+(include "system.sh")
+(class Drift of Script
+  (method (changeState newState)
+    (= state newState)
+    (switch state
+      (0 (= cycles 2))
+      (1 (client x: 250)))))`);
+    writeFileSync(join(dir, "scripts/0.sc"), readFileSync(join(dir, "scripts/0.sc"), "utf8").replace("(= ego hero)", "(= ego hero)\n    (hero idleView: 999 idleAfter: 1)"));
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:
+  drifter: { view: 200, at: [200, 170], script: Drift }
+  veil: { view: 200, at: [160, 70] }
+properties:
+  veil: { clickable: 0 }
+`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+title: window.do
+---
+<<view hero 999>>
+<<wait 1>>
+<<normal hero>>
+===
+`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const prop = (obj: Value, name: string) => g.prop(obj, name);
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(6);
+    const drifter = [...g.items].find((it) => vm.object(it).name === "drifter")!;
+    expect(prop(drifter, "x")).toBe(250);
+    click(10, 100); // the first line
+    const ego = global("ego");
+    expect([prop(ego, "view"), prop(ego, "normalView")]).toEqual([200, 200]);
+
+    // Standing still a second: an idle (view 999), then back to standing.
+    const until = (cond: () => boolean, max: number) => { let n = 0; while (!cond() && n < max) (frames(1), n++); return n; };
+    expect(until(() => prop(ego, "view") === 999, 120)).toBeGreaterThan(50);
+    expect(until(() => prop(ego, "view") === 200, 60)).toBeLessThan(60);
+    // Walking interrupts an idle at once.
+    expect(until(() => prop(ego, "view") === 999, 120)).toBeLessThan(120);
+    click(120, 170);
+    expect(prop(ego, "view")).toBe(200);
+    frames(200);
+
+    // A prop that isn't clickable lets clicks through to the window behind it.
+    const veil = [...g.items].find((it) => vm.object(it).name === "veil")!;
+    expect(vm.invoke(veil, vm.selector("onMe"), [160, 60])).toBe(0);
+
+    // <<view hero 999>> for a moment, then <<normal hero>>.
+    click(10, 100, true); // walk -> do
+    click(160, 70);
+    frames(5);
+    expect(prop(ego, "view")).toBe(999);
+    frames(70);
+    expect(prop(ego, "view")).toBe(200);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));

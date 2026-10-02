@@ -36,7 +36,7 @@ properties:
 | `obstacles` | polygons he walks around |
 | `features` | rectangles of the picture that answer clicks |
 | `exits` | features that leave: *do* on one walks to `walkTo` and goes to room `to` |
-| `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk |
+| `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk; `script: Scurry` runs a Script class of the game's on it (a mouse's comings and goings); under `properties`, `clickable: 0` makes one clicks pass through (rain on a window) |
 | `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, all cels the same size and anchored at the top left), shown at the top left of the screen |
 
 Rooms written this way and rooms written as scripts can be next to each other in one
@@ -88,6 +88,7 @@ Commands for cutscenes; those that take time finish before the next line:
 | `<<wait 1.5>>` | seconds |
 | `<<hide crow>>` `<<show crow>>` | |
 | `<<loop crow 2>>` `<<cel crow 0>>` | |
+| `<<view hero 204>>` `<<normal hero>>` | another view (a pose: a reach, a kneel), and back to walking |
 | `<<animate crow once>>` `<<animate crow forever>>` `<<stop crow>>` | |
 | `<<music 120>>` `<<music stop>>` `<<sound 40>>` `<<sound 40 wait>>` | |
 | `<<closeup 240>>` `<<closeup 240 0 1>>` | a close look: view 240 (loop, cel) over the dimmed room, until a click |
