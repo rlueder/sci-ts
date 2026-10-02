@@ -4,12 +4,15 @@
 ;;; written as a script (scripts/1.sc), room 2 as data (rooms/2.room.yaml and 2.yarn).
 (script 0)
 (include "system.sh")
+(include "hello.sh")
 
 (public hello 0)
 
 (class Hello of Game
   (method (init)
     (super init:)
+    ;; Presentation only: the same palette and flat planes as the room art.
+    (textStyle fore: UI_INK back: UI_PANEL frame: UI_FRAME)
     (= ego hero)
     (= heroTalker heroVoice)
     (self newRoom: 1)))

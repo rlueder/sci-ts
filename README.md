@@ -41,7 +41,7 @@ or exported from a paint program. `sci-ts build` turns it into the `RESOURCE.MAP
     (super doVerb: verb)))
 ```
 
-![games/hello: the hero on the hill, looking at the moon](docs/screenshots/hello.png)
+![games/hello: the hero beside the lantern on the moonlit hill](docs/screenshots/hello.png)
 
 | | |
 |---|---|
