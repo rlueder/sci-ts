@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.15.1](https://github.com/rlueder/sci-ts/compare/v0.15.0...v0.15.1) (2026-10-02)
+
+### Fixed
+
+* **viewer:** fetch game files with the build's version ([#18](https://github.com/rlueder/sci-ts/issues/18)) ([370e490](https://github.com/rlueder/sci-ts/commit/370e490d9c618d78223fbba1df4850a8c6ebb0a2))
+
 ## [0.15.0](https://github.com/rlueder/sci-ts/compare/v0.14.0...v0.15.0) (2026-10-02)
 
 ### Added
