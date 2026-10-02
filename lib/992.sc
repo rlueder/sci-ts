@@ -58,9 +58,17 @@
       add: SR_SAVE "Save the game"
       add: SR_RESTORE "Restore a game"
       add: SR_RESTART "Start again"
-      add: SR_TEXT (String STRING_FORMAT "Text speed: %s" (self textSpeedName:))
-      add: 0 "Carry on"
-      show: self))
+      add: SR_TEXT (String STRING_FORMAT "Text speed: %s" (self textSpeedName:)))
+    ;; Only a game with recorded lines asks how to have them.
+    (if (DoAudio 9)
+      (menu add: SR_SPEECH (String STRING_FORMAT "Speech: %s" (self speechName:))))
+    (menu add: 0 "Carry on" show: self))
+
+  (method (speechName)
+    (switch speech
+      (SPEECH_TEXT (return "text only"))
+      (SPEECH_VOICE (return "voice only"))
+      (else (return "voice and text"))))
 
   (method (textSpeedName)
     (switch textSpeed
@@ -133,6 +141,12 @@
               (TEXT_NORMAL (= textSpeed TEXT_FAST))
               (TEXT_FAST (= textSpeed TEXT_CLICK))
               (else (= textSpeed TEXT_SLOW)))
+            (self showMenu:))
+          (SR_SPEECH
+            (switch speech
+              (SPEECH_BOTH (= speech SPEECH_VOICE))
+              (SPEECH_VOICE (= speech SPEECH_TEXT))
+              (else (= speech SPEECH_BOTH)))
             (self showMenu:))))
       (SR_SAVE (if v (self askDescription: (- v 1))))
       (SR_RESTORE

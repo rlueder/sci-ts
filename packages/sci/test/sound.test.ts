@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readMidiFile, readWav } from "../../../tools/game/audio.ts";
+import { SPEECH_RATE, prepareSpeech, readMidiFile, readWav, resample } from "../../../tools/game/audio.ts";
 import {
-  AudioIndex, ResourceManager, ResourceType, SoundDevice, decodeSol, parseSound, writeEffects, writeResourceArchive, writeSol, writeSound,
+  AudioIndex, ResourceManager, ResourceType, SoundDevice, decodeSol, encodeDpcm16, parseSound, speechKey, writeEffects, writeResourceArchive, writeSol, writeSound, writeSpeech,
   type FileSource, type MidiEvent,
 } from "../src/index.ts";
 
@@ -137,5 +137,85 @@ describe("WAV files", () => {
     const float = wav(16, 1, [[0]]);
     new DataView(float.buffer).setUint16(20, 3, true);
     expect(() => readWav(float)).toThrow(/format 3/);
+  });
+});
+
+describe("speech", () => {
+  const tone = (n: number, hz: number, rate: number, amp = 0.5) => Float32Array.from({ length: n }, (_, i) => amp * Math.sin((2 * Math.PI * hz * i) / rate));
+  const pcm = (x: Float32Array) => Int16Array.from(x, (s) => Math.round(s * 32767));
+  /** Signal-to-noise ratio in dB of `got` against `want`. */
+  const snr = (want: ArrayLike<number>, got: ArrayLike<number>) => {
+    let signal = 0, noise = 0;
+    for (let i = 0; i < want.length; i++) (signal += want[i]! ** 2), (noise += (want[i]! - got[i]!) ** 2);
+    return 10 * Math.log10(signal / noise);
+  };
+
+  it("DPCM16 decodes close to what went in, at one byte a sample, and never wraps", () => {
+    // A voice-like mix: a low and a high tone and some noise.
+    let seed = 1;
+    const noise = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5) * 0.05;
+    const x = Float32Array.from(tone(11025, 180, 11025), (s, i) => s + 0.2 * Math.sin(i * 0.9) + noise());
+    const sol = writeSol(pcm(x), 11025, true);
+    expect(sol.length).toBe(13 + x.length);
+    const back = decodeSol(sol)!;
+    expect(back.samples.length).toBe(x.length);
+    expect(snr(x, back.samples)).toBeGreaterThan(35);
+    // Full-scale jumps: steps are held back rather than wrapping past 16 bits.
+    const square = Int16Array.from({ length: 400 }, (_, i) => ((i >> 5) & 1 ? 32767 : -32768));
+    const decoded = decodeSol(writeSol(square, 11025, true))!.samples;
+    const jumps = decoded.slice(1).map((s, i) => Math.abs(s - decoded[i]!));
+    expect(Math.max(...jumps)).toBeLessThanOrEqual(0x4000 / 32768); // the biggest step; a wrap would be ~2
+    for (let end = 31; end < 400; end += 32) expect(Math.sign(square[end]!) * decoded[end]!).toBeGreaterThan(0.95);
+    expect(encodeDpcm16(Int16Array.from([0, 8, 0, -16]))).toEqual(Uint8Array.from([0x00, 0x01, 0x81, 0x82]));
+  });
+
+  it("RESOURCE.AUD and a map per room are found by the engine's audio index, with exact lengths", async () => {
+    const clip = (seconds: number) => writeSol(pcm(tone(Math.round(seconds * SPEECH_RATE), 200, SPEECH_RATE)), SPEECH_RATE, true);
+    const clips = [
+      { module: 101, noun: 3, verb: 1, cond: 0, seq: 1, sol: clip(1) },
+      { module: 100, noun: 1, verb: 6, cond: 2, seq: 1, sol: clip(0.5) },
+      { module: 100, noun: 1, verb: 6, cond: 2, seq: 2, sol: clip(2) },
+    ];
+    const { aud, maps } = writeSpeech(clips);
+    expect(maps.map((m) => m.module)).toEqual([100, 101]);
+    expect(aud.length).toBe(clips.reduce((n, c) => n + c.sol.length, 0));
+    const { map, volume } = writeResourceArchive(maps.map((m) => ({ type: ResourceType.Map, number: m.module, data: m.data })));
+    const rm = await ResourceManager.open(memoryFiles({ "RESOURCE.MAP": map, "RESOURCE.000": volume, "RESOURCE.AUD": aud }));
+    await rm.preload();
+    const index = AudioIndex.build(rm);
+    for (const c of clips) {
+      const found = index.speech.get(speechKey(c.module, c.noun, c.verb, c.cond, c.seq))!;
+      expect(found.length).toBe(c.sol.length); // the last one too: the end marker bounds it
+      expect(aud.subarray(found.offset, found.offset + found.length)).toEqual(c.sol);
+      expect(AudioIndex.ticks(found)).toBe(Math.round((decodeSol(c.sol)!.samples.length / SPEECH_RATE) * 60));
+    }
+  });
+
+  it("refuses keys a speech map can't hold", () => {
+    const sol = writeSol(Int16Array.from([0]), SPEECH_RATE, true);
+    expect(() => writeSpeech([{ module: 1, noun: 1, verb: 1, cond: 0, seq: 0, sol }])).toThrow("seq is 1-63");
+    expect(() => writeSpeech([{ module: 1, noun: 256, verb: 1, cond: 0, seq: 1, sol }])).toThrow("0-255");
+    expect(() => writeSpeech([1, 1].map(() => ({ module: 1, noun: 1, verb: 1, cond: 0, seq: 1, sol })))).toThrow("there twice");
+  });
+
+  it("resamples without folding high frequencies back", () => {
+    const rms = (x: Float32Array) => Math.sqrt(x.reduce((n, s) => n + s * s, 0) / x.length);
+    for (const rate of [44100, 48000, 22050]) {
+      const low = resample(tone(rate, 1000, rate), rate, SPEECH_RATE).subarray(200, -200);
+      expect(rms(low)).toBeCloseTo(0.5 / Math.SQRT2, 2);
+      expect(snr(tone(low.length + 200, 1000, SPEECH_RATE).subarray(200), low)).toBeGreaterThan(40);
+      // 7 kHz is above what 11,025 Hz can hold: it's removed, not turned into 4 kHz.
+      expect(rms(resample(tone(rate, 7000, rate), rate, SPEECH_RATE).subarray(200, -200))).toBeLessThan(0.005);
+    }
+  });
+
+  it("trims a recording's silence and brings it to a common peak", () => {
+    const rate = 48000, gap = new Float32Array(rate / 2);
+    const quietLine = Float32Array.from([...gap, ...tone(rate, 300, rate, 0.1), ...gap]);
+    const out = prepareSpeech(pcm(quietLine), rate);
+    // One second of voice, 60 ms either side.
+    expect(out.length / SPEECH_RATE).toBeCloseTo(1.12, 1);
+    expect(Math.max(...out.map(Math.abs)) / 32767).toBeCloseTo(0.9, 2);
+    expect(prepareSpeech(new Int16Array(100), rate)).toEqual(new Int16Array(0));
   });
 });

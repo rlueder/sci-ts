@@ -128,3 +128,61 @@ export function readWav(data: Uint8Array): { samples: Int16Array; rate: number }
   }
   throw new AudioFileError("WAV file without data");
 }
+
+/** The rate speech is stored at: plenty for a voice, and one byte a sample with DPCM. */
+export const SPEECH_RATE = 11025;
+
+/**
+ * A recorded line made ready for the game: resampled to SPEECH_RATE, the silence before and
+ * after it trimmed (a little is kept, so it doesn't start or end abruptly), and brought to
+ * the same peak as every other line.
+ */
+export function prepareSpeech(samples: Int16Array, rate: number): Int16Array {
+  const x = resample(Float32Array.from(samples, (s) => s / 32768), rate, SPEECH_RATE);
+  let peak = 0;
+  for (const s of x) peak = Math.max(peak, Math.abs(s));
+  if (peak === 0) return new Int16Array(0);
+  // Quieter than 1/32 of the peak (-30 dB) is silence; keep 60 ms of it either side.
+  const quiet = peak / 32, pad = Math.round(SPEECH_RATE * 0.06);
+  let first = x.findIndex((s) => Math.abs(s) > quiet), last = x.length - 1;
+  while (last > first && Math.abs(x[last]!) <= quiet) last--;
+  first = Math.max(0, first - pad);
+  last = Math.min(x.length - 1, last + pad);
+  const gain = 0.9 / peak; // -1 dB
+  return Int16Array.from(x.subarray(first, last + 1), (s) => Math.round(Math.max(-1, Math.min(1, s * gain)) * 32767));
+}
+
+/**
+ * Band-limited resampling: each output sample is a Blackman-windowed sinc over the input,
+ * cut off below the lower rate's Nyquist frequency so nothing above it folds back. The
+ * kernel is tabulated at PHASES fractional positions between input samples.
+ */
+export function resample(x: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return x.slice();
+  const PHASES = 256;
+  const n = Math.max(1, Math.round((x.length * to) / from));
+  const cutoff = 0.95 * Math.min(1, to / from); // of the input's Nyquist frequency
+  const half = Math.ceil(16 / cutoff); // input samples either side: 16 zero crossings
+  const taps = 2 * half;
+  // table[p][k]: the weight of input sample floor(centre) - half + 1 + k, for a centre p/PHASES past it.
+  const table = new Float32Array((PHASES + 1) * taps);
+  for (let p = 0; p <= PHASES; p++) {
+    let sum = 0;
+    for (let k = 0; k < taps; k++) {
+      const t = k - half + 1 - p / PHASES;
+      const sinc = t === 0 ? 1 : Math.sin(Math.PI * cutoff * t) / (Math.PI * cutoff * t);
+      const w = Math.abs(t) >= half ? 0 : 0.42 + 0.5 * Math.cos((Math.PI * t) / half) + 0.08 * Math.cos((2 * Math.PI * t) / half);
+      sum += table[p * taps + k] = sinc * w;
+    }
+    for (let k = 0; k < taps; k++) table[p * taps + k]! /= sum;
+  }
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const centre = (i * from) / to, base = Math.floor(centre);
+    const row = Math.round((centre - base) * PHASES) * taps;
+    let sum = 0;
+    for (let k = 0, j = base - half + 1; k < taps; k++, j++) if (j >= 0 && j < x.length) sum += x[j]! * table[row + k]!;
+    out[i] = sum;
+  }
+  return out;
+}

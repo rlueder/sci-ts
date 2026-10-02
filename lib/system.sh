@@ -45,6 +45,7 @@
 (define SR_RESTART 4)
 (define SR_NAME 5)
 (define SR_TEXT 6)
+(define SR_SPEECH 7)
 
 ;; How long a line stays up (the textSpeed global): normal (the default), slow, fast, or
 ;; until the player clicks.
@@ -52,6 +53,14 @@
 (define TEXT_SLOW 1)
 (define TEXT_FAST 2)
 (define TEXT_CLICK 3)
+
+;; Lines with a recording (the speech global): heard and read (the default), read only, or
+;; heard only. Lines with no recording are always shown.
+(define SPEECH_BOTH 0)
+(define SPEECH_TEXT 1)
+(define SPEECH_VOICE 2)
+;; Cycles a spoken line stays after its recording ends.
+(define VOICE_PAUSE 20)
 
 ;; Event types, as GetEvent reports them.
 (define EV_NULL 0)

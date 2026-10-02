@@ -164,6 +164,12 @@ caller. How long that is, the player chooses in the game menu: normal, slow, fas
 they dismiss it (the `textSpeed` global, kept in saved games). It returns 0 when
 there's no such message.
 
+A line with a recording (`voices/`, [rooms.md](rooms.md#spoken-lines)) is heard as well, and
+stays until the recording ends and a moment more; a click stops it. The `speech` global
+(SPEECH_BOTH, SPEECH_TEXT, SPEECH_VOICE), set in the game menu when the game has
+recordings, says whether lines are heard, read, or both; with voice only, a heard line
+draws no box.
+
 Each line goes to its talker (the message's talker number): 99 the narrator, 98 the game's
 `heroTalker`, 200 and up the room's characters (its `findTalker:`). A `Narrator` shows
 the line in a box over the room; a `Talker` starts it with their name; a `PortraitTalker`
@@ -246,7 +252,7 @@ library's view 996 in colour 253, which the art palette keeps free, made a remap
 ## Saving and restoring
 
 Escape opens the game menu: save the game, restore a game, start again, the text speed,
-carry on. F5 goes
+speech (in a game with recorded lines), carry on. F5 goes
 straight to saving and F7 to restoring; a script can do the same with `(game showMenu:)`,
 `(game save:)` and `(game restore:)`. None of them work during a cutscene (between
 `handsOff` and `handsOn`).

@@ -4,12 +4,13 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GameBuildError, buildGame } from "../../../tools/game/build.ts";
 import { newGame } from "../../../tools/game/new.ts";
+import { tagGameLines } from "../../../tools/game/lines.ts";
 import { pixelFont } from "../../../tools/game/font.ts";
 import { stringHelpers } from "../src/vm/kernels/arrays.ts";
 import { paletteEffects, saves } from "../src/vm/kernels/index.ts";
 import type { MemorySaveStore } from "../src/vm/kernels/saves.ts";
 import {
-  EventType, ResourceManager, audio, ResourceType, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
+  AudioIndex, EventType, ResourceManager, audio, ResourceType, decodeSol, speechKey, Vm, allKernels, graphics, input, parseClassTable, parseFont, parseSelectorNames,
   writeClassTable, writeFont, writeResourceArchive, writeSelectorNames, type FileSource, type Value,
 } from "../src/index.ts";
 
@@ -666,6 +667,7 @@ describe("saving and restoring", async () => {
 
     // Faster, from the game menu: Escape, then the text speed item, which changes in place.
     key(27);
+    expect(menu().some((m) => m.text.startsWith("Speech"))).toBe(false); // it has no recorded lines
     choose("Text speed: normal");
     expect(menu().map((m) => m.text)).toContain("Text speed: fast");
     choose("Carry on");
@@ -975,5 +977,219 @@ describe("game build errors", () => {
 
   it("needs script 0", async () => {
     await expect(buildGame(game({ 999: obj }), { library: false })).rejects.toThrow(/no scripts\/0\.sc or 0\.sca/);
+  });
+});
+
+/** A 16-bit PCM WAV file; stereo frames repeat each sample on both channels. */
+function wav(rate: number, channels: number, samples: number[]): Uint8Array {
+  const size = samples.length * channels * 2;
+  const v = new DataView(new ArrayBuffer(44 + size));
+  const text = (at: number, t: string) => [...t].forEach((c, i) => v.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF"); v.setUint32(4, 36 + size, true); text(8, "WAVE");
+  text(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, channels, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * channels * 2, true); v.setUint16(32, channels * 2, true); v.setUint16(34, 16, true);
+  text(36, "data"); v.setUint32(40, size, true);
+  samples.forEach((s, i) => { for (let c = 0; c < channels; c++) v.setInt16(44 + (i * channels + c) * 2, s, true); });
+  return new Uint8Array(v.buffer);
+}
+
+describe("line ids", () => {
+  it("are added to a game's lines, carried into the build with their recordings, and unique across rooms", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-lines-")), "lines"), "path");
+    const untagged = await buildGame(dir);
+    expect(untagged.lines.get(1)!.map((l) => l.id)).toEqual([undefined, undefined, undefined]);
+    // A game with recordings is told which lines can't have one.
+    mkdirSync(join(dir, "voices"));
+    expect((await buildGame(dir)).warnings).toContainEqual(expect.stringMatching(/1\.yarn:4: 3 spoken lines have no #line: id/));
+
+    expect(tagGameLines(dir).map((t) => t.added)).toEqual([["1-001", "1-002", "1-003"]]);
+    expect(readFileSync(join(dir, "rooms/1.yarn"), "utf8")).toContain("An empty room, waiting for a story. #line:1-002");
+    const tagged = await buildGame(dir);
+    expect(tagged.lines.get(1)!.map((l) => [l.id, l.text])).toEqual([
+      ["1-001", "You're here. Right-click for the next verb; click to use it."],
+      ["1-002", "An empty room, waiting for a story."],
+      ["1-003", "Nothing out there yet."],
+    ]);
+    expect(tagged.warnings.join("\n")).not.toContain("#line:");
+    expect(tagGameLines(dir)).toEqual([]);
+
+    // A recording for a line (stereo, 22,050 Hz), and one whose line is gone.
+    writeFileSync(join(dir, "voices/1-002.wav"), wav(22050, 2, Array.from({ length: 22050 }, (_, i) => Math.round(Math.sin(i / 8) * 8000))));
+    writeFileSync(join(dir, "voices/1-099.wav"), wav(22050, 1, [1, 2, 3]));
+    const voiced = await buildGame(dir);
+    expect(voiced.warnings).toContainEqual(expect.stringMatching(/voices\/1-099\.wav: no line has the id #line:1-099/));
+    const line = voiced.lines.get(1)!.find((l) => l.id === "1-002")!;
+    const rm = await open(voiced.resources, voiced.files);
+    const clip = AudioIndex.build(rm).speech.get(speechKey(1, line.noun, line.verb, line.cond, line.seq))!;
+    expect(AudioIndex.ticks(clip)).toBeGreaterThanOrEqual(60); // a second of it, trimmed edges and all
+    expect(AudioIndex.ticks(clip)).toBeLessThanOrEqual(68);
+    expect(decodeSol(voiced.files["RESOURCE.AUD"]!.subarray(clip.offset, clip.offset + clip.length))!.rate).toBe(11025);
+
+    // The script: every line with an id, and which are recorded.
+    const script = () => JSON.parse(readFileSync(join(dir, "voices/lines.json"), "utf8")).lines as { id: string; recording: string; speaker: string; text: string }[];
+    expect(script().map((l) => [l.id, l.recording])).toEqual([["1-001", "missing"], ["1-002", "recorded"], ["1-003", "missing"]]);
+    expect(script()[1]).toMatchObject({ speaker: "Narrator", text: "An empty room, waiting for a story.", node: "room.look", room: 1, where: "rooms/1.yarn:11" });
+    expect(voiced.warnings).toContainEqual(expect.stringMatching(/lines\.json: 2 of 3 lines have no recording yet/));
+    // The line changes: its recording is out of date, until it's recorded again.
+    const yarn = readFileSync(join(dir, "rooms/1.yarn"), "utf8");
+    writeFileSync(join(dir, "rooms/1.yarn"), yarn.replace("waiting for a story", "waiting for its story"));
+    expect((await buildGame(dir)).warnings).toContainEqual(expect.stringMatching(/1-002\.wav: recorded before its line changed \(.*1\.yarn:11: "An empty room, waiting for its story\."\)/));
+    expect(script()[1]!.recording).toBe("changed");
+    expect((await buildGame(dir)).warnings.join("\n")).toContain("recorded before its line changed"); // it stays so
+    writeFileSync(join(dir, "voices/1-002.wav"), wav(22050, 1, Array.from({ length: 11025 }, (_, i) => Math.round(Math.sin(i / 9) * 8000))));
+    expect((await buildGame(dir)).warnings.join("\n")).not.toContain("recorded before its line changed");
+    expect(script()[1]!.recording).toBe("recorded");
+    writeFileSync(join(dir, "rooms/1.yarn"), yarn);
+
+    writeFileSync(join(dir, "rooms/2.room.yaml"), "room: 2\n");
+    writeFileSync(join(dir, "rooms/2.yarn"), "title: room.look\n---\nAnother room. #line:1-002\n===\n");
+    await expect(buildGame(dir)).rejects.toThrow(/2\.yarn:3: #line:1-002 is already the id of .*1\.yarn:11/);
+  });
+});
+
+describe("speech", () => {
+  it("plays a line's recording, keeps the line up for it, stops it on a click, and follows the speech setting", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-speech-")), "talkie"), "path");
+    const yarn = readFileSync(join(dir, "rooms/1.yarn"), "utf8");
+    writeFileSync(join(dir, "rooms/1.yarn"), yarn.replace("Nothing out there yet.", "Nothing out there yet. #line:said\nThe glass is cold. #line:unsaid"));
+    mkdirSync(join(dir, "voices"));
+    // Five seconds: longer than reading the line takes (186 cycles at the normal speed).
+    writeFileSync(join(dir, "voices/said.wav"), wav(11025, 1, Array.from({ length: 11025 * 5 }, (_, i) => Math.round(Math.sin(i / 6) * 12000))));
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    const key = (message: number) => (inp.push({ type: EventType.KeyDown, message, modifiers: 0 }), frames(1));
+    const showing = () => global("talking") !== 0;
+    const heard = () => [...audio(vm).channels.keys()].some((k) => k.startsWith("aud:"));
+    const shown = () => {
+      const box = showing() ? vm.getProp(global("talking"), "box") : 0;
+      return box ? stringHelpers.str(vm, vm.getProp(box, "text")!) : "";
+    };
+    const menu = () => {
+      const items = global("dialog") ? vm.getProp(global("dialog"), "items") : 0;
+      const out: { text: string; x: number; y: number }[] = [];
+      for (let n = items ? vm.memory.list(vm.getProp(items, "elements")!)?.first : undefined; n; n = n.next) {
+        out.push({ text: stringHelpers.str(vm, vm.getProp(n.value, "text")!), x: g.prop(n.value, "x"), y: g.prop(n.value, "y") });
+      }
+      return out;
+    };
+    const choose = (text: string) => {
+      const item = menu().find((m) => m.text === text);
+      expect(item, text).toBeDefined();
+      click(item!.x + 4, item!.y + 4);
+    };
+    const until = (done: () => boolean) => {
+      let n = 0;
+      while (!done() && n < 3000) (frames(1), n++);
+      return n;
+    };
+
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (showing()) key(13); // the arrival line
+    click(0, 100, true);
+    click(0, 100, true); // walk -> do -> look
+
+    // Voice and text: heard and shown until the recording ends, then a moment; the next
+    // line, with no recording, is up for its reading time.
+    click(160, 70);
+    expect(heard()).toBe(true);
+    expect(shown()).toBe("Nothing out there yet.");
+    const first = until(() => shown() === "The glass is cold.");
+    expect(first).toBeGreaterThanOrEqual(300);
+    expect(first).toBeLessThanOrEqual(300 + 20 + 3);
+    expect(heard()).toBe(false);
+    expect(until(() => !showing())).toBeGreaterThan(170);
+
+    // A click ends the line and its recording.
+    click(160, 70);
+    frames(30);
+    expect(heard()).toBe(true);
+    click(160, 70);
+    expect(heard()).toBe(false);
+    expect(shown()).toBe("The glass is cold.");
+    key(13);
+
+    // Voice only: heard, not shown; a line without a recording is still shown.
+    key(27);
+    choose("Speech: voice and text");
+    expect(menu().map((m) => m.text)).toContain("Speech: voice only");
+    choose("Carry on");
+    expect(global("speech")).toBe(2);
+    click(160, 70);
+    expect(showing() && heard()).toBe(true);
+    expect(shown()).toBe("");
+    expect(until(() => shown() === "The glass is cold.")).toBeGreaterThanOrEqual(300);
+    key(13);
+
+    // Text only: shown for as long as it takes to read, and not heard.
+    key(27);
+    choose("Speech: voice only");
+    choose("Carry on");
+    expect(global("speech")).toBe(1);
+    click(160, 70);
+    expect(heard()).toBe(false);
+    expect(shown()).toBe("Nothing out there yet.");
+    expect(until(() => shown() === "The glass is cold.")).toBeLessThan(200);
+  });
+});
+
+describe("perspective", () => {
+  it("sizes the hero and the props that move by how far below the horizon they stand, room by room", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-perspective-")), "deep"), "path");
+    const yaml = readFileSync(join(dir, "rooms/1.room.yaml"), "utf8");
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${yaml}perspective: { horizon: 72, fullSize: 176 }\nprops:\n  cat: { view: 100, at: [250, 160], moves: true }\n`);
+    writeFileSync(join(dir, "rooms/2.room.yaml"), "room: 2\npicture: 100\nhero: { at: [60, 170] }\n");
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    const ego = () => global("ego");
+    /** The size it's drawn at, in percent, and where its feet are. */
+    const size = (obj: Value) => ({ y: g.prop(obj, "y"), pct: (g.prop(obj, "scaleSignal") & 1 ? g.prop(obj, "scaleX") : 128) / 1.28 });
+    const expected = (y: number) => ((y - 72) / 104) * 100;
+
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    const front = size(ego());
+    expect(front.y).toBe(170);
+    expect(front.pct).toBeCloseTo(expected(170), -0.5);
+    const cast = vm.memory.list(vm.getProp(global("cast"), "elements")!)!;
+    let catObj = 0;
+    for (let n = cast.first; n; n = n.next) if (g.prop(n.value, "x") === 250) catObj = n.value;
+    expect(size(catObj).pct).toBeCloseTo(expected(160), -0.5);
+
+    // He walks to the back of the floor and gets smaller as he goes.
+    [inp.x, inp.y] = [200, 151];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    const seen: { y: number; pct: number }[] = [];
+    for (let i = 0; i < 600 && g.prop(ego(), "y") > 151; i++) (frames(1), seen.push(size(ego())));
+    const back = size(ego());
+    expect(back.y).toBe(151);
+    expect(back.pct).toBeCloseTo(expected(151), -0.5);
+    for (const s of seen) expect(Math.abs(s.pct - expected(s.y))).toBeLessThan(2);
+
+    // A room with no perspective draws him at full size.
+    vm.invoke(global("game"), vm.selector("newRoom"), [2]);
+    frames(5);
+    expect(global("curRoomNum")).toBe(2);
+    expect(size(ego()).pct).toBe(100);
   });
 });

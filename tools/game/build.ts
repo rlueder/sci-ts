@@ -4,12 +4,13 @@ import { pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
 import {
   AsmError, CompileError, GLOBAL_NAMES_VOCAB, OBJECT_HEADER, ResourceType, assemble, compileScripts, kernelNames, messagesFromText, parseScript,
-  resourceKey, writeClassTable, writeEffects, writeMessages, writeSelectorNames, writeSol, writeSound, type AsmContext,
+  resourceKey, writeClassTable, writeEffects, writeMessages, writeSelectorNames, writeSol, writeSound, writeSpeech, type AsmContext, type SpeechClip,
   type ResourceData, type ScriptObject,
 } from "@sci-ts/sci";
-import { ContentError, compileRoom } from "@sci-ts/content";
+import { ContentError, compileRoom, type SpokenLine } from "@sci-ts/content";
 import { modFlags } from "../mod-build.ts";
-import { AudioFileError, readMidiFile, readWav } from "./audio.ts";
+import { AudioFileError, SPEECH_RATE, prepareSpeech, readMidiFile, readWav } from "./audio.ts";
+import { lineScript, writeLineScript, type ScriptLine } from "./voices.ts";
 import { defaultResources } from "./defaults.ts";
 import { ITEMS_SCRIPT, libraryTarget } from "./target.ts";
 
@@ -28,6 +29,9 @@ import { ITEMS_SCRIPT, libraryTarget } from "./target.ts";
  *                                  the item itself, made in script ITEMS_SCRIPT (<<get lens>>)
  *   games/<name>/music/<n>.mid     music: sound n, from a Standard MIDI File (General MIDI)
  *   games/<name>/sounds/<n>.wav    digital effects: sound n plays this instead of music
+ *   games/<name>/voices/<id>.wav   speech: the line tagged #line:<id> in a room's Yarn
+ *                                  (RESOURCE.AUD, and a map per room); the build keeps
+ *                                  voices/lines.json, the script, up to date
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
  *                                  music and anything else made by code
  *   games/<name>/game.json         optional: { "library": false } to build without lib/
@@ -46,7 +50,9 @@ export interface BuiltGame {
   globals: string[];
   /** The message text compiled from each YAML room's Yarn, by room. */
   roomMessages: Map<number, string>;
-  /** Files that go next to RESOURCE.MAP and RESOURCE.000 (RESOURCE.SFX, the effects). */
+  /** Each YAML room's spoken lines, by room: their #line: ids and message keys today. */
+  lines: Map<number, SpokenLine[]>;
+  /** Files that go next to RESOURCE.MAP and RESOURCE.000 (RESOURCE.SFX, the effects; RESOURCE.AUD, speech). */
   files: Record<string, Uint8Array>;
   /** Likely mistakes that still built, as file:line: message. */
   warnings: string[];
@@ -148,6 +154,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   // Rooms as YAML and Yarn: compiled once script 0 is (the target needs its globals).
   const roomMessages: ResourceData[] = [];
   const roomMessageText = new Map<number, string>();
+  const roomLines = new Map<number, SpokenLine[]>();
   const compileRooms = (): { file: string; text: string }[] => {
     const roomsDir = join(dir, "rooms");
     if (!existsSync(roomsDir)) return [];
@@ -168,6 +175,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
       }
       generated.set(n, room.sca);
       roomMessageText.set(n, room.msg);
+      roomLines.set(n, room.lines);
       roomMessages.push({ type: ResourceType.Message, number: n, data: writeMessages(messagesFromText(room.msg).file) });
       out.push({ file: relative(process.cwd(), file), text: room.sca });
     }
@@ -264,6 +272,55 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     }
   }
 
+  // Line ids are the game's, not just a room's: recordings are filed under them.
+  const ids = new Map<string, string>();
+  for (const line of [...roomLines.values()].flat()) {
+    if (line.id === undefined) continue;
+    const first = ids.get(line.id);
+    if (first) throw new GameBuildError(`${line.where}: #line:${line.id} is already the id of ${first}`);
+    ids.set(line.id, line.where);
+  }
+  if (existsSync(join(dir, "voices"))) {
+    const untagged = [...roomLines.values()].flat().filter((l) => l.id === undefined);
+    if (untagged.length) warnings.push(`${untagged[0]!.where}: ${untagged.length} spoken line${untagged.length > 1 ? "s have" : " has"} no #line: id, so no recording can be found for ${untagged.length > 1 ? "them" : "it"} (sci-ts lines tag adds them)`);
+  }
+
+  // Recorded lines, voices/<id>.wav: each filed under its line's message key today.
+  const voicesDir = join(dir, "voices");
+  if (existsSync(voicesDir)) {
+    const byId = new Map([...roomLines].flatMap(([room, lines]) => lines.filter((l) => l.id !== undefined).map((l) => [l.id!, { room, line: l }] as const)));
+    const clips: SpeechClip[] = [];
+    for (const f of readdirSync(voicesDir).filter((x) => /\.wav$/i.test(x)).sort()) {
+      const file = join(voicesDir, f);
+      const found = byId.get(f.slice(0, -4));
+      if (!found) {
+        warnings.push(`${relative(process.cwd(), file)}: no line has the id #line:${f.slice(0, -4)}, so it isn't used`);
+        continue;
+      }
+      const { samples, rate } = audioFile(file, () => readWav(new Uint8Array(readFileSync(file))));
+      const { noun, verb, cond, seq } = found.line;
+      clips.push({ module: found.room, noun, verb, cond, seq, sol: writeSol(prepareSpeech(samples, rate), SPEECH_RATE, true) });
+    }
+    if (clips.length) {
+      const { aud, maps } = writeSpeech(clips);
+      files["RESOURCE.AUD"] = aud;
+      for (const m of maps) resources.push({ type: ResourceType.Map, number: m.module, data: m.data });
+    }
+    // The script, and what's still to record.
+    let script: ScriptLine[];
+    try {
+      script = lineScript(dir, roomLines);
+    } catch (e) {
+      throw new GameBuildError(`${relative(process.cwd(), join(voicesDir, "lines.json"))}: ${(e as Error).message}`);
+    }
+    writeLineScript(dir, script);
+    for (const l of script.filter((x) => x.recording === "changed")) {
+      warnings.push(`${relative(process.cwd(), join(voicesDir, `${l.id}.wav`))}: recorded before its line changed (${l.where}: "${l.text}"); record it again`);
+    }
+    const missing = script.filter((x) => x.recording === "missing").length;
+    if (missing) warnings.push(`${relative(process.cwd(), join(voicesDir, "lines.json"))}: ${missing} of ${script.length} lines have no recording yet`);
+  }
+
   // Resources made in code: the game's, then the library's and the defaults for what's left.
   const made = async (path: string) => {
     if (!existsSync(path)) return [];
@@ -288,6 +345,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
     generated,
     globals,
     roomMessages: roomMessageText,
+    lines: roomLines,
     files,
     warnings: [...new Set(warnings)],
   };

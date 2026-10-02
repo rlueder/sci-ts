@@ -1,5 +1,5 @@
 import type { MidiEvent } from "./midi.ts";
-import { SolFlag } from "./sol.ts";
+import { DPCM16, SolFlag } from "./sol.ts";
 
 /**
  * Writers for sound: sound resources (music, in the layout parseSound reads), SOL clips, and
@@ -69,18 +69,107 @@ export function writeSound(spec: SoundSpec): Uint8Array {
   return Uint8Array.from([...header, ...table, ...body]);
 }
 
-/** A SOL clip: 16-bit samples at `rate`, uncompressed. */
-export function writeSol(samples: Int16Array, rate: number): Uint8Array {
-  const out = new Uint8Array(13 + samples.length * 2);
+/**
+ * A SOL clip of 16-bit samples at `rate`: uncompressed, or compressed with SOL's 16-bit DPCM
+ * (one byte a sample, half the size; what speech uses).
+ */
+export function writeSol(samples: Int16Array, rate: number, compressed = false): Uint8Array {
+  const data = compressed ? encodeDpcm16(samples) : new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
+  const out = new Uint8Array(13 + data.length);
   const v = new DataView(out.buffer);
   out[0] = 0x8d; // audio
   out[1] = 11; // header bytes after these two
   out.set([0x53, 0x4f, 0x4c, 0], 2); // "SOL\0"
   v.setUint16(6, rate, true);
-  out[8] = SolFlag.Bits16 | SolFlag.Signed;
-  v.setUint32(9, samples.length * 2, true);
-  samples.forEach((s, i) => v.setInt16(13 + i * 2, s, true));
+  out[8] = compressed ? SolFlag.Compressed | SolFlag.Bits16 : SolFlag.Bits16 | SolFlag.Signed;
+  v.setUint32(9, data.length, true);
+  if (compressed) out.set(data, 13);
+  else samples.forEach((s, i) => v.setInt16(13 + i * 2, s, true));
   return out;
+}
+
+/**
+ * SOL's 16-bit DPCM: each byte steps from the last sample by DPCM16[byte & 0x7f], down if
+ * bit 7 is set. Each step is the one that lands nearest the sample, never past the 16-bit
+ * range (the decoder would wrap around).
+ */
+export function encodeDpcm16(samples: Int16Array): Uint8Array {
+  const out = new Uint8Array(samples.length);
+  let last = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const want = samples[i]! - last, size = Math.abs(want);
+    let lo = 0, hi = DPCM16.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (DPCM16[mid]! < size) lo = mid + 1;
+      else hi = mid;
+    }
+    // lo is the first step at least as big; the one below may be nearer.
+    if (lo > 0 && size - DPCM16[lo - 1]! < DPCM16[lo]! - size) lo--;
+    const down = want < 0;
+    const land = (k: number) => last + (down ? -DPCM16[k]! : DPCM16[k]!);
+    while (lo > 0 && (land(lo) > 32767 || land(lo) < -32768)) lo--;
+    out[i] = (down ? 0x80 : 0) | lo;
+    last = land(lo);
+  }
+  return out;
+}
+
+export interface SpeechClip {
+  /** The message file (room) the line is in, and its key there. */
+  module: number;
+  noun: number;
+  verb: number;
+  cond: number;
+  seq: number;
+  sol: Uint8Array;
+}
+
+/**
+ * RESOURCE.AUD (SOL clips one after another, by module and key) and a map per module, in the
+ * layout AudioIndex reads: u32 offset of the module's first clip, then per clip u32
+ * big-endian noun<<24|verb<<16|cond<<8|seq and a u24 delta from the previous clip;
+ * 0xFFFFFFFF ends it.
+ *
+ * The index takes a clip's length from where the next one starts, so the last map also has
+ * an entry at the end of the file, under 0 0 0 0, which no message has (nouns and seqs
+ * start at 1); without it the last clip's length would be a guess.
+ */
+export function writeSpeech(clips: readonly SpeechClip[]): { aud: Uint8Array; maps: { module: number; data: Uint8Array }[] } {
+  const key = (c: SpeechClip) => ((c.noun << 24) | (c.verb << 16) | (c.cond << 8) | c.seq) >>> 0;
+  const sorted = [...clips].sort((a, b) => a.module - b.module || key(a) - key(b));
+  const aud = new Uint8Array(sorted.reduce((n, c) => n + c.sol.length, 0));
+  const modules = [...new Set(sorted.map((c) => c.module))];
+  let at = 0;
+  const maps = modules.map((module, m) => {
+    const mine = sorted.filter((c) => c.module === module);
+    const last = m === modules.length - 1;
+    const data = new Uint8Array(4 + (mine.length + (last ? 1 : 0)) * 7 + 4);
+    const v = new DataView(data.buffer);
+    v.setUint32(0, at, true);
+    let prev = at, p = 4;
+    const entry = (k: number) => {
+      const delta = at - prev;
+      if (delta > 0xffffff) throw new Error("speech clip too large (16 MB at most)");
+      v.setUint32(p, k, false);
+      data.set([delta & 0xff, (delta >> 8) & 0xff, delta >> 16], p + 4);
+      p += 7;
+      prev = at;
+    };
+    mine.forEach((c, i) => {
+      const where = `${c.module} ${c.noun} ${c.verb} ${c.cond} ${c.seq}`;
+      for (const [n, max] of [[c.noun, 255], [c.verb, 255], [c.cond, 255]] as const) if (n < 0 || n > max) throw new Error(`speech for ${where}: noun, verb and cond are 0-255`);
+      if (c.seq < 1 || c.seq > 63) throw new Error(`speech for ${where}: seq is 1-63`);
+      if (i && key(c) === key(mine[i - 1]!)) throw new Error(`speech for ${where} is there twice`);
+      entry(key(c));
+      aud.set(c.sol, at);
+      at += c.sol.length;
+    });
+    if (last) entry(0);
+    v.setUint32(p, 0xffffffff, false);
+    return { module, data };
+  });
+  return { aud, maps };
 }
 
 /**

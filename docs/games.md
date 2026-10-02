@@ -26,6 +26,7 @@ games/hello/
   messages/1.msg     message files, as text
   music/100.mid      music: sound 100, from a MIDI file
   sounds/50.wav      a sound effect: sound 50, from a WAV file
+  voices/2-004.wav   the recording of the line tagged #line:2-004 (voices/lines.json is the script)
   hello.sh           definitions the scripts include (here, the nouns)
   resources.ts       optional: pictures, views and anything else made in code
   game.json          optional: { "library": false } to build without the class library
@@ -57,7 +58,8 @@ General MIDI. Its tempo changes are kept; channel 16 moves to a free channel, si
 it for signals to the scripts. Music can also be made in code (`writeSound` in the kit;
 `games/hello` composes its tune that way). **Sound effects** are `sounds/<n>.wav` (PCM,
 8- or 16-bit, mono or stereo). A Sound object playing number n plays the effect if there is
-one, else the music.
+one, else the music. **Recorded lines** are `voices/<id>.wav`, for the line with that
+`#line:` id ([rooms.md](rooms.md#spoken-lines)).
 
 **Defaults.** Unless the game makes its own, the build adds:
 
@@ -105,11 +107,13 @@ its `sci-ts` command does what `pnpm game` does here. The Sherlock Holmes teaser
 
 ```sh
 sci-ts new my-game        # in an empty folder, or anywhere
-sci-ts build              # out/game: RESOURCE.MAP, RESOURCE.000, RESOURCE.SFX
+sci-ts build              # out/game: RESOURCE.MAP, RESOURCE.000, RESOURCE.SFX, RESOURCE.AUD
 sci-ts play               # build, then sci-ts's player for it
 sci-ts edit               # build, then the live editor for its rooms and scripts
 sci-ts site               # the game's README and docs, and the game, as a static site
 sci-ts art check art/art.json
+sci-ts lines tag          # a #line: id for every spoken line that has none
+sci-ts lines script       # voices/lines.json, and what's still to record
 ```
 
 The site plays music if the game has a SoundFont at `assets/soundfonts/GeneralUser-GS.sf2`
