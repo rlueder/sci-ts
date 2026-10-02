@@ -96,12 +96,19 @@
 ;; Shows a line until it's been there long enough to read (as long as `textSpeed` says), or
 ;; the player clicks or presses Enter, Space or "."; then cues whoever asked. The narrator
 ;; speaks for no one in particular.
+;;
+;; A line from a message file (the Messager sets module, noun, verb, cond and seq before
+;; say:) is heard too if it has a recording, unless `speech` is SPEECH_TEXT. A heard line
+;; stays until its recording ends, and a moment more; with SPEECH_VOICE it isn't shown.
 (class Narrator of Obj
   (properties
     caller 0
     box 0
-    shownAt 0       ; the game time it went up
-    readFor 0       ; how long it stays (-1: until dismissed)
+    shownAt 0       ; the game time it went up (or its recording ended)
+    readFor 0       ; how long it stays (-1: until dismissed, or while it's heard)
+    voiced 0        ; its recording is playing
+    module 0        ; the message the next say: is, if it's one (set by the Messager)
+    noun 0 verb 0 cond 0 seq 0
     font -1         ; -1: the textStyle's
     x -1            ; -1: centred
     y 16
@@ -111,18 +118,22 @@
     (self clear:)
     (if (and talking (!= talking self)) (talking clear:))
     (= caller (if (> argc 1) whoCares else 0))
-    (= box
-      ((TextItem new:)
-        text: txt
-        font: font
-        width: width
-        x: (if (== x -1) (/ (- SCREEN_WIDTH width) 2) else x)
-        y: y
-        yourself:))
-    (box init:)
+    (if (and module (!= speech SPEECH_TEXT))
+      (= voiced (!= 0 (DoAudio 2 module noun verb cond seq))))
+    (= module 0)
+    (if (or (not voiced) (!= speech SPEECH_VOICE))
+      (= box
+        ((TextItem new:)
+          text: txt
+          font: font
+          width: width
+          x: (if (== x -1) (/ (- SCREEN_WIDTH width) 2) else x)
+          y: y
+          yourself:))
+      (box init:))
     (= talking self)
     (= shownAt gameTime)
-    (= readFor (self readingTime: (String STRING_LENGTH txt))))
+    (= readFor (if voiced -1 else (self readingTime: (String STRING_LENGTH txt)))))
 
   ;; Cycles to read a line of n characters: normally two seconds, and more for longer lines;
   ;; -1 is until the player dismisses it.
@@ -134,12 +145,18 @@
       (else (return (+ 120 (* 3 n))))))
 
   ;; Time is measured as cycles since, which stays right when gameTime wraps past 32767.
+  ;; When a heard line's recording ends, it stays a moment (or until a click, if the text
+  ;; is up and that's the text speed).
   (method (doit)
-    (if (and box (!= readFor -1) (>= (- gameTime shownAt) readFor)) (self done:)))
+    (if (and voiced (== (DoAudio 6) -1))
+      (= voiced 0)
+      (= shownAt gameTime)
+      (= readFor (if (and box (== textSpeed TEXT_CLICK)) -1 else VOICE_PAUSE)))
+    (if (and (== talking self) (!= readFor -1) (>= (- gameTime shownAt) readFor)) (self done:)))
 
   ;; A click, Enter, Space or "." while a line is up dismisses it (and nothing else).
   (method (handleEvent event)
-    (if (and box
+    (if (and (== talking self)
           (or (== (event type?) EV_MOUSE_DOWN)
             (and (== (event type?) EV_KEY_DOWN)
               (or (== (event message?) KEY_ENTER) (== (event message?) KEY_SPACE) (== (event message?) KEY_PERIOD)))))
@@ -149,6 +166,7 @@
     (return FALSE))
 
   (method (clear)
+    (if voiced (DoAudio 3) (= voiced 0))
     (if box (box dispose:) (= box 0))
     (if (== talking self) (= talking 0)))
 
@@ -200,11 +218,12 @@
     (if eyes (eyes setCycle: Blink))
     (if mouth
       (mouth setCycle: Forward)
-      ;; About as long as it takes to say: half a second, and two cycles a letter.
-      (= mouthFor (+ 30 (* 2 (String STRING_LENGTH txt))))))
+      ;; While it's heard; or about as long as it takes to say: half a second, and two
+      ;; cycles a letter.
+      (= mouthFor (if voiced 0 else (+ 30 (* 2 (String STRING_LENGTH txt)))))))
 
   (method (doit)
-    (if (and mouth (mouth cycler?) (>= (- gameTime shownAt) mouthFor))
+    (if (and mouth (mouth cycler?) (not voiced) (>= (- gameTime shownAt) mouthFor))
       (mouth setCycle: 0 setCel: 0))
     (super doit:))
 
@@ -221,7 +240,8 @@
     (super clear:)))
 
 ;; Says the lines of a message file for a noun, verb and condition, in sequence:
-;; (messager say: noun verb [cond [seq [caller [module]]]]). Each line goes to its talker.
+;; (messager say: noun verb [cond [seq [caller [module]]]]). Each line goes to its talker,
+;; told which message it is so it can play the line's recording.
 ;; Returns whether there was anything to say; cues the caller after the last line.
 (class Messager of Obj
   (properties
@@ -245,9 +265,10 @@
   (method (sayNext &tmp c talker)
     (if (not buffer) (= buffer (String ARRAY_NEW 400)))
     (if (Message 2 module noun verb cond seq)
-      (= talker (Message 0 module noun verb cond seq buffer))
+      (= talker (self findTalker: (Message 0 module noun verb cond seq buffer)))
+      (talker module: module noun: noun verb: verb cond: cond seq: seq)
       (++ seq)
-      ((self findTalker: talker) say: buffer self)
+      (talker say: buffer self)
      else
       (= c caller)
       (= caller 0)

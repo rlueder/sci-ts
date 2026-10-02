@@ -7,7 +7,8 @@ import { parseYarn, type YarnChoice, type YarnCommand, type YarnExpr, type YarnI
  * (.sca) and message text (.msg), the formats tools/mod-build.ts already builds from.
  *
  *   room: 701
- *   hero: { at: [36, 152], enterTo: [110, 160], scale: { front: 100, back: 70, frontY: 186, backY: 122 } }
+ *   hero: { at: [36, 152], enterTo: [110, 160] }
+ *   perspective: { horizon: 72, fullSize: 176 }
  *   walkable: [[28, 152], [60, 135], ...]
  *   features:
  *     pods: { rect: [236, 14, 310, 94] }
@@ -31,9 +32,17 @@ export interface RoomSpec {
     at?: Point;
     /** Walk here on arrival (hands off until there). */
     enterTo?: Point;
-    /** Perspective: `front`% at y `frontY`, `back`% at y `backY`. */
+    /** Perspective for the hero alone: `front`% at y `frontY`, `back`% at y `backY` (perspective: is simpler). */
     scale?: { front: number; back: number; frontY: number; backY: number };
   };
+  /**
+   * The picture's camera, for sizing people by where they stand: the horizon (the y the
+   * floor's lines meet at), and the y where a figure's feet are when it's drawn at full
+   * size. A figure's height is in proportion to how far below the horizon it stands, so it
+   * shrinks towards the back and grows past fullSize at the front. The hero and props that
+   * move are sized as they go; a still prop only with scale: true.
+   */
+  perspective?: { horizon: number; fullSize: number };
   /** The floor: a polygon the hero stays inside. */
   walkable?: Point[];
   /** Polygons the hero walks around. */
@@ -87,6 +96,11 @@ interface PropSpec {
   sightAngle?: number;
   /** A Script class of the game's: an instance of it runs on the prop (ambient behaviour). */
   script?: string;
+  /**
+   * Sized by the room's perspective: by default a prop that moves is and a still one
+   * (drawn to fit its place, like someone in a chair) isn't.
+   */
+  scale?: boolean;
 }
 
 export interface CompiledRoom {
@@ -99,6 +113,30 @@ export interface CompiledRoom {
   roomTalkers: boolean;
   /** Yarn variables ($name) used: each is a flag, numbered by `options.flag`. */
   flags: string[];
+  /** The spoken lines (not menu labels), with their message keys today. */
+  lines: SpokenLine[];
+}
+
+/**
+ * A line someone says. Its message key (noun, verb, cond, seq) is positional and changes
+ * when lines or things are added before it; its id (#line:) doesn't, so recordings use that.
+ */
+export interface SpokenLine {
+  id?: string;
+  noun: number;
+  verb: number;
+  cond: number;
+  seq: number;
+  talker: number;
+  /** As written in the Yarn (Narrator when it has none). */
+  speaker: string;
+  text: string;
+  /** The Yarn node it's in (and for a topic's answer, the topic). */
+  node: string;
+  /** What's said just before it in the same node, if anything: context for whoever records it. */
+  before?: { speaker: string; text: string };
+  /** file:line in the Yarn. */
+  where: string;
 }
 
 export interface CompileOptions {
@@ -157,7 +195,7 @@ class SpecChecker {
   check(): void {
     const s = this.spec as unknown as Record<string, unknown>;
     if (!s || typeof s !== "object") this.fail([], "expected a mapping (room: ..., features: ...)");
-    this.known(s, [], ["room", "picture", "music", "hero", "walkable", "obstacles", "features", "exits", "props", "characters", "properties"]);
+    this.known(s, [], ["room", "picture", "music", "hero", "perspective", "walkable", "obstacles", "features", "exits", "props", "characters", "properties"]);
     this.int(s.room, ["room"], 0, 65535);
     if (s.picture !== undefined) this.int(s.picture, ["picture"], 0, 65535);
     if (s.music !== undefined) this.int(s.music, ["music"], 0, 65535);
@@ -171,6 +209,13 @@ class SpecChecker {
         this.known(sc, ["hero", "scale"], ["front", "back", "frontY", "backY"]);
         for (const k of ["front", "back", "frontY", "backY"]) this.int(sc[k], ["hero", "scale", k], 0, 1000);
       }
+    }
+    if (s.perspective !== undefined) {
+      const pv = this.map(s.perspective, ["perspective"]);
+      this.known(pv, ["perspective"], ["horizon", "fullSize"]);
+      this.int(pv.horizon, ["perspective", "horizon"], -1000, 199);
+      this.int(pv.fullSize, ["perspective", "fullSize"], 0, 1000);
+      if ((pv.fullSize as number) <= (pv.horizon as number)) this.fail(["perspective", "fullSize"], "must be below the horizon (a bigger y)");
     }
     if (s.walkable !== undefined) this.polygon(s.walkable, ["walkable"]);
     if (s.obstacles !== undefined) {
@@ -188,7 +233,9 @@ class SpecChecker {
         names.add(name);
         const t = this.map(value, path);
         if (group === "props") {
-          this.known(t, path, ["view", "at", "loop", "cel", "cycle", "sightAngle", "moves", "script"]);
+          this.known(t, path, ["view", "at", "loop", "cel", "cycle", "sightAngle", "moves", "script", "scale"]);
+          if (t.scale !== undefined && typeof t.scale !== "boolean") this.fail([...path, "scale"], "expected true or false");
+          if (t.scale === true && s.perspective === undefined) this.fail([...path, "scale"], "the room has no perspective: to size it by");
           if (t.script !== undefined && (typeof t.script !== "string" || !/^[A-Z][A-Za-z0-9]*$/.test(t.script))) this.fail([...path, "script"], "expected a class name, e.g. Scurry");
           if (t.moves !== undefined && typeof t.moves !== "boolean") this.fail([...path, "moves"], "expected true or false");
           this.int(t.view, [...path, "view"], 0, 65535);
@@ -265,6 +312,7 @@ type Val = number | { obj: string } | { cls: string } | "self" | { code: string[
 /** Who receives a send. */
 type To = { global: number } | { obj: string } | { cls: string } | "self" | { superOf: string };
 
+const SCREEN_BOTTOM = 200;
 const num = (n: number) => (n < 0 ? `-$${(-n).toString(16)}` : String(n));
 
 function pushVal(v: Val): string[] {
@@ -300,6 +348,7 @@ interface Message {
   cond: number;
   seq: number;
   talker: number;
+  speaker: string;
   text: string;
   label: string;
 }
@@ -347,6 +396,7 @@ class RoomCompiler {
   readonly name: string;
   readonly nouns = new Map<string, number>();
   readonly messages: Message[] = [];
+  readonly lines: SpokenLine[] = [];
   readonly instances: string[] = [];
   readonly code: string[] = [];
   readonly strings: string[] = [];
@@ -425,7 +475,7 @@ class RoomCompiler {
 
     return {
       number: spec.room, sca: this.assembly(), msg: this.messageText(), roomTalkers: characters.length > 0,
-      flags: [...this.flagsUsed].sort(),
+      flags: [...this.flagsUsed].sort(), lines: this.lines,
     };
   }
 
@@ -492,7 +542,7 @@ class RoomCompiler {
         if (!c.body.length) fail(`choice "${c.text}" needs at least one line under it`, c.line);
         const topic = k + 1;
         const label = `${node.title}: ${c.text}`;
-        this.message(conv.rootNoun, tv, topic, 1, { kind: "line", speaker: "Hero", text: c.text, line: c.line }, label);
+        this.message(conv.rootNoun, tv, topic, 1, { kind: "line", speaker: "Hero", text: c.text, line: c.line }, label, false);
         if (c.when) conv.conditional.push({ topic, when: c.when, where: `${this.yarnFile}:${c.line}` });
         if (c.body.every((x) => x.kind === "line")) {
           c.body.forEach((l, j) => this.message(conv.sayNoun, tv, topic, j + 1, l as YarnLine, label));
@@ -794,9 +844,19 @@ class RoomCompiler {
 
   // --- Objects ---
 
-  private message(noun: number, verb: number, cond: number, seq: number, l: YarnLine, label: string): void {
+  /** A message; `spoken` is false for a topic menu's labels, which nobody says. */
+  private message(noun: number, verb: number, cond: number, seq: number, l: YarnLine, label: string, spoken = true): void {
     const where = `${this.yarnFile}:${l.line}`;
-    this.messages.push({ noun, verb, cond, seq, talker: this.talkerOf(l.speaker, where), text: plainText(l.text, where), label });
+    const prev = this.messages.at(-1);
+    const m: Message = { noun, verb, cond, seq, talker: this.talkerOf(l.speaker, where), speaker: l.speaker ?? "Narrator", text: plainText(l.text, where), label };
+    this.messages.push(m);
+    if (!spoken) return;
+    const twice = l.id !== undefined && this.lines.find((x) => x.id === l.id);
+    if (twice) throw new ContentError(`${where}: #line:${l.id} is already the id of ${twice.where}`);
+    this.lines.push({
+      ...(l.id === undefined ? {} : { id: l.id }), noun, verb, cond, seq, talker: m.talker, speaker: m.speaker, text: m.text, node: label,
+      ...(prev?.label === label ? { before: { speaker: prev.speaker, text: prev.text } } : {}), where,
+    });
   }
 
   private talkerOf(speaker: string | undefined, where: string): number {
@@ -836,13 +896,18 @@ class RoomCompiler {
     const egoCalls: [string, Val[]][] = [["init", []]];
     if (hero?.at) egoCalls.push(["x", [hero.at[0]]], ["y", [hero.at[1]]]);
     egoCalls.push(["normalize", []]);
+    // Each room sizes the hero its own way, or not at all.
+    const perspective = this.perspective();
     if (hero?.scale) egoCalls.push(["setScaler", [{ cls: "Scaler" }, hero.scale.front, hero.scale.back, hero.scale.frontY, hero.scale.backY]]);
+    else if (perspective) egoCalls.push(["setScaler", [{ cls: "Scaler" }, ...perspective]]);
+    else egoCalls.push(["setScaler", [0]]);
     c.push(...send({ global: target.globals.ego }, egoCalls));
     if (spec.music !== undefined) c.push(...this.playMusic(spec.music));
     for (const name of [...Object.keys(spec.features ?? {}), ...Object.keys(spec.exits ?? {})]) c.push(...send({ obj: name }, [["init", []]]));
     for (const [name, p] of Object.entries(spec.props ?? {})) {
       c.push(...send({ obj: name }, [
         ["init", []],
+        ...(perspective && p.moves && p.scale !== false ? [["setScaler", [{ cls: "Scaler" }, ...perspective]] as [string, Val[]]] : []),
         ...(p.cycle === "forward" ? [["setCycle", [{ cls: this.target.forwardCycle }]] as [string, Val[]]] : []),
         // A new instance of the game's Script class, running on the prop.
         ...(p.script ? [["setScript", [{ code: ["pushi #new", "push0", `class ${p.script}`, "send 4"] }]] as [string, Val[]]] : []),
@@ -974,11 +1039,39 @@ class RoomCompiler {
     if (cases.length) this.doVerb(name, "Feature", cases);
   }
 
+  /**
+   * The room's perspective as Scaler arguments (front, back, frontY, backY): sizes at the
+   * nearest and farthest places anyone stands (the floor, and where the hero and props that
+   * move start). Size is a straight line in y, so the Scaler's in-between is exact; keeping
+   * to that range keeps its 16-bit arithmetic from overflowing.
+   */
+  private perspective(): [number, number, number, number] | undefined {
+    const pv = this.spec.perspective;
+    if (!pv) return undefined;
+    const ys = [
+      ...(this.spec.walkable ?? []).map((p) => p[1]),
+      ...Object.values(this.spec.props ?? {}).filter((p) => p.moves).map((p) => p.at[1]),
+      ...[this.spec.hero?.at, this.spec.hero?.enterTo].flatMap((p) => (p ? [p[1]] : [])),
+    ].filter((y) => y > pv.horizon);
+    const backY = ys.length ? Math.min(...ys) : pv.horizon + 1, frontY = ys.length ? Math.max(...ys) : SCREEN_BOTTOM - 1;
+    const size = (y: number) => Math.round(((y - pv.horizon) / (pv.fullSize - pv.horizon)) * 100);
+    const [front, back] = [size(frontY), size(backY)];
+    // Scaler works out (front - back) * (y - backY) on the way.
+    if ((front - back) * (frontY - backY) > 32767) throw new ContentError(`room ${this.spec.room}: perspective: sizes from ${back}% to ${front}% over ${frontY - backY} lines are too much for the Scaler`);
+    return [front, back, Math.max(frontY, backY + 1), backY];
+  }
+
   private prop(name: string, p: PropSpec): void {
     const cases = this.scriptedVerbs.get(name) ?? [];
+    // A still prop is sized once, for where it is.
+    const pv = this.spec.perspective;
+    const fixed = pv && p.scale === true && !p.moves ? Math.round(((p.at[1] - pv.horizon) / (pv.fullSize - pv.horizon)) * 128) : undefined;
     this.instance(
       name, p.moves ? "Actor" : "Prop",
-      { noun: this.nouns.get(name)!, modNum: -1, sightAngle: p.sightAngle ?? 180, x: p.at[0], y: p.at[1], view: p.view, loop: p.loop ?? 0, cel: p.cel ?? 0 },
+      {
+        noun: this.nouns.get(name)!, modNum: -1, sightAngle: p.sightAngle ?? 180, x: p.at[0], y: p.at[1], view: p.view, loop: p.loop ?? 0, cel: p.cel ?? 0,
+        ...(fixed === undefined ? {} : { scaleSignal: 1, scaleX: fixed, scaleY: fixed }),
+      },
       cases.length ? ["doVerb"] : [],
     );
     if (cases.length) this.doVerb(name, p.moves ? "Actor" : "Prop", cases);

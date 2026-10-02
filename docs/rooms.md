@@ -32,15 +32,35 @@ properties:
 
 | key | |
 |---|---|
+| `perspective` | the picture's camera: `{ horizon: 72, fullSize: 176 }` sizes people by where they stand (below) |
+| `hero.scale` | sizes the hero alone, between two lines: `front`% at y `frontY`, `back`% at y `backY` |
 | `walkable` | the floor: a polygon the hero stays inside |
 | `obstacles` | polygons he walks around |
 | `features` | rectangles of the picture that answer clicks |
 | `exits` | features that leave: *do* on one walks to `walkTo` and goes to room `to` |
-| `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk; `script: Scurry` runs a Script class of the game's on it (a mouse's comings and goings); under `properties`, `clickable: 0` makes one clicks pass through (rain on a window) |
+| `props` | views on the picture; `cycle: forward` animates them; `moves: true` makes one that cutscenes can walk; `script: Scurry` runs a Script class of the game's on it (a mouse's comings and goings); `scale: true` sizes a still one by the room's perspective; under `properties`, `clickable: 0` makes one clicks pass through (rain on a window) |
 | `characters` | who speaks in this room's Yarn besides the narrator and the hero; `portrait` is a view (loop 0 the bust, 1 the mouth, 2 the eyes, all cels the same size and anchored at the top left), shown at the top left of the screen |
 
 Rooms written this way and rooms written as scripts can be next to each other in one
 game: the hero walks between them the same way.
+
+### Perspective
+
+With a camera held level, someone's height on screen is in proportion to how far below the
+horizon their feet are: twice as far below it, twice as tall. So two numbers size everyone
+in a room: `horizon`, the y the floor's receding lines meet at, and `fullSize`, the y of a
+figure's feet where its view is drawn at full size.
+
+```yaml
+perspective: { horizon: 72, fullSize: 176 }
+```
+
+Halfway from `fullSize` up to the horizon (y 124) a figure is drawn at half size; below
+`fullSize` it's drawn bigger than its view. The hero and props with `moves: true` are sized as
+they walk. A still prop is left as drawn (someone sitting in a chair is usually painted at
+the chair's depth already) unless it has `scale: true`, which sizes it once for where it
+stands; `scale: false` keeps a moving prop as drawn (a bird in the air isn't on the floor).
+A room without `perspective` or `hero.scale` draws the hero at full size.
 
 ## What's said: Yarn
 
@@ -98,6 +118,33 @@ Commands for cutscenes; those that take time finish before the next line:
 The player can't click while a node with commands runs (but can dismiss text).
 
 Errors name the file and the line: `rooms/2.yarn:16: unknown speaker "The sign says"`.
+
+## Spoken lines
+
+A line can have a recording. Each line that's said gets an id with a `#line:` tag, which
+stays with the line when lines or things are added around it:
+
+```
+Traveller: I left it burning for whoever came next. #line:2-004
+```
+
+`sci-ts lines tag` gives every line without one an id (`<room>-001` on), and leaves the rest
+of the file alone. The build refuses an id used twice in the game.
+
+The recording for a line is `voices/<id>.wav`: any rate, mono or stereo. The build makes it
+mono at 11,025 Hz, trims the silence before and after it, brings it to the same level as the
+others, and writes it to RESOURCE.AUD, with a map per room for the interpreter to find it by.
+
+`voices/lines.json` is the script: every line with an id, who says it, what's said just
+before it, and whether it's recorded. The build keeps it up to date, and it remembers which
+text each recording was made for: when a line changes after it was recorded, the build says
+so until it's recorded again. `sci-ts lines script` writes it and says, for each speaker,
+what's recorded and what's left.
+
+In the game, a line with a recording is heard and stays up until the recording ends; a
+click stops it. Lines without one are timed as text, so a game can be recorded a bit at a
+time. The game menu gets a setting for speech: voice and text, voice only, or text only. The
+player fetches each recording when it's said, not the whole of RESOURCE.AUD.
 
 ## Editing live
 

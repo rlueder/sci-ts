@@ -232,7 +232,7 @@ export const audioKernels: Record<string, KernelFn> = {
         return pos === undefined ? NOT_PLAYING : pos & 0xffff;
       }
       case 8: return 0; // volume
-      case 9: return 1; // capability: audio present
+      case 9: return a.index.speech.size ? 1 : 0; // the game has speech
       case 10: return 16; // bit depth
       case 12: return 1; // mixing
       case 13: return 2; // channels

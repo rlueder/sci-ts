@@ -104,7 +104,7 @@
             "frontY",
             "backY"
           ],
-          "description": "Perspective: front% at y frontY, back% at y backY",
+          "description": "Perspective for the hero alone: front% at y frontY, back% at y backY (perspective: is simpler)",
           "properties": {
             "front": {
               "type": "integer"
@@ -119,6 +119,25 @@
               "type": "integer"
             }
           }
+        }
+      }
+    },
+    "perspective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "horizon",
+        "fullSize"
+      ],
+      "description": "The picture's camera: people are sized by how far below the horizon they stand. The hero and props that move are sized as they go.",
+      "properties": {
+        "horizon": {
+          "type": "integer",
+          "description": "The y the floor's lines meet at"
+        },
+        "fullSize": {
+          "type": "integer",
+          "description": "The y of a figure's feet where it's drawn at full size"
         }
       }
     },
@@ -227,6 +246,10 @@
             "type": "string",
             "pattern": "^[A-Z][A-Za-z0-9]*$",
             "description": "A Script class of the game's: an instance of it runs on the prop, e.g. an ambient behaviour"
+          },
+          "scale": {
+            "type": "boolean",
+            "description": "Sized by the room's perspective (default: if it moves). A still prop is sized once, for where it is."
           }
         }
       }

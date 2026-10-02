@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ContentError, compileRoom, parseYarn, type Target } from "../src/index.ts";
+import { ContentError, compileRoom, parseYarn, tagLines, type Target } from "../src/index.ts";
 
 const target: Target = {
   roomClass: "TestRm",
@@ -282,3 +282,65 @@ The door is open.
   });
 });
 
+
+describe("line ids", () => {
+  it("are read from #line: tags, among others, and checked", () => {
+    expect(parseYarn(yarn)[0]!.body[0]).toMatchObject({ text: "You arrive.", id: "abc" });
+    expect(parseYarn("title: a.look\n---\nHi. #mood:dry #line:a-1\n===")[0]!.body[0]).toMatchObject({ text: "Hi.", id: "a-1" });
+    expect(() => parseYarn("title: a.look\n---\nHi. #line:a #line:b\n===", "x.yarn")).toThrow("x.yarn:3: a line can only have one #line: tag");
+    expect(() => parseYarn("title: a.look\n---\nHi. #line:a.b\n===", "x.yarn")).toThrow("x.yarn:3: \"#line:a.b\": a line id");
+  });
+
+  it("stay with their line when the message keys change", () => {
+    const tagged = "title: rock.look\n---\nA rock. #line:rock\n===";
+    const before = compileRoom(room, tagged, target).lines.find((l) => l.id === "rock")!;
+    // A feature ahead of the rock renumbers it, but the id still finds its line.
+    const after = compileRoom(room.replace("features:\n", "features:\n  moss: { rect: [0, 0, 5, 5] }\n"), tagged, target).lines.find((l) => l.id === "rock")!;
+    expect(after.noun).toBe(before.noun + 1);
+    expect(after).toMatchObject({ verb: before.verb, cond: before.cond, seq: before.seq, text: "A rock.", speaker: "Narrator" });
+  });
+
+  it("list spoken lines, not topic labels, and are unique in a room", () => {
+    const talk = compileRoom(room, "title: bird.talk\n---\n-> Hello\n  It tweets. #line:t1\n===", target, { yarn: "r.yarn" });
+    expect(talk.lines).toEqual([expect.objectContaining({ id: "t1", text: "It tweets.", where: "r.yarn:4" })]);
+    // Whoever records it hears what it answers.
+    expect(talk.lines[0]).toMatchObject({ node: "bird.talk: Hello", before: { speaker: "Hero", text: "Hello" } });
+    const two = compileRoom(room, "title: rock.look\n---\nA rock.\nNarrator: Still a rock.\n===", target).lines;
+    expect(two[0]!.before).toBeUndefined();
+    expect(two[1]).toMatchObject({ node: "rock.look", before: { speaker: "Narrator", text: "A rock." } });
+    expect(() => compileRoom(room, "title: rock.look\n---\nA. #line:x\nB. #line:x\n===", target, { yarn: "r.yarn" }))
+      .toThrow("r.yarn:4: #line:x is already the id of r.yarn:3");
+  });
+
+  it("are added where they're missing, and only there", () => {
+    const source = [
+      "title: rock.look", "---", "A rock. #line:900-001", "<<if $x>>", "Still a rock.", "<<endif>>", "===",
+      "title: bird.talk", "---", "-> Hello", "  Narrator: It sings.   ", "// a comment", "===", "",
+    ].join("\r\n");
+    const { source: out, added } = tagLines(source, "900", new Set(["900-002"]));
+    expect(added).toEqual(["900-003", "900-004"]);
+    expect(out.split("\r\n")).toEqual([
+      "title: rock.look", "---", "A rock. #line:900-001", "<<if $x>>", "Still a rock. #line:900-003", "<<endif>>", "===",
+      "title: bird.talk", "---", "-> Hello", "  Narrator: It sings. #line:900-004", "// a comment", "===", "",
+    ]);
+    expect(tagLines(out, "900", new Set()).added).toEqual([]);
+  });
+});
+
+describe("perspective", () => {
+  const spec = (extra: string) => `room: 900\nhero: { at: [10, 150] }\nperspective: { horizon: 72, fullSize: 176 }\nwalkable: [[0, 140], [300, 140], [300, 189], [0, 189]]\n${extra}`;
+
+  it("sizes a still prop once, for where it stands, only when asked", () => {
+    const sca = compileRoom(spec("props:\n  seated: { view: 7, at: [50, 133], scale: true }\n  vase: { view: 8, at: [90, 150] }"), "", target).sca;
+    const seated = sca.slice(sca.indexOf("instance seated"), sca.indexOf("instance vase"));
+    expect(seated).toMatch(/scaleSignal 1\n\s+scaleX 75\n\s+scaleY 75/); // (133 - 72) / 104 of full size
+    expect(sca.slice(sca.indexOf("instance vase"))).not.toContain("scaleSignal");
+  });
+
+  it("is checked", () => {
+    const bad = (yaml: string) => () => compileRoom(yaml, "", target, { yaml: "r.yaml" });
+    expect(bad("room: 900\nperspective: { horizon: 100, fullSize: 90 }")).toThrow("r.yaml:2: perspective.fullSize: must be below the horizon");
+    expect(bad("room: 900\nprops:\n  a: { view: 1, at: [1, 1], scale: true }")).toThrow("the room has no perspective");
+    expect(bad("room: 900\nperspective: { horizon: 0, fullSize: 20 }\nwalkable: [[0, 10], [9, 10], [9, 199]]")).toThrow("too much for the Scaler");
+  });
+});

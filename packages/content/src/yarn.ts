@@ -43,6 +43,8 @@ export interface YarnLine {
   kind: "line";
   speaker?: string;
   text: string;
+  /** Its #line: tag, which stays with it when lines around it change (recordings use it). */
+  id?: string;
   line: number;
 }
 
@@ -83,7 +85,16 @@ export class YarnError extends Error {
 }
 
 /** Trailing #tags (Yarn's line ids and metadata) don't belong to the text. */
-const stripTags = (s: string) => s.replace(/(\s+#[^\s#]+)+\s*$/, "");
+const TAGS = /(\s+#[^\s#]+)+\s*$/;
+const stripTags = (s: string) => s.replace(TAGS, "");
+/** The id in a line's #line: tag, if it has one. */
+function lineId(s: string, fail: (why: string) => never): string | undefined {
+  const tags = TAGS.exec(s)?.[0].trim().split(/\s+/) ?? [];
+  const ids = tags.filter((t) => t.startsWith("#line:")).map((t) => t.slice(6));
+  if (ids.length > 1) fail("a line can only have one #line: tag");
+  if (ids[0] !== undefined && !/^[A-Za-z0-9_-]+$/.test(ids[0])) fail(`"#line:${ids[0]}": a line id is letters, digits, - and _`);
+  return ids[0];
+}
 const indentOf = (s: string) => /^[ \t]*/.exec(s)![0].replace(/\t/g, "    ").length;
 
 export function parseYarn(source: string, file = "<yarn>"): YarnNode[] {
@@ -189,8 +200,10 @@ class BodyParser {
       }
       if (text.startsWith("<<")) this.fail(line, `expected <<command ...>>, got "${text}"`);
       const clean = stripTags(text);
+      const id = lineId(text, (why) => this.fail(line, why));
       const m = /^([A-Za-z][\w ]*?)\s*:\s+(.+)$/.exec(clean);
-      items.push(m ? { kind: "line", speaker: m[1]!, text: m[2]!, line } : { kind: "line", text: clean, line });
+      const said = m ? { speaker: m[1]!, text: m[2]! } : { text: clean };
+      items.push({ kind: "line", ...said, ...(id === undefined ? {} : { id }), line });
     }
     return items;
   }
@@ -258,4 +271,40 @@ export function parseExpr(source: string, fail: (why: string) => never): YarnExp
   const e = or();
   if (p < tokens.length) fail(`unexpected "${tokens[p]}" in "${source}"`);
   return e;
+}
+
+/** Every line in some items, including those under choices and in <<if>> branches. */
+export function yarnLines(items: YarnItem[]): YarnLine[] {
+  return items.flatMap((x) =>
+    x.kind === "line" ? [x]
+    : x.kind === "choice" ? yarnLines(x.body)
+    : x.kind === "if" ? x.branches.flatMap((b) => yarnLines(b.body))
+    : []);
+}
+
+/**
+ * Gives every line without a #line: tag one, `<prefix>-001` and on, skipping ids already
+ * `taken` (pass the game's, so they're unique across rooms). Lines that have an id keep it,
+ * and nothing else in the file changes.
+ */
+export function tagLines(source: string, prefix: string, taken: Set<string>, file = "<yarn>"): { source: string; added: string[] } {
+  const lines = parseYarn(source, file).flatMap((n) => yarnLines(n.body));
+  for (const l of lines) if (l.id !== undefined) taken.add(l.id);
+  const untagged = new Set(lines.filter((l) => l.id === undefined).map((l) => l.line));
+  const added: string[] = [];
+  let n = 0;
+  const next = () => {
+    let id: string;
+    do id = `${prefix}-${String(++n).padStart(3, "0")}`;
+    while (taken.has(id));
+    taken.add(id);
+    added.push(id);
+    return id;
+  };
+  const out = source.split("\n").map((text, i) => {
+    if (!untagged.has(i + 1)) return text;
+    const cr = text.endsWith("\r") ? "\r" : "";
+    return `${text.slice(0, text.length - cr.length).trimEnd()} #line:${next()}${cr}`;
+  });
+  return { source: out.join("\n"), added };
 }

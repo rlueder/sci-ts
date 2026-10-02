@@ -15,7 +15,9 @@ export const httpFiles: FileSource = {
   },
   async readRange(path, offset, length) {
     const res = await fetch(`${BASE}game/${path}`, { headers: { Range: `bytes=${offset}-${offset + length - 1}` } });
-    return new Uint8Array(await res.arrayBuffer());
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    // A server that ignores Range (Python's http.server) sends the whole file.
+    return res.status === 206 ? bytes : bytes.subarray(offset, offset + length);
   },
   async list(dir) {
     if (import.meta.env.DEV) return (await fetch(`/__list?dir=${encodeURIComponent(dir)}`)).json();
