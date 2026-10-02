@@ -20,7 +20,7 @@
     margin 4        ; between the text and the border or frame
     portraitFrame -1 ; a view around portraits: loop 0 behind the face, loop 1 over its edges
     portraitX 8     ; where a portrait's face goes on the left (mirrored on the right)
-    portraitY 8
+    portraitY 8     ; its top; below 0, its bottom that far above the screen's, its text with it
     nameFont -1))   ; the font for a speaker's name before their line (-1: the text's)
 
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
@@ -245,21 +245,29 @@
     (if (and (!= self heroTalker) heroTalker (heroTalker respondsTo: #otherSide)) (heroTalker otherSide: s))
     (return s))
 
-  ;; Whether the portrait on side s (frame and all) would be over the speaker or the hero.
-  (method (covers face s &tmp pw ph over left right bottom)
+  ;; Where the face's top goes: textStyle's portraitY, or below 0, counted up from the bottom.
+  (method (faceTop face &tmp py)
+    (= py (textStyle portraitY?))
+    (return (if (< py 0) (- (+ SCREEN_HEIGHT py) (CelHigh (face view?) 0 0)) else py)))
+
+  ;; Whether the portrait on side s (frame and all) would be over the speaker's or the hero's
+  ;; head.
+  (method (covers face s &tmp pw ph over left right top bottom f)
     (= pw (CelWide (face view?) 0 0))
     (= ph (CelHigh (face view?) 0 0))
-    (= over (if (!= (textStyle portraitFrame?) -1) (/ (- (CelWide (textStyle portraitFrame?) 0 0) pw) 2) else 0))
+    (= f (textStyle portraitFrame?))
+    (= over (if (!= f -1) (/ (- (CelWide f 0 0) pw) 2) else 0))
     (= left (if s (- SCREEN_WIDTH (+ (textStyle portraitX?) pw over)) else (- (textStyle portraitX?) over)))
     (= right (+ left pw over over))
-    (= bottom (+ (textStyle portraitY?) ph over))
+    (= top (- (self faceTop: face) (if (!= f -1) (- (- (CelHigh f 0 0) ph) over) else 0)))
+    (= bottom (+ (self faceTop: face) ph over))
     (return
       (or
-        (self over: (if (== self heroTalker) ego else who) left right bottom)
-        (and (!= self heroTalker) (self over: ego left right bottom)))))
+        (self over: (if (== self heroTalker) ego else who) left right top bottom)
+        (and (!= self heroTalker) (self over: ego left right top bottom)))))
 
-  ;; Whether someone's figure reaches into the screen's top band from left to right, down to bottom.
-  (method (over body left right bottom &tmp w h)
+  ;; Whether someone's head (the top quarter of their figure) is in the box.
+  (method (over body left right top bottom &tmp w h)
     (if (or (not body) (not (body respondsTo: #view)) (& (body signal?) SIG_HIDDEN)) (return FALSE))
     (= w (CelWide (body view?) (body loop?) (body cel?)))
     (= h (CelHigh (body view?) (body loop?) (body cel?)))
@@ -267,7 +275,8 @@
       (= w (/ (* w (body scaleX?)) 128))
       (= h (/ (* h (body scaleY?)) 128)))
     (return
-      (and (< (- (body x?) (/ w 2)) right) (> (+ (body x?) (/ w 2)) left) (< (- (body y?) h) bottom))))
+      (and (< (- (body x?) (/ w 2)) right) (> (+ (body x?) (/ w 2)) left)
+        (< (- (body y?) h) bottom) (> (+ (- (body y?) h) (/ h 4)) top))))
 
   (method (say txt whoCares &tmp face l pw f fx fy over)
     (self init: makeParts:)
@@ -279,7 +288,7 @@
       (= f (textStyle portraitFrame?))
       (= over (if (!= f -1) (/ (- (CelWide f 0 0) pw) 2) else 0))
       (= fx (if side (- SCREEN_WIDTH (+ (textStyle portraitX?) pw)) else (textStyle portraitX?)))
-      (= fy (textStyle portraitY?))
+      (= fy (self faceTop: face))
       (face x: fx y: fy loop: l cel: 0)
       (if mouth (mouth x: fx y: fy loop: (+ l 1) cel: 0))
       (if eyes (eyes x: fx y: fy loop: (+ l 2) cel: 0))
@@ -288,8 +297,9 @@
         (back x: fx y: fy)
         (if (and (not front) (>= (NumLoops back) 2)) (= front ((View new:) view: f loop: 1 cel: 0 yourself:)))
         (if front (front x: fx y: fy)))
-      ;; The text beside it, towards the middle.
-      (= y fy)
+      ;; The text beside it, towards the middle: level with its top, or at the bottom of the
+      ;; screen, ending level with its frame's bottom and growing upwards.
+      (= y (if (< (textStyle portraitY?) 0) (- (+ fy (CelHigh (face view?) l 0) over) SCREEN_HEIGHT) else fy))
       (if side
         (= x 6)
         (= width (- fx (+ over 12)))

@@ -31,10 +31,16 @@
     top -1
     box 0
     icons 0
-    height 0)
+    height 0
+    slides TRUE     ; slides down from above the screen, and back up when it closes
+    shown 0         ; how far down it is: 0 all the way, -height out of sight
+    leaving 0)      ; sliding back up
 
   (method (show &tmp x y step)
-    (if box (return))
+    ;; Opened again while it slides away: it comes back down.
+    (if box
+      (if leaving (= leaving 0) (= dialog self))
+      (return))
     (if (!= skin -1)
       (= box ((View new:) view: skin loop: 0 cel: 0 x: 0 y: 0 yourself:))
       (box init:)
@@ -66,7 +72,37 @@
     (self addIcon: (+ x (* 4 step)) y -1 V_ITEM)
     (self addIcon: (+ x (* 5 step)) y 4 ICON_INVENTORY)
     (self addIcon: (+ x (* 6 step)) y 5 ICON_MENU)
-    (= dialog self))
+    (= dialog self)
+    (if slides
+      (= shown 0)
+      (self moveBy: (- height))
+      (= shown (- height))))
+
+  ;; Everything in the bar up or down by dy.
+  (method (moveBy dy &tmp node icon)
+    (box y: (+ (box y?) dy))
+    (UpdateScreenItem box)
+    (for ((= node (FirstNode (icons elements?)))) node ((= node (NextNode node)))
+      (= icon (NodeValue node))
+      (icon y: (+ (icon y?) dy))
+      (UpdateScreenItem icon)))
+
+  ;; A cycle of sliding (the User calls it while the bar is up): down while it opens, up
+  ;; while it closes, quickly at first and easing to a stop.
+  (method (step &tmp d)
+    (cond
+      ((not box) 0)
+      (leaving
+        (= d (+ 4 (/ (+ height shown) 3)))
+        (if (> d (+ height shown)) (= d (+ height shown)))
+        (self moveBy: (- d))
+        (-= shown d)
+        (if (<= shown (- height)) (self remove:)))
+      ((< shown 0)
+        (= d (+ 2 (/ (- shown) 3)))
+        (if (> d (- shown)) (= d (- shown)))
+        (self moveBy: d)
+        (+= shown d))))
 
   ;; An icon at (x, y): cel c of the bar's view (-1: the item in use), standing for `what`.
   (method (addIcon theX theY c what &tmp icon)
@@ -85,8 +121,17 @@
     (icon plane: uiPlane setPri: (+ (box priority?) 1))
     (icons add: icon))
 
+  ;; Closes it: it slides away (or goes at once, without slides), and stops taking clicks.
   (method (hide)
     (if (== dialog self) (= dialog 0))
+    (if (and slides box)
+      (= leaving 1)
+     else
+      (self remove:)))
+
+  (method (remove)
+    (= leaving 0)
+    (= shown 0)
     (if icons
       (icons eachElementDo: #dispose)
       (icons dispose:)

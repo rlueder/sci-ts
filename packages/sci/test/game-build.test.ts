@@ -739,13 +739,23 @@ describe("the icon bar", async () => {
     vm.start(vm.exportAddress(0, 0), "play");
     frames(5);
 
-    // The pointer at the top edge: the bar, walk picked; no item in use, so six icons.
+    // The pointer at the top edge: the bar, walk picked; no item in use, so six icons. It
+    // slides down from above the screen, quickly and then slowing, until it's all there.
     point(160, 1);
     expect(global("dialog")).toBe(global("iconBar"));
     expect(icons().map((i) => [prop(i, "cel"), prop(i, "loop")])).toEqual([[0, 1], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0]]);
-    // Look: picked, the bar goes, the cursor is look's.
+    const ys: number[] = [prop(icons()[0]!, "y")];
+    for (let i = 0; i < 12; i++) (frames(1), ys.push(prop(icons()[0]!, "y")));
+    expect(ys[0]).toBeLessThan(0);
+    for (let i = 1; i < ys.length; i++) expect(ys[i]!).toBeGreaterThanOrEqual(ys[i - 1]!);
+    expect(ys.at(-1)).toBe(ys.at(-2)); // at rest
+    // Look: picked, the bar goes (it stops taking clicks at once, and slides away), the
+    // cursor is look's.
     tap(1);
-    expect([prop(user(), "verb"), global("dialog"), icons().length, g.cursor.view]).toEqual([1, 0, 0, 991]);
+    expect([prop(user(), "verb"), global("dialog"), g.cursor.view]).toEqual([1, 0, 991]);
+    expect(icons().length).toBe(6);
+    frames(12);
+    expect(icons().length).toBe(0);
 
     // A tap at the top (as on a touch screen), then the pointer well below closes it.
     point(160, 120);
@@ -754,16 +764,20 @@ describe("the icon bar", async () => {
     expect(global("dialog")).toBe(global("iconBar"));
     expect(prop(icons()[1]!, "loop")).toBe(1); // look is picked now
     point(160, 120);
+    frames(12);
     expect([global("dialog"), icons().length]).toEqual([0, 0]);
 
     // The inventory icon: nothing carried yet.
     click(160, 2);
+    frames(12);
     tap(4);
     const box = vm.getProp(global("talking"), "box")!;
     expect(stringHelpers.str(vm, vm.getProp(box, "text")!)).toBe("You aren't carrying anything.");
     click(160, 120);
     // The menu icon: the game menu.
+    frames(12);
     click(160, 2);
+    frames(12);
     tap(5);
     expect(vm.object(global("dialog")).name).toBe("Menu");
   });
@@ -1516,7 +1530,7 @@ export default () => [...art(),
     expect(global("theItem")).not.toBe(0);
     [inp.x, inp.y] = [40, 10]; // over the bar, or it closes again
     vm.invoke(global("iconBar"), vm.selector("show"), []);
-    frames(1);
+    frames(15); // slid all the way down
     const icons = listed(vm.getProp(global("iconBar"), "icons")!);
     expect(icons.map((i) => g.prop(i, "x"))).toEqual([16, 58, 100, 142, 184, 226, 268]);
     expect(icons.map((i) => g.prop(i, "y"))).toEqual(icons.map(() => 8));
@@ -1581,5 +1595,49 @@ export default () => [...art(),
     vm.invoke(global("user"), vm.selector("useItem"), [0]);
     frames(1);
     expect(g.magnify).toBeUndefined();
+  });
+});
+
+describe("portraits at the bottom of the screen", () => {
+  it("sit their face's bottom above the screen's, with the text ending level with the frame", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-low-")), "low"), "path");
+    const script = readFileSync(join(dir, "scripts/0.sc"), "utf8")
+      .replace("(super init:)", "(super init:)\n    (textStyle portraitFrame: 302 portraitX: 12 portraitY: -10)");
+    writeFileSync(join(dir, "scripts/0.sc"), script);
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:\n  cat: { view: 200, at: [20, 170] }\ncharacters:\n  cat: { name: Cat, portrait: 300 }\n`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}\ntitle: cat.talk\n---\nCat: Meow.\n===\n`);
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (w, h, c, dx = 0, dy = 0) => ({ width: w, height: h, displaceX: (w >> 1) + dx, displaceY: h - 1 + dy, skipColor: 254, pixels: new Uint8Array(w * h).fill(c) });
+const view = (loops) => writeView({ flags: 1, loops: loops.map((cels) => ({ link: -1, mirror: false, cels })), palette: undefined });
+export default () => [...art(),
+  { type: ResourceType.View, number: 300, data: view([0, 1, 2, 3, 4, 5].map((l) => [cel(20, 24, 40 + l)])) },
+  { type: ResourceType.View, number: 302, data: view([[cel(36, 40, 60, 8, 10)], [cel(36, 40, 61, 8, 10)]]) }];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    vm.invoke(global("user"), vm.selector("setVerb"), [2]);
+    [inp.x, inp.y] = [20, 165];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    for (let i = 0; i < 600 && !global("talking"); i++) frames(1);
+    const t = global("talking");
+    const face = vm.getProp(t, "frame") || vm.getProp(t, "bust");
+    // The face (24 high) ends 10 above the bottom: its top at 166. The frame reaches 8 below
+    // it (the surround is 8 wider each side), so the text ends at 198. The cat is small and
+    // at the bottom left, its head where the left portrait would be: it's on the right.
+    expect([g.prop(face!, "x"), g.prop(face!, "y")]).toEqual([320 - 12 - 20, 200 - 10 - 24]);
+    const box = vm.getProp(t, "box")!;
+    expect(g.prop(box, "y") + g.prop(box, "height")).toBe(198);
   });
 });
