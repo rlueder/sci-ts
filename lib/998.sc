@@ -207,9 +207,11 @@
     (if (not (and noun (messager say: noun verb 0 0 0 modNum)))
       (curRoom doVerb: verb))))
 
-;; A Feature drawn with a view: a screen item in the room's plane.
+;; A Feature drawn with a view: a screen item in the room's plane. One that's only there to
+;; look at (rain on a window, a sky) has clickable 0, and clicks go to what's behind it.
 (class View of Feature
   (properties
+    clickable 1
     view -1 loop 0 cel 0
     z 0
     priority 0 fixPriority 0
@@ -230,7 +232,7 @@
     (if (not (& signal SIG_HIDDEN)) (UpdateScreenItem self)))
 
   (method (onMe theX theY)
-    (return (and (not (& signal SIG_HIDDEN)) (IsOnMe theX theY self))))
+    (return (and clickable (not (& signal SIG_HIDDEN)) (IsOnMe theX theY self))))
 
   (method (hide)
     (|= signal SIG_HIDDEN)

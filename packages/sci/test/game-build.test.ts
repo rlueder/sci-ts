@@ -758,6 +758,9 @@ describe("behaviours, poses and idles", () => {
     writeFileSync(join(dir, "scripts/0.sc"), readFileSync(join(dir, "scripts/0.sc"), "utf8").replace("(= ego hero)", "(= ego hero)\n    (hero idleView: 999 idleAfter: 1)"));
     writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:
   drifter: { view: 200, at: [200, 170], script: Drift }
+  veil: { view: 200, at: [160, 70] }
+properties:
+  veil: { clickable: 0 }
 `);
     writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
 title: window.do
@@ -799,6 +802,10 @@ title: window.do
     click(120, 170);
     expect(prop(ego, "view")).toBe(200);
     frames(200);
+
+    // A prop that isn't clickable lets clicks through to the window behind it.
+    const veil = [...g.items].find((it) => vm.object(it).name === "veil")!;
+    expect(vm.invoke(veil, vm.selector("onMe"), [160, 60])).toBe(0);
 
     // <<view hero 999>> for a moment, then <<normal hero>>.
     click(10, 100, true); // walk -> do
