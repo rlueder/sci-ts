@@ -208,10 +208,13 @@
       (curRoom doVerb: verb))))
 
 ;; A Feature drawn with a view: a screen item in the room's plane. One that's only there to
-;; look at (rain on a window, a sky) has clickable 0, and clicks go to what's behind it.
+;; look at (rain on a window, a sky) has clickable 0, and clicks go to what's behind it. With
+;; checkPixels, it's hit only where it's drawn, not anywhere in its cel (Actors: people are
+;; often drawn on canvases much wider than they are).
 (class View of Feature
   (properties
     clickable 1
+    checkPixels 0
     view -1 loop 0 cel 0
     z 0
     priority 0 fixPriority 0
@@ -232,7 +235,7 @@
     (if (not (& signal SIG_HIDDEN)) (UpdateScreenItem self)))
 
   (method (onMe theX theY)
-    (return (and clickable (not (& signal SIG_HIDDEN)) (IsOnMe theX theY self))))
+    (return (and clickable (not (& signal SIG_HIDDEN)) (IsOnMe theX theY self checkPixels))))
 
   (method (hide)
     (|= signal SIG_HIDDEN)
@@ -315,9 +318,13 @@
     (if script (script dispose:))
     (super dispose:)))
 
-;; A Prop that moves (a mover), facing where it goes.
+;; A Prop that moves (a mover), facing where it goes. Actors walk through each other unless
+;; ignoreActors is 0: the interpreter measures an actor by its whole cel, and characters are
+;; often drawn on canvases much wider than they are, so blocking would stop them far apart.
 (class Actor of Prop
   (properties
+    ignoreActors 1
+    checkPixels 1
     mover 0
     moveSpeed 2     ; cycles between steps
     heading 0
@@ -359,6 +366,7 @@
 
   ;; Whether another actor is in the way (DoBresen asks).
   (method (cantBeHere)
+    (if ignoreActors (return 0))
     (return (CantBeHere self (cast elements?))))
 
   (method (dispose)

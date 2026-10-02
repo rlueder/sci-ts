@@ -111,6 +111,16 @@ then he stands again. Walking, a line, a menu or a cutscene stops one at once. W
 with), cycling as he moves and turning as he goes. In Yarn, `<<view hero 204>>` switches to
 a pose and `<<normal hero>>` back.
 
+## Actors in each other's way
+
+Actors walk through one another: `ignoreActors` is 1 unless a game sets it to 0. The
+interpreter measures an actor's footprint by its whole cel, and characters are often drawn
+on canvases much wider than they are, so blocking would stop them while still far apart,
+and a cutscene waiting for one to arrive would wait for ever. Obstacles and the walkable
+floor still apply. For the same reason an actor is clicked only where it's drawn
+(`checkPixels`, 1 for actors), so a click just beside the hero reaches what's behind him;
+any View can set it.
+
 ## Verbs and clicks
 
 The player has four verbs: walk (the first), do, look and talk. Right-click goes to the

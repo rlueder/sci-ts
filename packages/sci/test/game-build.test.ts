@@ -878,6 +878,63 @@ describe("sounds that aren't there", () => {
   });
 });
 
+describe("actors", () => {
+  it("walk past each other in a cutscene rather than stopping", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-actors-")), "actors"), "path");
+    // A walker on the hero's line (he stands at 60, 170) has to cross where he stands.
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${readFileSync(join(dir, "rooms/1.room.yaml"), "utf8")}props:
+  walker: { view: 200, at: [20, 170], moves: true }
+`);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}
+title: window.do
+---
+<<walk walker 200 170>>
+===
+`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    click(10, 100); // the first line
+    click(10, 100, true); // walk -> do
+    click(160, 70);
+    frames(600);
+    const walker = [...g.items].find((it) => vm.object(it).name === "walker")!;
+    expect(vm.getProp(walker, "x")).toBe(200);
+  });
+
+  it("are hit only where they're drawn, not anywhere in their cel", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-actors-")), "pixels"), "path");
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 3; i++) vm.run();
+    const ego = vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf("ego")]!;
+    const r = g.viewRect(ego)!;
+    // A transparent pixel and a drawn one inside the hero's cel.
+    const at = (want: (c: number) => boolean) => {
+      for (let i = 0; i < r.cel.pixels.length; i++) if (want(r.cel.pixels[i]!)) return [r.x + (r.mirror ? r.cel.width - 1 - (i % r.cel.width) : i % r.cel.width), r.y + Math.floor(i / r.cel.width)];
+      throw new Error("no such pixel");
+    };
+    const onMe = (p: number[]) => vm.invoke(ego, vm.selector("onMe"), p);
+    expect(onMe(at((c) => c === r.cel.skipColor))).toBe(0);
+    expect(onMe(at((c) => c !== r.cel.skipColor))).toBe(1);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));
