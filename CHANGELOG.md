@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.14.0](https://github.com/rlueder/sci-ts/compare/v0.13.0...v0.14.0) (2026-10-02)
+
+### Added
+
+* **lib:** figures drawn smaller walk and step slower, and change size in steps ([#16](https://github.com/rlueder/sci-ts/issues/16)) ([06f2b1d](https://github.com/rlueder/sci-ts/commit/06f2b1d91fd95d5b648104b435eb58e3355ba808))
+
 ## [0.13.0](https://github.com/rlueder/sci-ts/compare/v0.12.0...v0.13.0) (2026-10-02)
 
 ### Added
