@@ -274,6 +274,9 @@ export const audioKernels: Record<string, KernelFn> = {
         const clip = a.index.effects.get(number);
         if (clip) a.play(soundKey(obj), clip, loop, volume);
         else a.startSong(obj, number, loop, volume);
+        // Neither an effect nor a song by that number: it has ended already, so the next
+        // update reports it and whoever waits for it carries on.
+        if (!clip && !a.songs.has(obj)) vm.setProp(obj, "signal", NOT_PLAYING);
         return 0;
       }
       case 9: // stop

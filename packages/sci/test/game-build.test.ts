@@ -817,6 +817,67 @@ title: window.do
   });
 });
 
+describe("game time", async () => {
+  const game = await buildGame("games/hello");
+
+  it("keeps a line up for its reading time when the cycle count passes 32767", async () => {
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const script0 = () => vm.loadedScripts.find((s) => s.number === 0)!;
+    const global = (name: string) => script0().locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    const click = (x: number, y: number, right = false) => {
+      [inp.x, inp.y] = [x, y];
+      inp.push({ type: EventType.MouseDown, message: 0, modifiers: right ? 3 : 0 });
+      inp.push({ type: EventType.MouseUp, message: 0 });
+      frames(1);
+    };
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    click(0, 100, true);
+    click(0, 100, true); // walk -> do -> look
+    // A minute short of where a 16-bit count turns negative.
+    script0().locals[game.globals.indexOf("gameTime")] = 32767 - 60;
+    click(260, 30);
+    expect(global("talking")).not.toBe(0);
+    let n = 0;
+    while (global("talking") !== 0 && n < 1000) (frames(1), n++);
+    // About two seconds and a little more for the line, not at once nor never.
+    expect(n).toBeGreaterThan(120);
+    expect(n).toBeLessThan(400);
+  });
+});
+
+describe("sounds that aren't there", () => {
+  it("end at once, so a script waiting for one carries on", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sci-nosound-"));
+    mkdirSync(join(dir, "scripts"));
+    writeFileSync(join(dir, "scripts", "0.sc"), `(script 0)
+(include "system.sh")
+(public t 0)
+(local [out 2])
+(instance t of Game
+  (method (init)
+    (super init:)
+    (self setScript: waiter)))
+(instance waiter of Script
+  (method (changeState newState)
+    (= state newState)
+    (switch state
+      (0 (= [out 0] 1) (sfx number: 777 play: self))
+      (1 (= [out 1] 1)))))`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources));
+    vm.registerKernels(allKernels);
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 10; i++) vm.run();
+    expect(vm.loadedScripts.find((s) => s.number === 0)!.locals.slice(0, 2)).toEqual([1, 1]);
+  });
+});
+
 describe("pnpm game new", () => {
   it("starts a game that builds and plays: a room, a hero, a first line", async () => {
     const games = mkdtempSync(join(tmpdir(), "sci-new-"));

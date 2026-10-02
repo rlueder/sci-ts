@@ -195,6 +195,24 @@ export function compileScripts(sources: readonly CompileSource[], ctx: CompileCo
         for (const m of o.methods) defined.add(m.name);
       }
     }
+    // A method named like a property of its object: `x:` sets the property and the method
+    // never runs.
+    const propertiesOf = (name: string | undefined, seen = new Set<string>()): Set<string> => {
+      if (!name || seen.has(name)) return new Set(OBJECT_HEADER);
+      seen.add(name);
+      const c = classes.get(name);
+      if (c) return new Set([...c.obj.props.map((p) => p.name), ...propertiesOf(c.obj.superName, seen)]);
+      return new Set([...OBJECT_HEADER, ...(ctx.externalClass?.(name)?.properties.map((p) => p.name) ?? [])]);
+    };
+    for (const u of units) {
+      for (const o of u.objects) {
+        const props = new Set([...o.props.map((p) => p.name), ...propertiesOf(o.superName)]);
+        for (const m of o.methods) {
+          if (!props.has(m.name)) continue;
+          ctx.onWarning({ message: `method ${m.name}: ${o.name} has a property called ${m.name}, so ${m.name}: sets it and this never runs`, file: u.file, line: m.line });
+        }
+      }
+    }
     const reported = new Set<string>();
     for (const s of project.sent) {
       if (defined.has(s.name) || reported.has(s.name)) continue;

@@ -100,7 +100,8 @@
   (properties
     caller 0
     box 0
-    until 0         ; the game time it goes
+    shownAt 0       ; the game time it went up
+    readFor 0       ; how long it stays (-1: until dismissed)
     font -1         ; -1: the textStyle's
     x -1            ; -1: centred
     y 16
@@ -120,19 +121,21 @@
         yourself:))
     (box init:)
     (= talking self)
-    (= until (self readingTime: (String STRING_LENGTH txt))))
+    (= shownAt gameTime)
+    (= readFor (self readingTime: (String STRING_LENGTH txt))))
 
-  ;; Game time to read a line of n characters: normally two seconds, and more for longer
-  ;; lines; -1 is until the player dismisses it.
+  ;; Cycles to read a line of n characters: normally two seconds, and more for longer lines;
+  ;; -1 is until the player dismisses it.
   (method (readingTime n)
     (switch textSpeed
-      (TEXT_SLOW (return (+ gameTime 180 (* 5 n))))
-      (TEXT_FAST (return (+ gameTime 70 (* 2 n))))
+      (TEXT_SLOW (return (+ 180 (* 5 n))))
+      (TEXT_FAST (return (+ 70 (* 2 n))))
       (TEXT_CLICK (return -1))
-      (else (return (+ gameTime 120 (* 3 n))))))
+      (else (return (+ 120 (* 3 n))))))
 
+  ;; Time is measured as cycles since, which stays right when gameTime wraps past 32767.
   (method (doit)
-    (if (and box (!= until -1) (>= gameTime until)) (self done:)))
+    (if (and box (!= readFor -1) (>= (- gameTime shownAt) readFor)) (self done:)))
 
   ;; A click, Enter, Space or "." while a line is up dismisses it (and nothing else).
   (method (handleEvent event)
@@ -174,7 +177,7 @@
   (properties
     mouth 0 bust 0 eyes 0 frame 0
     priority 150
-    mouthUntil 0)   ; the game time the mouth stops
+    mouthFor 0)     ; cycles the mouth moves for
 
   (method (init theMouth theBust theEyes theFrame)
     (= mouth theMouth)
@@ -198,10 +201,10 @@
     (if mouth
       (mouth setCycle: Forward)
       ;; About as long as it takes to say: half a second, and two cycles a letter.
-      (= mouthUntil (+ gameTime 30 (* 2 (String STRING_LENGTH txt))))))
+      (= mouthFor (+ 30 (* 2 (String STRING_LENGTH txt))))))
 
   (method (doit)
-    (if (and mouth (mouth cycler?) (>= gameTime mouthUntil))
+    (if (and mouth (mouth cycler?) (>= (- gameTime shownAt) mouthFor))
       (mouth setCycle: 0 setCel: 0))
     (super doit:))
 
