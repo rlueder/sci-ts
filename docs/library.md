@@ -187,7 +187,7 @@ YAML and Yarn get these from their conversation nodes.
 
 ## How text looks
 
-Every text box and menu choice takes its look from `textStyle`, a `TextStyle` the game
+Every text box and menu takes its look from `textStyle`, a `TextStyle` the game
 makes at the start. A game sets it once, in its `init` after `(super init:)`:
 
 ```lisp
@@ -208,6 +208,15 @@ A frame view has eight cels in loop 0, each anchored at its top-left corner: the
 corners (top-left, top-right, bottom-left, bottom-right), then the four edges (top, bottom,
 left, right). Each edge is repeated along its side between the corners; transparent pixels
 show the paper. A box can still set its own `font`, `fore`, `back` or `frame`.
+
+A menu (a conversation's topics, the game menu, the list of saves) is one box with the
+choices inside it, one under another, so a frame goes round the menu rather than each
+choice.
+
+Where a line's box goes is the talker's `x`, `y` and `width`. A negative `y` puts it that
+far above the bottom of the screen: the box ends there whatever the line's length, and a
+longer line grows it upwards. `(narrator y: -4 width: 294)` keeps every line at the foot of
+the screen. Any `TextItem` can do the same with `bottom:`.
 
 ## Things the hero carries
 

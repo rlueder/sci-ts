@@ -314,6 +314,30 @@ export default () => [
     // Text is 10 pixels a line in font 1, inside 3 of frame and 4 of margin each side.
     expect(h).toBe(10 + 2 * (3 + 4));
     expect(bmp.pixels.includes(7)).toBe(true);
+
+    // Placed from the bottom of the screen, a box grows upwards: one line or three, it ends there.
+    const g = graphics(vm);
+    vm.invoke(global("narrator"), vm.selector("y"), [0x10000 - 4]);
+    for (const text of ["One line.", "A line long enough to wrap onto a second line and then onto a third one as well."]) {
+      vm.invoke(global("narrator"), vm.selector("say"), [stringHelpers.newString(vm, text)]);
+      const b = vm.getProp(global("talking"), "box")!;
+      expect(g.prop(b, "y") + g.prop(b, "height")).toBe(196);
+    }
+
+    // A menu is one framed box with the choices inside it, one under another.
+    vm.invoke(global("game"), vm.selector("showMenu"), []);
+    for (let i = 0; i < 2; i++) vm.run();
+    const menu = global("dialog");
+    const panel = vm.getProp(menu, "panel")!;
+    const items: Value[] = [];
+    for (let n = vm.memory.list(vm.getProp(vm.getProp(menu, "items")!, "elements")!)?.first; n; n = n.next) items.push(n.value);
+    expect(items.length).toBeGreaterThan(3);
+    expect(g.prop(panel, "frame")).toBe(260);
+    expect(items.map((i) => g.prop(i, "frame"))).toEqual(items.map(() => -1));
+    expect(g.prop(items[0]!, "y")).toBe(g.prop(panel, "y") + 3);
+    items.slice(1).forEach((item, k) => expect(g.prop(item, "y")).toBe(g.prop(items[k]!, "y") + g.prop(items[k]!, "height")));
+    const last = items.at(-1)!;
+    expect(g.prop(panel, "y") + g.prop(panel, "height")).toBe(g.prop(last, "y") + g.prop(last, "height") + 3);
   });
 });
 
