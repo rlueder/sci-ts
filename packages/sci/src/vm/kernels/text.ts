@@ -1,5 +1,6 @@
 import { ResourceType } from "../../resource/types.ts";
-import { parseFont, textWidth, wrapText, type Font } from "../../text/font.ts";
+import { parseFont, type Font } from "../../text/font.ts";
+import { parseStyled, placeLine, styledWidth, wrapStyled } from "../../text/styled.ts";
 import { hasRef, parseMessages, type MessageFile, type MessageTuple } from "../../text/message.ts";
 import type { SciBitmap } from "../memory.ts";
 import type { FrameRequest, KernelFn, SendRequest, Vm } from "../vm.ts";
@@ -106,28 +107,37 @@ const DEFAULT_MAX_WIDTH = (320 * 3) / 5;
  */
 export const unescapeText = (s: string) => s.replace(/\\([0-9a-fA-F]{2})/g, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)));
 
-/** Draws wrapped text into a bitmap, inside `rect`, with alignment. */
-function drawText(bmp: SciBitmap, font: Font, str: string, rect: { left: number; top: number; right: number; bottom: number }, color: number, align: number) {
+/**
+ * Draws wrapped text into a bitmap, inside `rect`, with alignment. The text can change font
+ * and colour (`|f3|`, `|c5|`). Ink can start left of the pen or run past it (an italic's
+ * tail) into the box's margin; only the bitmap's edges stop it.
+ */
+function drawText(vm: Vm, bmp: SciBitmap, fontNo: number, str: string, rect: { left: number; top: number; right: number; bottom: number }, color: number, align: number) {
+  const fontOf = (n: number) => text(vm).font(n);
   const width = rect.right - rect.left;
-  const lines = wrapText(font, str, width);
-  lines.forEach((line, row) => {
-    const w = textWidth(font, line);
-    let x = rect.left + (align === TextAlign.Center ? Math.floor((width - w) / 2) : align === TextAlign.Right ? width - w : 0);
-    const y0 = rect.top + row * font.height;
-    for (const ch of line) {
-      const g = font.glyphs[ch.charCodeAt(0)];
-      if (!g) continue;
+  let y0 = rect.top;
+  for (const line of wrapStyled(fontOf, parseStyled(str, fontNo), fontNo, width)) {
+    const x = rect.left + (align === TextAlign.Center ? Math.floor((width - line.width) / 2) : align === TextAlign.Right ? width - line.width : 0);
+    for (const { glyph: g, x: gx0, color: c } of placeLine(fontOf, line, x)) {
+      const ink = c ?? color;
       for (let gy = 0; gy < g.height; gy++) {
         const y = y0 + gy;
         if (y < rect.top || y >= rect.bottom || y >= bmp.height) continue;
         for (let gx = 0; gx < g.width; gx++) {
-          const px = x + gx;
-          if (g.pixels[gy * g.width + gx] && px >= 0 && px < bmp.width) bmp.pixels[y * bmp.width + px] = color;
+          const px = gx0 + gx;
+          if (g.pixels[gy * g.width + gx] && px >= 0 && px < bmp.width) bmp.pixels[y * bmp.width + px] = ink;
         }
       }
-      x += g.width;
     }
-  });
+    y0 += line.height;
+  }
+}
+
+/** The size text takes in a font, wrapped to maxWidth: the widest line's advance, and the lines' heights. */
+function measure(vm: Vm, fontNo: number, str: string, maxWidth: number): { width: number; height: number } {
+  const fontOf = (n: number) => text(vm).font(n);
+  const lines = wrapStyled(fontOf, parseStyled(str, fontNo), fontNo, maxWidth);
+  return { width: Math.max(0, ...lines.map((l) => l.width)), height: lines.reduce((h, l) => h + l.height, 0) };
 }
 
 function drawBorder(bmp: SciBitmap, color: number) {
@@ -185,30 +195,33 @@ export const textKernels: Record<string, KernelFn> = {
 
   // TextSize(rectArray, text, font, maxWidth): writes [left, top, right, bottom] (inclusive).
   TextSize: (vm, [rect = 0, str = 0, fontNo = 0, maxWidth = 0]) => {
-    const font = text(vm).font(fontNo);
     const s = stringHelpers.str(vm, str);
+    const fontOf = (n: number) => text(vm).font(n);
+    const oneLine = () => {
+      const chars = parseStyled(s, fontNo);
+      return { width: styledWidth(fontOf, chars), height: Math.max(fontOf(fontNo).height, ...chars.map((c) => fontOf(c.font).height)) };
+    };
     let w: number, h: number;
     const max = toSigned(maxWidth);
     if (max >= 0) {
       const limit = max || DEFAULT_MAX_WIDTH;
-      if (!/[\r\n]/.test(s) && textWidth(font, s) <= limit) {
+      const one = oneLine();
+      if (!/[\r\n]/.test(s) && one.width <= limit) {
         // Fits on one line: measured as-is, spaces included (a lone " " has a width).
-        w = textWidth(font, s);
-        h = font.height;
+        ({ width: w, height: h } = one);
       } else {
-        const lines = wrapText(font, s, limit);
-        w = Math.min(limit, Math.max(0, ...lines.map((l) => textWidth(font, l))));
-        h = lines.length * font.height;
+        const m = measure(vm, fontNo, s, limit);
+        w = Math.min(limit, m.width);
+        h = m.height;
       }
     } else {
-      w = textWidth(font, s);
-      h = font.height;
+      ({ width: w, height: h } = oneLine());
     }
     const a = stringHelpers.resolve(vm, rect);
     if (a) a.data.splice(0, 4, 0, 0, fromInt(w - 1), fromInt(h - 1));
     return 0;
   },
-  TextWidth: (vm, [str = 0, fontNo = 0]) => textWidth(text(vm).font(fontNo), stringHelpers.str(vm, str)),
+  TextWidth: (vm, [str = 0, fontNo = 0]) => styledWidth((n) => text(vm).font(n), parseStyled(stringHelpers.str(vm, str), fontNo)),
   PointSize: (vm, [fontNo = 0]) => text(vm).font(fontNo).height,
   TextFonts: () => 0,
   TextColors: () => 0,
@@ -221,7 +234,7 @@ export const textKernels: Record<string, KernelFn> = {
     if (!vm.memory.object(obj)) return NULL;
     const w = Math.max(1, toSigned(width)), h = Math.max(1, toSigned(height));
     const str = unescapeText(stringHelpers.str(vm, vm.getProp(obj, "text") ?? 0));
-    const font = text(vm).font(prop(vm, obj, "font"));
+    const fontNo = prop(vm, obj, "font");
     const fore = prop(vm, obj, "fore") & 0xff;
     const align = prop(vm, obj, "mode");
     const rect = {
@@ -247,7 +260,7 @@ export const textKernels: Record<string, KernelFn> = {
       ref = vm.memory.newBitmap(cw, ch, found?.cel.skipColor ?? 0, found?.cel.skipColor ?? 0);
       if (found) vm.memory.bitmap(ref)!.pixels.set(found.cel.pixels);
     }
-    drawText(vm.memory.bitmap(ref)!, font, str, rect, fore, align);
+    drawText(vm, vm.memory.bitmap(ref)!, fontNo, str, rect, fore, align);
     return ref;
   },
 
@@ -295,7 +308,7 @@ export const textKernels: Record<string, KernelFn> = {
       const bmp = vm.memory.bitmap(bitmap)!;
       if (border >= 0) drawBorder(bmp, border & 0xff);
       const cursor = (frame >> 4) & 1 ? "" : "_"; // blink
-      drawText(bmp, font, text + cursor, rect, fore, TextAlign.Left);
+      drawText(vm, bmp, prop(vm, obj, "font"), text + cursor, rect, fore, TextAlign.Left);
       vm.setProp(obj, "bitmap", bitmap);
       graphicsKernels.FrameOut!(vm, []);
       yield { frame: true };

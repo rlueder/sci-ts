@@ -74,6 +74,19 @@ the glyph is as wide as its rightmost ink plus `spacing` (default 1). A cell wit
 character the font doesn't have; the space is `space` pixels wide (default half a cell).
 `lineHeight` sets the distance between lines (default the cell height).
 
+A bitmap font that comes with its own metrics (exported from a BDF, say) keeps them: each
+glyph's rectangle in an atlas, its top below the line's top, its bearing from the pen (which
+can be negative, an italic j) and its advance. Give the metrics file instead of the sheet:
+
+```json
+"fonts": [{ "number": 4, "metrics": "export/italic.json" }]
+```
+
+The file has `lineHeight`, `first` and `last` (every character between needs a glyph),
+`atlas` (the PNG, relative to the file), and `glyphs`: `{ code, rect: [x, y, w, h], bearingX,
+top, advance }`. Nothing is trimmed or respaced; the font resource keeps the bearings and
+advances in an extension at its end, which fonts without them don't have.
+
 A game uses the font by number: `(narrator font: 1)`, or for every box at once, the text
 style ([library.md](library.md)). Font 0 is sci-ts's own; a game can replace it too. In code,
 `fontFromSheet` in `sci2-ts/kit` does the same from an image.

@@ -11,6 +11,7 @@ export * from "./gfx/pic-file.ts";
 export * from "./gfx/quantize.ts";
 export * from "./gfx/view-file.ts";
 export * from "./text/font.ts";
+export * from "./text/styled.ts";
 export * from "./text/message.ts";
 export * from "./script/kernel-names.ts";
 export * from "./script/vocab.ts";

@@ -147,6 +147,15 @@ six cels 24 pixels square anchored at their top-left corner, in the order walk, 
 talk, inventory, menu (the item in use shows its own icon). The library's are plain black
 and white (view 990); a game with its own sets `(iconBar view: 266)` in its `init`.
 
+A painted bar is a `skin`: a view drawn across the top of the screen (loop 0, cel 0,
+anchored at its top left) instead of the box. Its icons can be any `size`, at `left`,
+`left + spacing` and on, at `top`; the item in use takes the fifth place, between the verbs
+and the inventory.
+
+```lisp
+(iconBar view: 266 skin: 267 size: 32 left: 16 spacing: 42 top: 8)
+```
+
 ## Messages
 
 Message files are text in `games/<name>/messages/<n>.msg`:
@@ -233,6 +242,14 @@ A menu (a conversation's topics, the game menu, the list of saves) is one box wi
 choices inside it, one under another, so a frame goes round the menu rather than each
 choice.
 
+Text can change font and colour part-way, with SCI's codes: `|f3|` switches to font 3 and
+`|f|` back to the box's own, `|c5|` and `|c|` the same for the colour. The codes take no
+room, and a word whose style changes is still one word when the text is wrapped. Rooms
+write them with Yarn markup ([rooms.md](rooms.md#whats-said-yarn)). `textStyle`'s
+`nameFont` puts a speaker's name in its own font, `(textStyle nameFont: 3)` for a bold one.
+A font's glyphs can start left of the pen or reach past it (an italic's tail): the ink goes
+into the box's margin, and the pen, wrapping and alignment go by each glyph's advance.
+
 Where a line's box goes is the talker's `x`, `y` and `width`. A negative `y` puts it that
 far above the bottom of the screen: the box ends there whatever the line's length, and a
 longer line grows it upwards. `(narrator y: -4 width: 294)` keeps every line at the foot of
@@ -253,7 +270,17 @@ while it's in use (its anchor is the hotspot), both anchored at the top-left cor
 `(inventory contains: lens)`.
 
 The player opens the inventory with I or Tab, or a script does with `(inventory showSelf:)`:
-the icons in a box at the top of the screen, in the text style. A right-click on one says its
+the icons in a box at the top of the screen, in the text style. A painted case is a `skin`:
+the view at `x`, `y`, with the items in a grid of slots on it, `cols` across, the first at
+`slotLeft`, `slotTop` in the skin and the rest `slotWidth` and `slotHeight` on, each icon
+`inset` into its slot and `iconSize` square:
+
+```lisp
+(inventory skin: 268 x: 32 y: 30 cols: 4 slotLeft: 13 slotTop: 28
+  slotWidth: 60 slotHeight: 47 inset: 7 iconSize: 32)
+```
+
+ A right-click on one says its
 `description`; a click picks it, and it becomes the cursor. Clicking something with it sends
 that thing `doVerb:` with the item's verb, so the room's messages for that noun and verb
 answer. In Yarn that's a node named for the item, `filings.lens`; the game lists its items in
