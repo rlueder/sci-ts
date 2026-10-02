@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.8.2](https://github.com/rlueder/sci-ts/compare/v0.8.1...v0.8.2) (2026-10-02)
+
+### Fixed
+
+* **lib:** actors walk past each other and are clicked only where they're drawn ([#10](https://github.com/rlueder/sci-ts/issues/10)) ([99deb4a](https://github.com/rlueder/sci-ts/commit/99deb4a1e63bb5170ab0742942041ce3fde1801d))
+
 ## [0.8.1](https://github.com/rlueder/sci-ts/compare/v0.8.0...v0.8.1) (2026-10-02)
 
 ### Fixed
