@@ -20,7 +20,8 @@
     margin 4        ; between the text and the border or frame
     portraitFrame -1 ; a view around portraits: loop 0 behind the face, loop 1 over its edges
     portraitX 8     ; where a portrait's face goes on the left (mirrored on the right)
-    portraitY 8))
+    portraitY 8
+    nameFont -1))   ; the font for a speaker's name before their line (-1: the text's)
 
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
 ;; item in the UI plane. Set text (and width, x, y), then init; it's as tall as the text
@@ -183,14 +184,18 @@
     (= caller 0)
     (if c (c cue:))))
 
-;; Someone with a name: their lines start with it.
+;; Someone with a name: their lines start with it (in the textStyle's nameFont, if it has one).
 (class Talker of Narrator
   (properties
     line 0)
 
   (method (say txt whoCares)
     (if line (String ARRAY_FREE line))
-    (= line (String 11 "%s: %s" name txt))
+    (= line
+      (if (!= (textStyle nameFont?) -1)
+        (String 11 "|f%d|%s:|f| %s" (textStyle nameFont?) name txt)
+       else
+        (String 11 "%s: %s" name txt)))
     (super say: line &rest whoCares)))
 
 ;; Someone with a portrait: a view whose loop 0 is the bust, loop 1 the mouth and loop 2 the

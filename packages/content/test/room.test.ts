@@ -355,3 +355,23 @@ describe("perspective", () => {
     expect(bad("room: 900\nperspective: { horizon: 0, fullSize: 20 }\nwalkable: [[0, 10], [9, 10], [9, 199]]")).toThrow("too much for the Scaler");
   });
 });
+
+describe("markup", () => {
+  const fonts = { ...target, fonts: { bold: 3, italic: 4, boldItalic: 5 } };
+  const one = (yarn: string, t: Target = fonts) => compileRoom("room: 900", `title: room.look\n---\n${yarn}\n===`, t, { yarn: "r.yarn" });
+
+  it("[b] and [i] become the game's fonts in what's shown, and drop out of what's said", () => {
+    const r = one("I am in my armchair, with yesterday's [i]Standard[/i], read twice over. #line:x");
+    expect(r.msg).toContain('"I am in my armchair, with yesterday\'s |f4|Standard|f|, read twice over."');
+    expect(r.lines[0]).toMatchObject({ id: "x", text: "I am in my armchair, with yesterday's Standard, read twice over." });
+    expect(one("[b]Bold [i]both[/i][/b] plain").msg).toContain('"|f3|Bold |f5|both|f3||f| plain"');
+    expect(one("A \\[bracket].").msg).toContain('"A [bracket]."');
+  });
+
+  it("is checked", () => {
+    expect(() => one("[u]under[/u]")).toThrow('r.yarn:3: unknown markup "[u]"');
+    expect(() => one("[b]open")).toThrow("r.yarn:3: [b] isn't closed");
+    expect(() => one("x[/i]")).toThrow("[/i] without its opening");
+    expect(() => one("[i]x[/i]", target)).toThrow('need the game\'s bold and italic fonts ("fonts" in game.json)');
+  });
+});

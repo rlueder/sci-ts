@@ -70,4 +70,9 @@ export interface Target {
    * of `script`, each taking the flag number), and the range a mod may use.
    */
   flags: { script: number; set: number; clear: number; test: number; first: number; last: number };
+  /**
+   * The game's fonts for Yarn's [b] and [i] markup, which become SCI's font codes (|f3|...|f|)
+   * in the message text. Without them, markup is refused.
+   */
+  fonts?: { bold: number; italic: number; boldItalic: number };
 }

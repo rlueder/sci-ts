@@ -29,7 +29,8 @@ games/hello/
   voices/2-004.wav   the recording of the line tagged #line:2-004 (voices/lines.json is the script)
   hello.sh           definitions the scripts include (here, the nouns)
   resources.ts       optional: pictures, views and anything else made in code
-  game.json          optional: { "library": false } to build without the class library
+  game.json          optional: { "library": false } to build without the class library;
+                     "fonts": { "bold": 3, "italic": 4, "boldItalic": 5 } for [b] and [i] in Yarn
 ```
 
 **Scripts** are written in SCI's Lisp-like language ([language.md](language.md)), as

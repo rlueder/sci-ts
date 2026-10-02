@@ -137,8 +137,60 @@ export default () => [...buildArt(${JSON.stringify(f.file)}).resources, { type: 
     expect([...font.glyphs[33]!.pixels]).toEqual([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0]);
     expect(font.glyphs[65]!.width).toBe(0); // not on the sheet
 
-    f.manifest.fonts[0]!.cell = [5, 5];
+    (f.manifest.fonts[0] as { cell: [number, number] }).cell = [5, 5];
     f.save();
     expect(() => buildArt(f.file)).toThrow(/fonts\[0\]\.png: 12x5 is not a whole number of 5x5 cells/);
+  });
+});
+
+describe("fonts with their own metrics", () => {
+  /** A 3-glyph atlas: a blank space, a "j" whose tail starts 2 left of the pen, an "f" that overhangs its advance. */
+  function metricsFont() {
+    const f = fixture();
+    const [w, h] = [16, 8];
+    const data = new Uint8Array(w * h * 4);
+    const ink = (x: number, y: number) => data.set([0, 0, 0, 255], (y * w + x) * 4);
+    for (let y = 0; y < 5; y++) ink(4 + 3, y); // j's stem, in a 4x6 rect at x 4
+    ink(4, 5), ink(5, 5), ink(6, 5); // and its tail
+    for (let y = 0; y < 6; y++) ink(9, y); // f's stem, in a 4x6 rect at x 8
+    ink(10, 0), ink(11, 0); // its hook, past its advance of 3
+    writeFileSync(join(f.art, "face.png"), rgbaPng({ width: w, height: h, data }));
+    writeFileSync(join(f.art, "face.json"), JSON.stringify({
+      lineHeight: 9, first: 32, last: 32, atlas: "face.png",
+      glyphs: [
+        { code: 32, rect: [0, 0, 1, 1], bearingX: 0, top: 6, advance: 3 },
+        { code: 106, rect: [4, 0, 4, 6], bearingX: -2, top: 2, advance: 3 },
+        { code: 102, rect: [8, 0, 4, 6], bearingX: 0, top: 1, advance: 3 },
+      ],
+    }));
+    f.manifest.fonts = [{ number: 4, metrics: "face.json" }];
+    f.save();
+    return f;
+  }
+
+  it("keep every glyph's pixels, bearing and advance through the font resource", () => {
+    const f = metricsFont();
+    const font = parseFont(buildArt(f.file).resources.find((r) => r.type === ResourceType.Font)!.data);
+    expect(font.height).toBe(9);
+    const j = font.glyphs[106]!, fg = font.glyphs[102]!, space = font.glyphs[32]!;
+    expect([j.width, j.height, j.bearingX, j.advance]).toEqual([4, 8, -2, 3]);
+    // Its top is blank rows above the ink, not a shift of the ink.
+    expect([...j.pixels.slice(0, 8)]).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
+    expect([...j.pixels.slice(7 * 4)]).toEqual([1, 1, 1, 0]);
+    expect([fg.width, fg.bearingX, fg.advance]).toEqual([4, undefined, 3]);
+    expect([...fg.pixels.slice(4, 8)]).toEqual([0, 1, 1, 1]);
+    // The space is blank and advances 3, whatever its rectangle.
+    expect([space.pixels.some(Boolean), space.advance]).toEqual([false, 3]);
+  });
+
+  it("are checked", () => {
+    const f = metricsFont();
+    f.manifest.fonts = [{ number: 4, metrics: "face.json", png: "face.png" } as never];
+    f.save();
+    expect(() => buildArt(f.file)).toThrow(/a sheet \(png, cell\) or has metrics, not both/);
+    writeFileSync(join(f.art, "face.json"), JSON.stringify({ lineHeight: 9, first: 32, last: 33, atlas: "face.png", glyphs: [{ code: 32, rect: [0, 0, 1, 1], bearingX: 0, top: 0, advance: 3 }] }));
+    f.manifest.fonts = [{ number: 4, metrics: "face.json" }];
+    f.save();
+    expect(() => buildArt(f.file)).toThrow(/character 33 is in 32\.\.33 but has no glyph/);
   });
 });

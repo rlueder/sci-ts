@@ -1405,3 +1405,114 @@ describe("walking at a distance", () => {
     for (let i = 1; i < sizes.length; i++) expect(sizes[i - 1]! - sizes[i]!).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("styled text in the game", () => {
+  it("draws a speaker's name in the name font and italics into the margin, as measured", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-styles-")), "styles"), "path");
+    const script = readFileSync(join(dir, "scripts/0.sc"), "utf8")
+      .replace("(super init:)", "(super init:)\n    (textStyle font: 1 nameFont: 3 margin: 4 border: -1)");
+    writeFileSync(join(dir, "scripts/0.sc"), script);
+    writeFileSync(join(dir, "rooms/1.yarn"), `${readFileSync(join(dir, "rooms/1.yarn"), "utf8")}\ntitle: window.talk\n---\nHero: j[i]j[/i]\n===\n`);
+    writeFileSync(join(dir, "game.json"), JSON.stringify({ fonts: { bold: 3, italic: 4, boldItalic: 5 } }));
+    // Font 1: every glyph a 2x3 block, advancing 3. Font 3: 4x3, advancing 5. Font 4: 2x3
+    // drawn 2 left of the pen, advancing 3.
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeFont } from ${JSON.stringify(kit)};
+const face = (w, bearingX, advance) => writeFont({ height: 3, glyphs: Array.from({ length: 128 }, (_, c) => c === 32 ? { width: 0, height: 0, pixels: new Uint8Array(0), advance } : { width: w, height: 3, pixels: new Uint8Array(w * 3).fill(1), bearingX, advance }) });
+export default () => [...art(),
+  { type: ResourceType.Font, number: 1, data: face(2, 0, 3) },
+  { type: ResourceType.Font, number: 3, data: face(4, 0, 5) },
+  { type: ResourceType.Font, number: 4, data: face(2, -2, 3) }];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    vm.invoke(global("user"), vm.selector("setVerb"), [2]);
+    [inp.x, inp.y] = [160, 70];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    for (let i = 0; i < 300 && !global("talking"); i++) frames(1);
+    const box = vm.getProp(global("talking"), "box")!;
+    const text = stringHelpers.str(vm, vm.getProp(box, "text")!);
+    expect(text).toBe("|f3|You:|f| j|f4|j");
+    // Measured: "You:" in font 3 (4 x 5), then " j" and "j" in fonts 1 and 4 (3 each): 29.
+    const size = stringHelpers.newString(vm, text);
+    expect(allKernels.TextWidth!(vm, [size, 1])).toBe(4 * 5 + 3 + 3 + 3);
+    // Drawn: the line starts at the margin (4); its glyphs where the pen and bearings put them.
+    const bmp = vm.memory.bitmap(vm.getProp(box, "bitmap")!)!;
+    const row = [...bmp.pixels.slice(4 * bmp.width, 5 * bmp.width)].map((p) => (p === g.prop(box, "fore") ? 1 : 0)).join("");
+    // Y o u : at 4, 9, 14, 19 (4 wide); a space; j at 27 (2 wide); the italic j's pen at 30,
+    // its ink 2 left of that, over 28 and 29.
+    expect(row.slice(0, 34)).toBe("0000111101111011110111100001110000");
+  });
+});
+
+describe("a skinned interface", () => {
+  it("puts the icon bar's icons and the inventory's items where the skins have room for them", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-skins-")), "skins"), "path");
+    const script = readFileSync(join(dir, "scripts/0.sc"), "utf8")
+      .replace("(super init:)", `(super init:)
+    (inventory add: lens skin: 268 x: 32 y: 30 cols: 4 slotLeft: 13 slotTop: 28 slotWidth: 60 slotHeight: 47 inset: 7 iconSize: 32)
+    (iconBar view: 266 skin: 267 size: 32 left: 16 spacing: 42 top: 8)`)
+      .concat(`\n(instance lens of InvItem (properties view 250 verb 10 description "A lens."))\n`);
+    writeFileSync(join(dir, "scripts/0.sc"), script);
+    writeFileSync(join(dir, "items.yaml"), "lens: 10\n");
+    renameSync(join(dir, "resources.ts"), join(dir, "art.ts"));
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import art from "./art.ts";
+import { ResourceType, writeView } from ${JSON.stringify(kit)};
+const cel = (w, h, c) => ({ width: w, height: h, displaceX: w >> 1, displaceY: h - 1, skipColor: 254, pixels: new Uint8Array(w * h).fill(c) });
+const view = (loops) => writeView({ flags: 1, loops: loops.map((cels) => ({ link: -1, mirror: false, cels })), palette: undefined });
+export default () => [...art(),
+  { type: ResourceType.View, number: 266, data: view([[0, 1, 2, 3, 4, 5].map((c) => cel(32, 32, 40 + c)), [0, 1, 2, 3, 4, 5].map((c) => cel(32, 32, 50 + c))]) },
+  { type: ResourceType.View, number: 267, data: view([[cel(320, 48, 60)]]) },
+  { type: ResourceType.View, number: 268, data: view([[cel(256, 144, 61)]]) },
+  { type: ResourceType.View, number: 250, data: view([[cel(32, 32, 62)], [cel(16, 16, 63)]]) }];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    const listed = (list: Value) => {
+      const out: Value[] = [];
+      for (let n = vm.memory.list(vm.getProp(list, "elements")!)?.first; n; n = n.next) out.push(n.value);
+      return out;
+    };
+    // The inventory: the case at (32, 30), the lens in its first slot, 7 into it.
+    vm.invoke(global("inventory"), vm.selector("showSelf"), []);
+    frames(1);
+    const [lensIcon] = listed(vm.getProp(global("inventory"), "icons")!);
+    expect([g.prop(lensIcon!, "x"), g.prop(lensIcon!, "y"), g.prop(lensIcon!, "size")]).toEqual([32 + 13 + 7, 30 + 28 + 7, 32]);
+    expect([g.prop(vm.getProp(global("inventory"), "window")!, "x"), g.prop(vm.getProp(global("inventory"), "window")!, "view")]).toEqual([32, 268]);
+    // Picking it: it's in use, and the icon bar shows it in the fifth place.
+    [inp.x, inp.y] = [60, 70];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    frames(2);
+    expect(global("theItem")).not.toBe(0);
+    [inp.x, inp.y] = [40, 10]; // over the bar, or it closes again
+    vm.invoke(global("iconBar"), vm.selector("show"), []);
+    frames(1);
+    const icons = listed(vm.getProp(global("iconBar"), "icons")!);
+    expect(icons.map((i) => g.prop(i, "x"))).toEqual([16, 58, 100, 142, 184, 226, 268]);
+    expect(icons.map((i) => g.prop(i, "y"))).toEqual(icons.map(() => 8));
+    expect(g.prop(icons[4]!, "view")).toBe(250);
+    expect(g.prop(vm.getProp(global("iconBar"), "box")!, "view")).toBe(267);
+    expect(g.prop(global("iconBar"), "height")).toBe(48);
+  });
+});

@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { ResourceType, writeFont, writeHunkPalette, writePic, writeView, type ResourceData, type ViewLoop } from "@sci-ts/sci";
 import { basePalette } from "../game/defaults.ts";
 import { decodePng } from "../png.ts";
-import { FontSheetError, fontFromSheet } from "./font.ts";
+import { FontSheetError, fontFromMetrics, fontFromSheet, type FontMetrics } from "./font.ts";
 
 /** Editor-neutral, exact-colour art for standalone games. See docs/art-workflow.md. */
 export interface ArtManifest {
@@ -13,8 +13,11 @@ export interface ArtManifest {
   maxColours?: number;
   pictures: { number: number; layers: { png: string; priority: number }[] }[];
   views: { number: number; loops: ({ cels: { png: string; anchor: [number, number] }[] } | { link: number; mirror: boolean })[] }[];
-  /** Fonts drawn as sheets of glyphs (tools/art/font.ts). */
-  fonts?: { number: number; png: string; cell: [number, number]; first?: number; spacing?: number; space?: number; lineHeight?: number }[];
+  /**
+   * Fonts (tools/art/font.ts): drawn as sheets of glyphs, or a bitmap font with its own
+   * metrics, a JSON file (bearings, advances, its atlas) exported from the font's source.
+   */
+  fonts?: ({ number: number; png: string; cell: [number, number]; first?: number; spacing?: number; space?: number; lineHeight?: number } | { number: number; metrics: string })[];
 }
 
 export class ArtError extends Error {}
@@ -153,8 +156,28 @@ export function buildArt(file: string): { resources: ResourceData[]; colours: st
   });
   list(m.fonts ?? [], "fonts", 0, 65536).forEach((value, i) => {
     const where = `fonts[${i}]`;
-    const f = object(value, where, ["number", "png", "cell", "first", "spacing", "space", "lineHeight"]);
+    const f = object(value, where, ["number", "png", "cell", "first", "spacing", "space", "lineHeight", "metrics"]);
     const n = number(f.number, "font", `${where}.number`);
+    // A bitmap font with its own metrics: a sidecar JSON naming its atlas.
+    if (f.metrics !== undefined) {
+      if (f.png !== undefined || f.cell !== undefined) return fail(where, "a font is a sheet (png, cell) or has metrics, not both");
+      const metricsFile = path(f.metrics, `${where}.metrics`);
+      let metrics: FontMetrics;
+      try { metrics = JSON.parse(readFileSync(metricsFile, "utf8")) as FontMetrics; }
+      catch (e) { return fail(`${where}.metrics`, `${metricsFile}: ${(e as Error).message}`); }
+      const atlas = resolve(dirname(metricsFile), String(metrics.atlas));
+      let img: ReturnType<typeof decodePng>;
+      try { img = decodePng(readFileSync(atlas)); }
+      catch (e) { return fail(`${where}.metrics`, `${atlas}: ${(e as Error).message}`); }
+      try {
+        resources.push({ type: ResourceType.Font, number: n, data: writeFont(fontFromMetrics(img, metrics)) });
+        images++;
+      } catch (e) {
+        if (!(e instanceof FontSheetError)) throw e;
+        fail(`${where}.metrics`, e.message);
+      }
+      return;
+    }
     const filename = path(f.png, `${where}.png`);
     let img: ReturnType<typeof decodePng>;
     try { img = decodePng(readFileSync(filename)); }

@@ -127,6 +127,19 @@ title: traveller.talk
   `<<if $x and not $y>> ... <<else>> ... <<endif>>`. The build numbers them in the game's
   `flags.yaml`; keep the numbers once people have saved games.
 
+Lines can be **bold** and *italic* with Yarn's markup, `[b]`...`[/b]` and `[i]`...`[/i]`
+(nested for both), in the game's fonts for them, named in `game.json`:
+
+```
+I am in my armchair, with yesterday's [i]Standard[/i], read twice over.
+```
+
+```json
+{ "fonts": { "bold": 3, "italic": 4, "boldItalic": 5 } }
+```
+
+What's said and what recordings are filed under is the text without it. `\[` is a bracket.
+
 Commands for cutscenes; those that take time finish before the next line:
 
 | command | |

@@ -34,7 +34,9 @@ import { ITEMS_SCRIPT, libraryTarget } from "./target.ts";
  *                                  voices/lines.json, the script, up to date
  *   games/<name>/resources.ts      optional: `export default () => ResourceData[]` for art,
  *                                  music and anything else made by code
- *   games/<name>/game.json         optional: { "library": false } to build without lib/
+ *   games/<name>/game.json         optional: { "library": false } to build without lib/;
+ *                                  "fonts": { "bold": 3, "italic": 4, "boldItalic": 5 }
+ *                                  for the rooms' [b] and [i] markup
  *
  * plus the class library (lib/: its scripts and resources) and font 0, palette 999 and cursor
  * view 999 (tools/game/defaults.ts), unless the game makes its own. Selectors are numbered as the scripts use them, starting with the nine object
@@ -62,13 +64,25 @@ const HEADER = OBJECT_HEADER;
 
 export class GameBuildError extends Error {}
 
+/** game.json's fonts for the rooms' markup: bold, italic and boldItalic font numbers. */
+function gameFonts(value: unknown): { bold: number; italic: number; boldItalic: number } | undefined {
+  if (value === undefined) return undefined;
+  const ok = (n: unknown) => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 65535;
+  const f = value as Record<string, unknown>;
+  if (typeof value !== "object" || value === null || !ok(f.bold) || !ok(f.italic) || !ok(f.boldItalic)) {
+    throw new GameBuildError(`game.json: "fonts" is { "bold": n, "italic": n, "boldItalic": n }, font numbers`);
+  }
+  return { bold: f.bold as number, italic: f.italic as number, boldItalic: f.boldItalic as number };
+}
+
 /** sci-ts's class library: scripts every game gets, and the resources they use. */
 export const LIBRARY_DIR = resolve(import.meta.dirname, "../../lib");
 
 export async function buildGame(dir: string, options: { library?: boolean } = {}): Promise<BuiltGame> {
   const scriptsDir = join(dir, "scripts");
   if (!existsSync(scriptsDir)) throw new GameBuildError(`${dir}: no scripts/ folder`);
-  const config = existsSync(join(dir, "game.json")) ? (JSON.parse(readFileSync(join(dir, "game.json"), "utf8")) as { library?: boolean }) : {};
+  const config = existsSync(join(dir, "game.json")) ? (JSON.parse(readFileSync(join(dir, "game.json"), "utf8")) as { library?: boolean; fonts?: unknown }) : {};
+  const fonts = gameFonts(config.fonts);
   const library = options.library ?? config.library ?? true;
   const load = (from: string, re: RegExp) =>
     readdirSync(from).sort().filter((f) => re.test(f)).map((f) => ({ file: join(from, f), text: readFileSync(join(from, f), "utf8") }));
@@ -158,7 +172,7 @@ export async function buildGame(dir: string, options: { library?: boolean } = {}
   const compileRooms = (): { file: string; text: string }[] => {
     const roomsDir = join(dir, "rooms");
     if (!existsSync(roomsDir)) return [];
-    const target = libraryTarget(globals, items);
+    const target = { ...libraryTarget(globals, items), ...(fonts ? { fonts } : {}) };
     const flags = modFlags(dir, { content: target });
     const out: { file: string; text: string }[] = [];
     for (const { file, text } of load(roomsDir, /^\d+\.room\.yaml$/)) {

@@ -902,14 +902,15 @@ class RoomCompiler {
   private message(noun: number, verb: number, cond: number, seq: number, l: YarnLine, label: string, spoken = true): void {
     const where = `${this.yarnFile}:${l.line}`;
     const prev = this.messages.at(-1);
-    const m: Message = { noun, verb, cond, seq, talker: this.talkerOf(l.speaker, where), speaker: l.speaker ?? "Narrator", text: plainText(l.text, where), label };
+    const shown = styledText(plainText(l.text, l.id === undefined ? where : `${where} (#line:${l.id})`), this.target.fonts, where);
+    const m: Message = { noun, verb, cond, seq, talker: this.talkerOf(l.speaker, where), speaker: l.speaker ?? "Narrator", text: shown.text, label };
     this.messages.push(m);
     if (!spoken) return;
     const twice = l.id !== undefined && this.lines.find((x) => x.id === l.id);
     if (twice) throw new ContentError(`${where}: #line:${l.id} is already the id of ${twice.where}`);
     this.lines.push({
-      ...(l.id === undefined ? {} : { id: l.id }), noun, verb, cond, seq, talker: m.talker, speaker: m.speaker, text: m.text, node: label,
-      ...(prev?.label === label ? { before: { speaker: prev.speaker, text: prev.text } } : {}), where,
+      ...(l.id === undefined ? {} : { id: l.id }), noun, verb, cond, seq, talker: m.talker, speaker: m.speaker, text: shown.plain, node: label,
+      ...(prev?.label === label ? { before: { speaker: prev.speaker, text: stripCodes(prev.text) } } : {}), where,
     });
   }
 
@@ -1214,6 +1215,43 @@ const counter = (from: number) => {
 };
 
 /** Message text is single bytes: typographic punctuation becomes ASCII, anything else is an error. */
+/** Message text without SCI's font and colour codes: what's said, and what recordings are for. */
+const stripCodes = (text: string) => text.replace(/\|[fc]\d*\|/g, "");
+
+/**
+ * Yarn's [b] and [i] markup (nestable, closed with [/b] and [/i]) as SCI's font codes: bold,
+ * italic or both, back to the text's own font with |f|. `plain` is the text without it, for
+ * speech and the script. \[ is a bracket.
+ */
+function styledText(text: string, fonts: Target["fonts"], where: string): { text: string; plain: string } {
+  if (!text.includes("[")) return { text, plain: text };
+  const fail = (why: string): never => { throw new ContentError(`${where}: ${why}`); };
+  let shown = "", plain = "", bold = 0, italic = 0;
+  const font = () => (bold && italic ? fonts!.boldItalic : bold ? fonts!.bold : italic ? fonts!.italic : 0);
+  for (let i = 0; i < text.length; ) {
+    if (text.startsWith("\\[", i)) {
+      (shown += "["), (plain += "["), (i += 2);
+      continue;
+    }
+    const m = /^\[(\/?)([a-z]+)\]/.exec(text.slice(i));
+    if (text[i] === "[") {
+      if (!m || (m[2] !== "b" && m[2] !== "i")) fail(`unknown markup "${m?.[0] ?? text.slice(i, i + 8)}" (supported: [b] and [i], closed with [/b] and [/i]; \\[ for a bracket)`);
+      if (!fonts) fail("[b] and [i] need the game's bold and italic fonts (\"fonts\" in game.json)");
+      const delta = m![1] ? -1 : 1;
+      if (m![2] === "b") bold += delta;
+      else italic += delta;
+      if (bold < 0 || italic < 0) fail(`${m![0]} without its opening`);
+      const f = font();
+      shown += f ? `|f${f}|` : "|f|";
+      i += m![0].length;
+      continue;
+    }
+    (shown += text[i]), (plain += text[i]), i++;
+  }
+  if (bold || italic) fail(`[${bold ? "b" : "i"}] isn't closed`);
+  return { text: shown.replace(/\|f\d*\|$/, (code) => (code === "|f|" ? "" : code)), plain };
+}
+
 function plainText(text: string, where: string): string {
   const out = text
     .replace(/[‘’]/g, "'")
