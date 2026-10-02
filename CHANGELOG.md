@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.9.0](https://github.com/rlueder/sci-ts/compare/v0.8.2...v0.9.0) (2026-10-02)
+
+### Added
+
+* **game:** redesign hello demo with flat polygon art ([#11](https://github.com/rlueder/sci-ts/issues/11)) ([0ab23aa](https://github.com/rlueder/sci-ts/commit/0ab23aacd7e604a90ea9b309cbbe6c871c5a70bd))
+
 ## [0.8.2](https://github.com/rlueder/sci-ts/compare/v0.8.1...v0.8.2) (2026-10-02)
 
 ### Fixed
