@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.8.0](https://github.com/rlueder/sci-ts/compare/v0.7.0...v0.8.0) (2026-10-02)
+
+### Added
+
+* **content:** poses, idles and prop behaviours ([#7](https://github.com/rlueder/sci-ts/issues/7)) ([1413ca3](https://github.com/rlueder/sci-ts/commit/1413ca334a29255d9a67ca136f01607187e7bee6))
+
 ## [0.7.0](https://github.com/rlueder/sci-ts/compare/v0.6.1...v0.7.0) (2026-10-01)
 
 ### Added
