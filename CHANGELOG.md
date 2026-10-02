@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.12.0](https://github.com/rlueder/sci-ts/compare/v0.11.0...v0.12.0) (2026-10-02)
+
+### Added
+
+* **lib:** portraits that face the middle from their character's side, framed, and one for the hero ([#14](https://github.com/rlueder/sci-ts/issues/14)) ([e7be055](https://github.com/rlueder/sci-ts/commit/e7be0555af2c49743c539e7231cf979ac274617e))
+
 ## [0.11.0](https://github.com/rlueder/sci-ts/compare/v0.10.0...v0.11.0) (2026-10-02)
 
 ### Added
