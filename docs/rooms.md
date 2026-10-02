@@ -62,6 +62,24 @@ the chair's depth already) unless it has `scale: true`, which sizes it once for 
 stands; `scale: false` keeps a moving prop as drawn (a bird in the air isn't on the floor).
 A room without `perspective` or `hero.scale` draws the hero at full size.
 
+A picture painted at an angle often doesn't keep to one horizon: the same height on the
+screen can be nearer the camera on one side of the room than the other, and one line can't
+size people right on both. Measure instead: stand the hero at the back and front of the
+floor at up to three places across it, find the size that fits what's painted around him
+(a door, a chair, a mantelpiece), and give those.
+
+```yaml
+perspective:
+  columns:              # x, then [y, percent] at the back and the front of the floor
+    - { x: 100, back: [152, 62], front: [190, 96] }
+    - { x: 190, back: [148, 82], front: [190, 104] }
+    - { x: 290, back: [150, 92], front: [190, 112] }
+```
+
+At each place, size changes in a straight line from back to front (beyond them too); between
+places, in a straight line across. With two places the middle is halfway between them; with
+one, everyone is sized the same across the room.
+
 ## What's said: Yarn
 
 [Yarn](https://docs.yarnspinner.dev) nodes named `<thing>.<verb>` are what happens when the

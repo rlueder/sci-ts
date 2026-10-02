@@ -224,3 +224,43 @@
       scaleX: (/ (* pct 128) 100)
       scaleY: (/ (* pct 128) 100)
       scaleSignal: (| (client scaleSignal?) SCALE_ON))))
+
+;; Sizes its client on a floor seen at an angle, where one line across the screen isn't the
+;; same depth all the way along. Sizes are measured at the back and front of the floor at
+;; three places across it (left, middle, right): at each of those, size changes in a straight
+;; line with y, as perspective does; between them, in a straight line with x.
+;;   (actor setScaler: FloorScaler x1 backY1 back1 frontY1 front1  x2 ...  x3 ...)
+(class FloorScaler of Scaler
+  (properties
+    x1 0 yb1 0 sb1 100 yf1 1 sf1 100
+    x2 1 yb2 0 sb2 100 yf2 1 sf2 100
+    x3 2 yb3 0 sb3 100 yf3 1 sf3 100)
+
+  (method (init who a1 b1 c1 d1 e1 a2 b2 c2 d2 e2 a3 b3 c3 d3 e3)
+    (= client who)
+    (= x1 a1) (= yb1 b1) (= sb1 c1) (= yf1 d1) (= sf1 e1)
+    (= x2 a2) (= yb2 b2) (= sb2 c2) (= yf2 d2) (= sf2 e2)
+    (= x3 a3) (= yb3 b3) (= sb3 c3) (= yf3 d3) (= sf3 e3)
+    (self doit:))
+
+  ;; The size at y where one place was measured: the straight line through its back and front.
+  (method (along y yb sb yf sf)
+    (return (+ sb (/ (* (- sf sb) (- y yb)) (- yf yb)))))
+
+  (method (doit &tmp x y a b c pct)
+    (= x (client x?))
+    (= y (client y?))
+    (= a (self along: y yb1 sb1 yf1 sf1))
+    (= b (self along: y yb2 sb2 yf2 sf2))
+    (= c (self along: y yb3 sb3 yf3 sf3))
+    (= pct
+      (cond
+        ((<= x x1) a)
+        ((< x x2) (+ a (/ (* (- b a) (- x x1)) (- x2 x1))))
+        ((< x x3) (+ b (/ (* (- c b) (- x x2)) (- x3 x2))))
+        (else c)))
+    (if (< pct 1) (= pct 1))
+    (client
+      scaleX: (/ (* pct 128) 100)
+      scaleY: (/ (* pct 128) 100)
+      scaleSignal: (| (client scaleSignal?) SCALE_ON))))

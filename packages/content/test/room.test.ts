@@ -337,6 +337,17 @@ describe("perspective", () => {
     expect(sca.slice(sca.indexOf("instance vase"))).not.toContain("scaleSignal");
   });
 
+  it("can be measured sizes at places across the floor instead", () => {
+    const cols = "perspective:\n  columns:\n    - { x: 40, back: [150, 50], front: [189, 80] }\n    - { x: 280, back: [150, 90], front: [189, 120] }\n";
+    const sca = compileRoom(`room: 900\nhero: { at: [10, 150] }\n${cols}walkable: [[0, 150], [300, 150], [300, 189], [0, 189]]\nprops:\n  seated: { view: 7, at: [160, 170], scale: true }`, "", target).sca;
+    expect(sca).toContain("class FloorScaler");
+    // Halfway across and down the floor: (65 + 105) / 2 = 85% of full size.
+    expect(sca.slice(sca.indexOf("instance seated"))).toMatch(/scaleX (108|109)\n/);
+    const bad = (yaml: string) => () => compileRoom(yaml, "", target, { yaml: "r.yaml" });
+    expect(bad("room: 900\nperspective:\n  columns:\n    - { x: 40, back: [150, 50], front: [140, 80] }")).toThrow("r.yaml:4: perspective.columns.0.front: the front is lower");
+    expect(bad("room: 900\nperspective:\n  columns:\n    - { x: 90, back: [150, 50], front: [189, 80] }\n    - { x: 40, back: [150, 50], front: [189, 80] }")).toThrow("places go left to right");
+  });
+
   it("is checked", () => {
     const bad = (yaml: string) => () => compileRoom(yaml, "", target, { yaml: "r.yaml" });
     expect(bad("room: 900\nperspective: { horizon: 100, fullSize: 90 }")).toThrow("r.yaml:2: perspective.fullSize: must be below the horizon");
