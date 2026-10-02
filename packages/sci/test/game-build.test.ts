@@ -1339,3 +1339,69 @@ describe("measured perspective", () => {
     expect(sizeAt(315, 150)).toBe(90);
   });
 });
+
+describe("walking at a distance", () => {
+  /** The hero walking right across a template room for 120 cycles at `size` percent (100: no perspective). */
+  async function walk(size: number) {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-pace-")), `pace${size}`), "path");
+    if (size !== 100) {
+      const yaml = readFileSync(join(dir, "rooms/1.room.yaml"), "utf8");
+      writeFileSync(join(dir, "rooms/1.room.yaml"), `${yaml}perspective:\n  columns:\n    - { x: 160, back: [150, ${size}], front: [189, ${size}] }\n`);
+    }
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const inp = input(vm);
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(5);
+    while (global("talking")) (inp.push({ type: EventType.KeyDown, message: 13, modifiers: 0 }), frames(1));
+    const ego = global("ego");
+    vm.setProp(ego, "x", 20);
+    frames(1);
+    [inp.x, inp.y] = [310, 170];
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    let cels = 0, last = g.prop(ego, "cel");
+    for (let i = 0; i < 120; i++) {
+      frames(1);
+      if (g.prop(ego, "cel") !== last) (cels++, (last = g.prop(ego, "cel")));
+    }
+    return { distance: g.prop(ego, "x") - 20, cels };
+  }
+
+  it("is slower, legs and all, in proportion to how small he's drawn", async () => {
+    const [near, far] = [await walk(100), await walk(50)];
+    expect(near.distance).toBeGreaterThan(100);
+    expect(far.distance / near.distance).toBeCloseTo(0.5, 1);
+    expect(far.cels / near.cels).toBeCloseTo(0.5, 1);
+  });
+
+  it("changes his size in steps, not every line he moves", async () => {
+    const dir = newGame(join(mkdtempSync(join(tmpdir(), "sci-steps-")), "steps"), "path");
+    const yaml = readFileSync(join(dir, "rooms/1.room.yaml"), "utf8");
+    writeFileSync(join(dir, "rooms/1.room.yaml"), `${yaml}perspective: { horizon: 72, fullSize: 176 }\n`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources, game.files));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    vm.clock = () => (g.frames * 1000) / 60;
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    vm.start(vm.exportAddress(0, 0), "play");
+    for (let i = 0; i < 5; i++) vm.run();
+    const ego = global("ego");
+    const sizes: number[] = [];
+    // A line at a time from the front of the floor to the back.
+    for (let y = 189; y >= 150; y--) {
+      vm.setProp(ego, "y", y);
+      vm.run();
+      const s = g.prop(vm.getProp(ego, "scaler")!, "shown");
+      if (s !== sizes.at(-1)) sizes.push(s);
+    }
+    expect(sizes.length).toBeGreaterThan(5);
+    for (let i = 1; i < sizes.length; i++) expect(sizes[i - 1]! - sizes[i]!).toBeGreaterThanOrEqual(2);
+  });
+});

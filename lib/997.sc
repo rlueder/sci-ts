@@ -6,6 +6,8 @@
 ;; Walks its client in a straight line to (x, y), a step (xStep, yStep) every
 ;; moveSpeed cycles. The interpreter does the stepping (InitBresen, DoBresen) and sends
 ;; moveDone on arrival; the client then calls motionCue:, which cues the caller.
+;; A client drawn smaller than full size (farther off) steps less often, in proportion,
+;; so it doesn't slide across the floor.
 (class Motion of Obj
   (properties
     client 0
@@ -13,6 +15,7 @@
     x 0 y 0
     dx 0 dy 0
     b-moveCnt 0 b-i1 0 b-i2 0 b-di 0 b-xAxis 0 b-incr 0
+    progress 0      ; towards the next step, in 128ths of a cycle at full size
     completed 0)
 
   (method (init who toX toY whoCares)
@@ -25,12 +28,21 @@
     (= x toX)
     (= y toY)
     (= b-moveCnt gameTime)
+    (= progress 0)
     (client setHeading: (GetAngle (client x?) (client y?) x y))
     (InitBresen self))
 
-  (method (doit)
-    (if (>= (- gameTime b-moveCnt) (client moveSpeed?))
-      (= b-moveCnt gameTime)
+  ;; Each cycle counts for the client's size (128 at full size); a step takes moveSpeed
+  ;; cycles' worth.
+  (method (doit &tmp t e)
+    (= t (* (client moveSpeed?) 128))
+    ;; (After a long pause, at most 16 cycles count, so the sum stays in 16 bits.)
+    (if (> (= e (- gameTime b-moveCnt)) 16) (= e 16))
+    (+= progress (* e (if (& (client scaleSignal?) SCALE_ON) (client scaleX?) else 128)))
+    (= b-moveCnt gameTime)
+    (if (> progress t) (= progress t))
+    (if (>= progress t)
+      (-= progress t)
       (DoBresen self)))
 
   (method (moveDone)
@@ -139,8 +151,22 @@
     (if (> c (self lastCel:)) (= c 0))
     (client cel: c)))
 
-;; Round and round while the client moves; cel 0 when it stands.
+;; Round and round while the client moves; cel 0 when it stands. Its legs keep pace with
+;; its steps: drawn smaller, it turns its cels less often, in proportion.
 (class Walk of Forward
+  (properties
+    progress 0)
+
+  (method (nextCel &tmp t e)
+    (= t (* (client cycleSpeed?) 128))
+    (if (> (= e (- gameTime cycleCnt)) 16) (= e 16))
+    (+= progress (* e (if (& (client scaleSignal?) SCALE_ON) (client scaleX?) else 128)))
+    (= cycleCnt gameTime)
+    (if (> progress t) (= progress t))
+    (if (< progress t) (return (client cel?)))
+    (-= progress t)
+    (return (+ (client cel?) cycleDir)))
+
   (method (doit)
     (if (client mover?)
       (super doit:)
@@ -198,12 +224,15 @@
         (client cel: c)))))
 
 ;; Sizes its client by how far up the screen it stands: frontSize percent at frontY,
-;; backSize at backY, in between in proportion.
+;; backSize at backY, in between in proportion. The size changes in steps of at least `step`
+;; percent: a figure redrawn at a new size for every line it moves shimmers.
 (class Scaler of Obj
   (properties
     client 0
     frontSize 100 backSize 100
-    frontY 190 backY 0)
+    frontY 190 backY 0
+    step 2
+    shown -1)       ; the size the client is drawn at
 
   (method (init who fs bs fy by)
     (= client who)
@@ -220,10 +249,18 @@
         ((>= y frontY) frontSize)
         ((<= y backY) backSize)
         (else (+ backSize (/ (* (- frontSize backSize) (- y backY)) (- frontY backY))))))
-    (client
-      scaleX: (/ (* pct 128) 100)
-      scaleY: (/ (* pct 128) 100)
-      scaleSignal: (| (client scaleSignal?) SCALE_ON))))
+    (self show: pct))
+
+  ;; Draws the client at pct percent, if that's a step away from its size now.
+  (method (show pct &tmp d)
+    (= d (- pct shown))
+    (if (< d 0) (= d (- d)))
+    (if (or (== shown -1) (>= d step))
+      (= shown pct)
+      (client
+        scaleX: (/ (* pct 128) 100)
+        scaleY: (/ (* pct 128) 100)
+        scaleSignal: (| (client scaleSignal?) SCALE_ON)))))
 
 ;; Sizes its client on a floor seen at an angle, where one line across the screen isn't the
 ;; same depth all the way along. Sizes are measured at the back and front of the floor at
@@ -260,7 +297,4 @@
         ((< x x3) (+ b (/ (* (- c b) (- x x2)) (- x3 x2))))
         (else c)))
     (if (< pct 1) (= pct 1))
-    (client
-      scaleX: (/ (* pct 128) 100)
-      scaleY: (/ (* pct 128) 100)
-      scaleSignal: (| (client scaleSignal?) SCALE_ON))))
+    (self show: pct)))

@@ -80,6 +80,16 @@ At each place, size changes in a straight line from back to front (beyond them t
 places, in a straight line across. With two places the middle is halfway between them; with
 one, everyone is sized the same across the room.
 
+Someone drawn smaller is farther off, so they walk slower in proportion, and their walk
+cycle slows with them: at 50% they cover half the ground in the same time, legs and all,
+instead of sliding. Their size changes in steps of at least 2% (the scaler's `step`),
+because a pixel-art figure redrawn at a new size for every line it moves shimmers.
+
+A room with a lot of depth makes for a lot of scaling, and pixel art shows it. Rooms are
+easiest to scale when they face the camera, with the floor going back up the screen, so
+that walking across the room doesn't change anyone's size, and when people stay between
+about 75% and 110%.
+
 ## What's said: Yarn
 
 [Yarn](https://docs.yarnspinner.dev) nodes named `<thing>.<verb>` are what happens when the
