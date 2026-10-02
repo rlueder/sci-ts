@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.13.0](https://github.com/rlueder/sci-ts/compare/v0.12.0...v0.13.0) (2026-10-02)
+
+### Added
+
+* **content:** perspective measured across the floor, for rooms painted at an angle ([#15](https://github.com/rlueder/sci-ts/issues/15)) ([8020031](https://github.com/rlueder/sci-ts/commit/8020031785b75c966ba449c7bcbe159002868fec))
+
 ## [0.12.0](https://github.com/rlueder/sci-ts/compare/v0.11.0...v0.12.0) (2026-10-02)
 
 ### Added
