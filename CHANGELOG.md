@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.17.0](https://github.com/rlueder/sci-ts/compare/v0.16.0...v0.17.0) (2026-10-02)
+
+### Added
+
+* **lib:** a sliding icon bar, and portraits at the bottom of the screen ([#20](https://github.com/rlueder/sci-ts/issues/20)) ([31e82ca](https://github.com/rlueder/sci-ts/commit/31e82ca33478c163b80b4f4fb16c5718b3c36bae))
+
 ## [0.16.0](https://github.com/rlueder/sci-ts/compare/v0.15.1...v0.16.0) (2026-10-02)
 
 ### Added
