@@ -54,3 +54,14 @@ on a second line.
     expect(markdown("| not a table").html).toBe("<p>| not a table</p>");
   });
 });
+
+describe("a built site's game version", () => {
+  it("changes when any game file does, and only then", async () => {
+    const { buildVersion } = await import("../../../tools/site/build.ts");
+    const files = { "RESOURCE.MAP": Uint8Array.from([1, 2, 3]), "RESOURCE.000": Uint8Array.from([4, 5]) };
+    const v = buildVersion(files);
+    expect(v).toMatch(/^[0-9a-f]{12}$/);
+    expect(buildVersion({ "RESOURCE.000": Uint8Array.from([4, 5]), "RESOURCE.MAP": Uint8Array.from([1, 2, 3]) })).toBe(v);
+    expect(buildVersion({ ...files, "RESOURCE.000": Uint8Array.from([4, 6]) })).not.toBe(v);
+  });
+});
