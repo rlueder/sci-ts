@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.16.0](https://github.com/rlueder/sci-ts/compare/v0.15.1...v0.16.0) (2026-10-02)
+
+### Added
+
+* **lib:** a lens magnifies what's under it, and portraits don't cover faces ([#19](https://github.com/rlueder/sci-ts/issues/19)) ([cc901d2](https://github.com/rlueder/sci-ts/commit/cc901d23716fad1b6466950fb77d7809f00b7f00))
+
 ## [0.15.1](https://github.com/rlueder/sci-ts/compare/v0.15.0...v0.15.1) (2026-10-02)
 
 ### Fixed
