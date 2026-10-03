@@ -96,6 +96,14 @@ export class GameSession {
     session.setMuted(!!options.muted);
     session.attachInput();
     for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => session.muted || sound.unlock());
+    // A hidden tab gets no animation frames, so the game stops where it is, music and all: the
+    // synths would go on holding whatever notes were sounding. Silent until it's shown again.
+    if (!options.runHidden) {
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) void sound.ctx.suspend();
+        else if (!session.muted && !session.fastForwarding) sound.unlock();
+      });
+    }
     return session;
   }
 
