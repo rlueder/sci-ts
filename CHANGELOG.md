@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.18.1](https://github.com/rlueder/sci-ts/compare/v0.18.0...v0.18.1) (2026-10-03)
+
+### Fixed
+
+* **viewer:** suspend audio while the tab is hidden so music doesn't hold a note ([#22](https://github.com/rlueder/sci-ts/issues/22)) ([aab6d7a](https://github.com/rlueder/sci-ts/commit/aab6d7a106747eaa2e3e4e0ded2e7b814fa2717c))
+
 ## [0.18.0](https://github.com/rlueder/sci-ts/compare/v0.17.0...v0.18.0) (2026-10-03)
 
 ### Added
