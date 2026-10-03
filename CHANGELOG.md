@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.19.0](https://github.com/rlueder/sci-ts/compare/v0.18.1...v0.19.0) (2026-10-03)
+
+### Added
+
+* **lib:** the icon bar offers the last item, dimmed until used; music can be muted alone ([#23](https://github.com/rlueder/sci-ts/issues/23)) ([4bc478b](https://github.com/rlueder/sci-ts/commit/4bc478bfaaeef6b3f26b752978472008a9c7e580))
+
 ## [0.18.1](https://github.com/rlueder/sci-ts/compare/v0.18.0...v0.18.1) (2026-10-03)
 
 ### Fixed
