@@ -603,6 +603,31 @@ export default () => [...art(), { type: ResourceType.View, number: 250, data: wr
     click(10, 10);
     frames(2);
     expect(line()).toBe("Nothing out there yet.");
+    click(10, 10);
+    frames(2);
+
+    // The icon bar's item place: with nothing in use, it offers the item gained last (the
+    // lens), dimmed; tapped, the lens is in use, and the place isn't dimmed any more.
+    vm.invoke(global("user"), vm.selector("useItem"), [0]);
+    const bar = global("iconBar");
+    const openBar = () => ([inp.x, inp.y] = [160, 1], frames(15));
+    const closeBar = () => ([inp.x, inp.y] = [160, 150], frames(15));
+    openBar();
+    expect(global("dialog")).toBe(bar);
+    const [slot] = shown(250);
+    expect(slot).toBeDefined();
+    const shade = vm.getProp(bar, "shade")!;
+    expect([prop(shade, "x"), prop(shade, "y"), prop(shade, "back")]).toEqual([prop(slot!, "x"), prop(slot!, "y"), 253]);
+    expect(paletteEffects(vm).remaps.has(253)).toBe(true);
+    click(prop(slot!, "x") + 4, prop(slot!, "y") + 4);
+    expect([prop(global("user"), "verb"), global("theItem")]).toEqual([5, global("theItem")]);
+    expect(global("theItem")).not.toBe(0);
+    frames(15);
+    expect(paletteEffects(vm).remaps.has(253)).toBe(false);
+    openBar();
+    expect(vm.getProp(bar, "shade")).toBe(0);
+    expect(shown(250)).toHaveLength(1);
+    closeBar();
   });
 
   it("refuses an item verb the player's verbs already use", async () => {
@@ -863,6 +888,12 @@ describe("the icon bar", async () => {
     expect(ys[0]).toBeLessThan(0);
     for (let i = 1; i < ys.length; i++) expect(ys[i]!).toBeGreaterThanOrEqual(ys[i - 1]!);
     expect(ys.at(-1)).toBe(ys.at(-2)); // at rest
+    // Nothing carried: the item's place, between talk and the inventory, is empty and dimmed.
+    const shade = vm.getProp(global("iconBar"), "shade")!;
+    expect(prop(shade, "back")).toBe(253);
+    expect(prop(shade, "x")).toBeGreaterThan(prop(icons()[3]!, "x"));
+    expect(prop(shade, "x")).toBeLessThan(prop(icons()[4]!, "x"));
+    expect(prop(shade, "y")).toBe(prop(icons()[3]!, "y"));
     // Look: picked, the bar goes (it stops taking clicks at once, and slides away), the
     // cursor is look's.
     tap(1);

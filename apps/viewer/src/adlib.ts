@@ -17,10 +17,10 @@ export class AdLibOutput implements MidiOutput {
     this.driver = this.newDriver();
   }
 
-  static async create(ctx: AudioContext, bank: AdLibBank): Promise<AdLibOutput> {
+  static async create(ctx: AudioContext, bank: AdLibBank, out: AudioNode = ctx.destination): Promise<AdLibOutput> {
     await ctx.audioWorklet.addModule(workletUrl);
     const node = new AudioWorkletNode(ctx, "opl2", { outputChannelCount: [2] });
-    node.connect(ctx.destination);
+    node.connect(out);
     return new AdLibOutput(node, bank);
   }
 

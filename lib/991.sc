@@ -20,6 +20,8 @@
 ;; With `skin`, a view drawn across the top of the screen (loop 0, cel 0, anchored at its top
 ;; left) instead of the box, the icons `size` square at `left`, `left` + `spacing` and on, at
 ;; `top`; the item in use goes in the fifth place, between the verbs and the inventory.
+;; That place shows the item in use, or else the item gained last; it's dimmed (remap colour
+;; 253, `dim` percent) unless that item is the verb, and empty and dimmed with no items.
 ;;   (iconBar view: 266 skin: 267 size: 32 left: 16 spacing: 42 top: 8)
 (class IconBar of Obj
   (properties
@@ -34,7 +36,9 @@
     height 0
     slides TRUE     ; slides down from above the screen, and back up when it closes
     shown 0         ; how far down it is: 0 all the way, -height out of sight
-    leaving 0)      ; sliding back up
+    leaving 0       ; sliding back up
+    shade 0         ; what dims the item's place
+    dim 50)
 
   (method (show &tmp x y step)
     ;; Opened again while it slides away: it comes back down.
@@ -85,7 +89,10 @@
     (for ((= node (FirstNode (icons elements?)))) node ((= node (NextNode node)))
       (= icon (NodeValue node))
       (icon y: (+ (icon y?) dy))
-      (UpdateScreenItem icon)))
+      (UpdateScreenItem icon))
+    (if shade
+      (shade y: (+ (shade y?) dy))
+      (UpdateScreenItem shade)))
 
   ;; A cycle of sliding (the User calls it while the bar is up): down while it opens, up
   ;; while it closes, quickly at first and easing to a stop.
@@ -105,11 +112,22 @@
         (+= shown d))))
 
   ;; An icon at (x, y): cel c of the bar's view (-1: the item in use), standing for `what`.
-  (method (addIcon theX theY c what &tmp icon)
-    (if (and (== c -1) (not theItem)) (return))
+  (method (addIcon theX theY c what &tmp icon it)
+    (if (== c -1)
+      (= it (if theItem theItem else (inventory newest?)))
+      (if (or (not it) (!= (user verb?) V_ITEM))
+        (RemapColors REMAP_BY_PERCENT 253 dim)
+        (= shade
+          ((TextItem new:)
+            text: "" back: 253 frame: -1 borderColor: -1 margin: 0
+            width: size height: size x: theX y: theY
+            priority: (+ (box priority?) 2)
+            yourself:))
+        (shade init:))
+      (if (not it) (return)))
     (= icon
       ((Icon new:)
-        view: (if (== c -1) (theItem view?) else view)
+        view: (if (== c -1) (it view?) else view)
         loop: (if (and (!= c -1) (== what (user verb?))) 1 else 0)
         cel: (if (== c -1) 0 else c)
         actions: what
@@ -136,6 +154,10 @@
       (icons eachElementDo: #dispose)
       (icons dispose:)
       (= icons 0))
+    (if shade
+      (shade dispose:)
+      (= shade 0)
+      (RemapColors REMAP_OFF 253))
     (if box (box dispose:) (= box 0)))
 
   (method (dismiss)
@@ -157,5 +179,7 @@
     (switch what
       (ICON_INVENTORY (inventory showSelf:))
       (ICON_MENU (game showMenu:))
+      ;; The item shown, whether it was in use or only the last one gained.
+      (V_ITEM (user useItem: (if theItem theItem else (inventory newest?))))
       (else (user setVerb: what)))
     (return TRUE)))
