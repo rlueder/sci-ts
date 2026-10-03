@@ -76,9 +76,10 @@
     (if (and iconBar (iconBar box?)) (iconBar step:))
     (while (GetEvent EV_ALL theEvent)
       (self handleEvent: theEvent))
-    ;; theEvent now says where the pointer is: at the top edge, the icon bar comes down.
+    ;; theEvent now says where the pointer is: an open menu or the icon bar follows it, and at
+    ;; the top edge the icon bar comes down.
     (cond
-      ((== dialog iconBar) (iconBar pointerAt: (theEvent x?) (theEvent y?)))
+      ((and dialog (dialog respondsTo: #pointerAt)) (dialog pointerAt: (theEvent x?) (theEvent y?)))
       ((and canInput (not dialog) (not talking) (<= (theEvent y?) ICON_BAR_EDGE)) (iconBar show:))))
 
   ;; The verb right-click goes to: walk, do, look, talk, the item picked (if any), walk.

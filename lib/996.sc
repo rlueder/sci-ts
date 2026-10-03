@@ -10,6 +10,14 @@
 ;; A frame is a view whose loop 0 has eight cels, each anchored at its top-left corner: the
 ;; corners (top-left, top-right, bottom-left, bottom-right), then the edges (top, bottom, left,
 ;; right). The edges are tiled between the corners; transparent pixels show the paper.
+;;
+;; The game menu can be painted instead (the casebook, say): `menuSkin` is a view whose loop
+;; 0, cel 0 is the panel, its title painted in, loop 1 the row behind a choice and loop 2 the
+;; bullet before it, each with a cel for a choice as it is, under the pointer or keyboard
+;; focus, pressed and unavailable; all anchored at their top-left corners. The panel goes at
+;; menuX, menuY (-1: centred), the rows from menuRowX, menuRowY down by menuRowStep, the
+;; bullet and the text at their offsets in the row. The text is in the four menu colours.
+;;   (textStyle menuSkin: 269 menuX: 38 menuY: 11 menuRowX: 10 menuRowY: 29 menuRowStep: 22)
 (class TextStyle of Obj
   (properties
     font 0
@@ -21,7 +29,16 @@
     portraitFrame -1 ; a view around portraits: loop 0 behind the face, loop 1 over its edges
     portraitX 8     ; where a portrait's face goes on the left (mirrored on the right)
     portraitY 8     ; its top; below 0, its bottom that far above the screen's, its text with it
-    nameFont -1))   ; the font for a speaker's name before their line (-1: the text's)
+    nameFont -1     ; the font for a speaker's name before their line (-1: the text's)
+    menuSkin -1     ; the game menu's painted panel, rows and bullets, or -1 (above)
+    menuX -1 menuY -1
+    menuRowX 10 menuRowY 29 menuRowStep 22
+    menuBulletX 5 menuBulletY 5
+    menuTextX 25 menuTextY 4
+    menuFore -1     ; the text of a choice, under the pointer, pressed, unavailable (-1: fore)
+    menuHover -1
+    menuPressed -1
+    menuDisabled -1))
 
 ;; A box of text over the room: drawn by the interpreter into a bitmap, shown as a screen
 ;; item in the UI plane. Set text (and width, x, y), then init; it's as tall as the text
@@ -44,6 +61,7 @@
     borderColor -2  ; -1: none
     frame -2        ; -1: none
     textLeft 0 textTop 0 textRight -1 textBottom -1
+    margin -1       ; between the text and the edge, or the frame (-1: the textStyle's)
     width 200
     height 0
     bottom -1)      ; -1: placed at y
@@ -55,7 +73,7 @@
     (if (== frame -2) (= frame (textStyle frame?)))
     (if (== borderColor -2) (= borderColor (if (!= frame -1) -1 else (textStyle border?))))
     ;; As tall as the text needs, inside the margin and the frame.
-    (= m (textStyle margin?))
+    (= m (if (== margin -1) (textStyle margin?) else margin))
     (= padL m) (= padT m) (= padR m) (= padB m)
     (if (!= frame -1)
       (+= padL (CelWide frame 0 6))
@@ -389,19 +407,57 @@
   (method (cue)
     (self sayNext:)))
 
-;; One choice in a Menu.
+;; One choice in a Menu. In a painted menu it has a row and a bullet behind it, and is in one
+;; of the skin's states (MENU_NORMAL, MENU_HOVER, MENU_PRESSED, MENU_DISABLED).
 (class MenuItem of TextItem
   (properties
-    value 0)
+    value 0
+    disabled 0      ; can't be chosen: shown unavailable in a painted menu (a plain one ignores it)
+    row 0
+    bullet 0
+    state -1)
+
+  ;; Anywhere on its row, if it has one.
+  (method (onMe theX theY &tmp v)
+    (if (not row) (return (super onMe: theX theY)))
+    (= v (row view?))
+    (return
+      (and (>= theX (row x?)) (< theX (+ (row x?) (CelWide v 1 0)))
+        (>= theY (row y?)) (< theY (+ (row y?) (CelHigh v 1 0))))))
+
+  ;; Its row, bullet and text as they look in state st.
+  (method (setState st &tmp c)
+    (if (or (not row) (== st state)) (return))
+    (= state st)
+    (row setCel: st)
+    (bullet setCel: st)
+    (= c
+      (switch st
+        (MENU_HOVER (textStyle menuHover?))
+        (MENU_PRESSED (textStyle menuPressed?))
+        (MENU_DISABLED (textStyle menuDisabled?))
+        (else (textStyle menuFore?))))
+    (= fore (if (== c -1) (textStyle fore?) else c))
+    (if bitmap
+      (Bitmap BITMAP_DISPOSE bitmap)
+      (= bitmap (CreateTextBitmap 0 width height self))
+      (UpdateScreenItem self)))
 
   (method (dispose)
+    (if row (row dispose:) (= row 0))
+    (if bullet (bullet dispose:) (= bullet 0))
     ;; Its text was made for it (a literal string is left alone).
     (String ARRAY_FREE text)
     (super dispose:)))
 
-;; Choices one under another in a box (the textStyle's frame around them all); the first
-;; click on one ends it. While it's open it gets every click (it's the `dialog`). The caller
-;; hears the choice by `choose: value`.
+;; Choices one under another in a box (the textStyle's frame around them all); a click on one
+;; ends it, and Escape chooses the one worth 0 (Cancel, Carry on, Goodbye). While it's open it
+;; gets every event (it's the `dialog`). The caller hears the choice by `choose: value`.
+;;
+;; A `painted` menu is drawn with the textStyle's menuSkin instead, if it has one and the
+;; choices fit on its panel: each on its row, lit under the pointer, pressed while the button
+;; is down; the arrow keys move between them and Enter or Space chooses, and an unavailable
+;; one is passed over.
 (class Menu of Obj
   (properties
     items 0
@@ -409,55 +465,174 @@
     panel 0
     y 20            ; the top of the box
     width 240
-    next 0)         ; where the next choice goes
+    next 0          ; where the next choice goes
+    painted 0       ; drawn with the textStyle's menuSkin, if it fits
+    skin -1         ; the skin it's drawn with, or -1
+    focus 0         ; the choice that's lit
+    pressed 0       ; the choice the button went down on
+    pointerX -1 pointerY -1)
 
-  (method (add v txt &tmp item f)
+  (method (add v txt &tmp item)
+    (if (not items) (= items (List new:)))
+    (= item ((MenuItem new:) value: v text: txt yourself:))
+    (items add: item)
+    (return self))
+
+  ;; The choices on their box, then it waits for one.
+  (method (show whoCares &tmp s)
+    (= caller whoCares)
+    (if (not items) (return))
+    (= s (textStyle menuSkin?))
+    (if (and painted (!= s -1)
+          (<= (+ (textStyle menuRowY?) (* (items size?) (textStyle menuRowStep?))) (CelHigh s 0 0)))
+      (= skin s)
+      (self showPainted:)
+     else
+      (self showPlain:))
+    (= dialog self))
+
+  (method (showPlain &tmp f node item)
     (= f (textStyle frame?))
-    (if (not items)
-      (= items (List new:))
-      (= next (+ y (if (!= f -1) (CelHigh f 0 4) else 1))))
-    (= item
-      ((MenuItem new:)
-        value: v
-        text: txt
+    (= next (+ y (if (!= f -1) (CelHigh f 0 4) else 1)))
+    (for ((= node (FirstNode (items elements?)))) node ((= node (NextNode node)))
+      (= item (NodeValue node))
+      (item
         frame: -1
         borderColor: -1
         width: (- width (if (!= f -1) (+ (CelWide f 0 6) (CelWide f 0 7)) else 2))
         x: (+ (/ (- SCREEN_WIDTH width) 2) (if (!= f -1) (CelWide f 0 6) else 1))
         y: next
+        disabled: 0)
+      (item init:)
+      (+= next (item height?)))
+    (= panel
+      ((TextItem new:)
+        text: ""
+        x: (/ (- SCREEN_WIDTH width) 2)
+        y: y
+        width: width
+        height: (+ (- next y) (if (!= f -1) (CelHigh f 0 5) else 1))
+        priority: 99
         yourself:))
-    (item init:)
-    (+= next (item height?))
-    (items add: item)
-    (return self))
+    (panel init:))
 
-  ;; The box behind the choices, then it waits for one.
-  (method (show whoCares &tmp f)
-    (= f (textStyle frame?))
-    (= caller whoCares)
-    (if items
-      (= panel
-        ((TextItem new:)
-          text: ""
-          x: (/ (- SCREEN_WIDTH width) 2)
-          y: y
-          width: width
-          height: (+ (- next y) (if (!= f -1) (CelHigh f 0 5) else 1))
-          priority: 99
-          yourself:))
-      (panel init:))
-    (= dialog self))
+  (method (showPainted &tmp px py rx ry node item)
+    (= px (if (== (textStyle menuX?) -1) (/ (- SCREEN_WIDTH (CelWide skin 0 0)) 2) else (textStyle menuX?)))
+    (= py (if (== (textStyle menuY?) -1) (/ (- SCREEN_HEIGHT (CelHigh skin 0 0)) 2) else (textStyle menuY?)))
+    (= panel (self part: 0 0 px py 99))
+    (= rx (+ px (textStyle menuRowX?)))
+    (= ry (+ py (textStyle menuRowY?)))
+    (for ((= node (FirstNode (items elements?)))) node ((= node (NextNode node)))
+      (= item (NodeValue node))
+      (item
+        row: (self part: 1 0 rx ry 100)
+        bullet: (self part: 2 0 (+ rx (textStyle menuBulletX?)) (+ ry (textStyle menuBulletY?)) 101)
+        frame: -1
+        borderColor: -1
+        margin: 0
+        back: 254
+        x: (+ rx (textStyle menuTextX?))
+        y: (+ ry (textStyle menuTextY?))
+        width: (- (CelWide skin 1 0) (textStyle menuTextX?))
+        height: (- (CelHigh skin 1 0) (textStyle menuTextY?))
+        priority: 102)
+      (item setState: (if (item disabled?) MENU_DISABLED else MENU_NORMAL))
+      (item init:)
+      (+= ry (textStyle menuRowStep?))))
 
-  (method (handleEvent event &tmp item v c)
+  ;; A cel of the skin on the screen, over the room whether or not there is one.
+  (method (part l c theX theY pri &tmp p)
+    (= p
+      ((View new:)
+        view: skin loop: l cel: c x: theX y: theY
+        plane: uiPlane priority: pri fixPriority: 1
+        yourself:))
+    (cast add: p)
+    (AddScreenItem p)
+    (return p))
+
+  ;; Lights choice it (0: none), and only it.
+  (method (light it &tmp node item)
+    (= focus it)
+    (for ((= node (FirstNode (items elements?)))) node ((= node (NextNode node)))
+      (= item (NodeValue node))
+      (item setState:
+        (cond
+          ((item disabled?) MENU_DISABLED)
+          ((and (== item pressed) (== item it)) MENU_PRESSED)
+          ((== item it) MENU_HOVER)
+          (else MENU_NORMAL)))))
+
+  ;; The User says where the pointer is each cycle: when it moves, what's under it is lit.
+  (method (pointerAt theX theY &tmp item)
+    (if (or (== skin -1) (and (== theX pointerX) (== theY pointerY))) (return))
+    (= pointerX theX)
+    (= pointerY theY)
+    (= item (items firstTrue: #onMe theX theY))
+    (if (and item (item disabled?)) (= item 0))
+    (if (!= item focus) (self light: item)))
+
+  ;; The i-th choice, from 0.
+  (method (nth i &tmp node)
+    (for ((= node (FirstNode (items elements?)))) (and node i) ((= node (NextNode node)))
+      (-- i))
+    (return (if node (NodeValue node) else 0)))
+
+  ;; The choice worth v, or 0.
+  (method (valued v &tmp node)
+    (for ((= node (FirstNode (items elements?)))) node ((= node (NextNode node)))
+      (if (== ((NodeValue node) value?) v) (return (NodeValue node))))
+    (return 0))
+
+  ;; Lights the next choice that's available, dir 1 down or -1 up, round from the end.
+  (method (step dir &tmp i n k node item)
+    (= n (items size?))
+    (= i (if (> dir 0) -1 else n))
+    (= k 0)
+    (for ((= node (FirstNode (items elements?)))) node ((= node (NextNode node)))
+      (if (== (NodeValue node) focus) (= i k))
+      (++ k))
+    (for ((= k 0)) (< k n) ((++ k))
+      (= i (mod (+ i dir n) n))
+      (= item (self nth: i))
+      (if (not (item disabled?))
+        (self light: item)
+        (return))))
+
+  (method (handleEvent event &tmp item)
     (event claimed: TRUE)
-    (if (!= (event type?) EV_MOUSE_DOWN) (return TRUE))
-    (= item (items firstTrue: #onMe (event x?) (event y?)))
-    (if item
-      (= v (item value?))
-      (= c caller)
-      (self dispose:)
-      (c choose: v))
+    (switch (event type?)
+      (EV_KEY_DOWN
+        (switch (event message?)
+          (KEY_ESCAPE (self pick: (self valued: 0)))
+          (KEY_UP (if (!= skin -1) (self step: -1)))
+          (KEY_DOWN (if (!= skin -1) (self step: 1)))
+          (KEY_ENTER (if focus (self pick: focus)))
+          (KEY_SPACE (if focus (self pick: focus)))))
+      (EV_MOUSE_DOWN
+        (= item (items firstTrue: #onMe (event x?) (event y?)))
+        (cond
+          ((== skin -1) (self pick: item))
+          ((and item (not (item disabled?)))
+            (= pressed item)
+            (self light: item))))
+      (EV_MOUSE_UP
+        (if pressed
+          (= item (items firstTrue: #onMe (event x?) (event y?)))
+          (if (== item pressed)
+            (self pick: item)
+           else
+            (= pressed 0)
+            (self light: (if (and item (not (item disabled?))) item else 0))))))
     (return TRUE))
+
+  ;; Ends it with that choice (none: it stays open).
+  (method (pick item &tmp v c)
+    (if (or (not item) (item disabled?)) (return))
+    (= v (item value?))
+    (= c caller)
+    (self dispose:)
+    (c choose: v))
 
   ;; Closed without a choice.
   (method (dismiss)

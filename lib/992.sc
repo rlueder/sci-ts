@@ -51,14 +51,18 @@
     field 0         ; the description being typed
     slot 0)         ; the save it goes into
 
+  ;; Painted with the textStyle's menuSkin, if it has one; Restore is unavailable there until
+  ;; there's a save.
   (method (showMenu &tmp menu)
     (= mode SR_MENU)
-    (= menu (Menu new:))
+    (self load:)
+    (= menu ((Menu new:) painted: TRUE yourself:))
     (menu
       add: SR_SAVE "Save the game"
       add: SR_RESTORE "Restore a game"
       add: SR_RESTART "Start again"
       add: SR_TEXT (String STRING_FORMAT "Text speed: %s" (self textSpeedName:)))
+    (if (not count) ((menu valued: SR_RESTORE) disabled: TRUE))
     ;; Only a game with recorded lines asks how to have them.
     (if (DoAudio 9)
       (menu add: SR_SPEECH (String STRING_FORMAT "Speech: %s" (self speechName:))))

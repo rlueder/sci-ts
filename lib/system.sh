@@ -39,6 +39,12 @@
 
 (define SAVE_DESCRIPTION 36)
 (define SAVES_SHOWN 8)
+;; A painted menu choice's look: the cels of the skin's row and bullet loops.
+(define MENU_NORMAL 0)
+(define MENU_HOVER 1)
+(define MENU_PRESSED 2)
+(define MENU_DISABLED 3)
+
 (define SR_MENU 1)
 (define SR_SAVE 2)
 (define SR_RESTORE 3)
@@ -74,6 +80,8 @@
 (define KEY_SPACE 32)
 (define KEY_PERIOD 46)
 (define KEY_ESCAPE 27)
+(define KEY_UP $4800)
+(define KEY_DOWN $5000)
 (define KEY_F5 $3f00)
 (define KEY_F7 $4100)
 (define KEY_I 73)

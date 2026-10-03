@@ -245,6 +245,26 @@ show the paper. A box can still set its own `font`, `fore`, `back` or `frame`.
 A menu (a conversation's topics, the game menu, the list of saves) is one box with the
 choices inside it, one under another, so a frame goes round the menu rather than each
 choice.
+Escape chooses the menu's 0 choice (Carry on, Cancel, Goodbye).
+
+The game menu can be painted instead, with `menuSkin`: a view whose loop 0, cel 0 is the
+panel (its title painted in), loop 1 the row behind a choice and loop 2 the bullet before
+it. Rows and bullets have four cels: as they are, lit, pressed and unavailable. Every cel
+is anchored at its top-left corner. The text is live, in the font's regular face, coloured
+by state with `menuFore`, `menuHover`, `menuPressed` and `menuDisabled`:
+
+```lisp
+(textStyle menuSkin: 269 menuX: 38 menuY: 11      ; the panel (-1: centred)
+  menuRowX: 10 menuRowY: 29 menuRowStep: 22       ; the first row, and the next ones' step
+  menuBulletX: 5 menuBulletY: 5 menuTextX: 25 menuTextY: 4   ; inside a row
+  menuFore: 64 menuHover: 66 menuPressed: 65 menuDisabled: 63)
+```
+
+The pointer lights the row under it, the button pressed down shows it pressed, and the
+choice is made when the button comes up on the same row. The up and down arrows move
+between choices and Enter or Space chooses. Restore is unavailable until there's a save,
+and the keys pass over it. A menu made with `painted: TRUE` uses the skin when its choices
+fit on the panel, and only the game menu asks for it: topics and saves stay plain boxes.
 
 Text can change font and colour part-way, with SCI's codes: `|f3|` switches to font 3 and
 `|f|` back to the box's own, `|c5|` and `|c|` the same for the colour. The codes take no
