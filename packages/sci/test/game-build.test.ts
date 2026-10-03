@@ -342,6 +342,120 @@ export default () => [
   });
 });
 
+describe("a painted menu", () => {
+  it("lays the game menu on the skin's panel, lights what's under the pointer, and takes the keys", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "sci-skin-"));
+    mkdirSync(join(dir, "scripts"));
+    writeFileSync(join(dir, "scripts", "0.sc"), `(script 0)
+(include "system.sh")
+(public t 0)
+(instance t of Game
+  (method (init)
+    (super init:)
+    (textStyle font: 1 fore: 7 back: 9
+      menuSkin: 269 menuX: 30 menuY: 10 menuRowX: 10 menuRowY: 20 menuRowStep: 14
+      menuBulletX: 2 menuBulletY: 3 menuTextX: 12 menuTextY: 1
+      menuFore: 50 menuHover: 51 menuPressed: 52 menuDisabled: 53)
+    (self showMenu:)))`);
+    // Panel 200x110 of colour 20; rows 180x12, one colour a state (30-33); bullets 4x4 (40-43).
+    const kit = new URL("../../../tools/game/kit.ts", import.meta.url).href;
+    writeFileSync(join(dir, "resources.ts"), `import { ResourceType, pixelFont, writeFont, writeView } from ${JSON.stringify(kit)};
+const cel = (w, h, c) => ({ width: w, height: h, displaceX: 0, displaceY: 0, skipColor: 254, pixels: new Uint8Array(w * h).fill(c) });
+const loop = (cels) => ({ link: -1, mirror: false, cels });
+export default () => [
+  { type: ResourceType.Font, number: 1, data: writeFont(pixelFont()) },
+  { type: ResourceType.View, number: 269, data: writeView({ flags: 1, palette: undefined, loops: [
+    loop([cel(200, 110, 20)]), loop([0, 1, 2, 3].map((s) => cel(180, 12, 30 + s))), loop([0, 1, 2, 3].map((s) => cel(4, 4, 40 + s))),
+  ] }) },
+];`);
+    const game = await buildGame(dir);
+    const vm = new Vm(await open(game.resources));
+    vm.registerKernels(allKernels);
+    const g = graphics(vm);
+    const inp = input(vm);
+    const frames = (n: number) => { for (let i = 0; i < n; i++) vm.run(); };
+    const global = (name: string) => vm.loadedScripts.find((s) => s.number === 0)!.locals[game.globals.indexOf(name)]!;
+    const items = () => {
+      const out: Value[] = [];
+      const list = global("dialog") ? vm.getProp(global("dialog"), "items") : 0;
+      for (let n = list ? vm.memory.list(vm.getProp(list, "elements")!)?.first : undefined; n; n = n.next) out.push(n.value);
+      return out;
+    };
+    const text = (i: Value) => stringHelpers.str(vm, vm.getProp(i, "text")!);
+    const states = () => items().map((i) => g.prop(i, "state"));
+    const key = (message: number) => (inp.push({ type: EventType.KeyDown, message, modifiers: 0 }), frames(1));
+    const point = (x: number, y: number) => ((inp.x = x), (inp.y = y), frames(1));
+    vm.start(vm.exportAddress(0, 0), "play");
+    frames(3);
+
+    // The panel at (30, 10), the rows from (40, 30) down by 14, the bullet and text inside each.
+    const menu = global("dialog");
+    expect(g.prop(menu, "skin")).toBe(269);
+    const panel = vm.getProp(menu, "panel")!;
+    expect([g.prop(panel, "view"), g.prop(panel, "x"), g.prop(panel, "y")]).toEqual([269, 30, 10]);
+    expect(g.items.has(panel)).toBe(true);
+    expect(items().map(text)).toEqual(["Save the game", "Restore a game", "Start again", "Text speed: normal", "Carry on"]);
+    items().forEach((item, k) => {
+      const row = vm.getProp(item, "row")!, bullet = vm.getProp(item, "bullet")!;
+      expect([g.prop(row, "x"), g.prop(row, "y")]).toEqual([40, 30 + 14 * k]);
+      expect([g.prop(bullet, "x"), g.prop(bullet, "y")]).toEqual([42, 33 + 14 * k]);
+      expect([g.prop(item, "x"), g.prop(item, "y")]).toEqual([52, 31 + 14 * k]);
+    });
+    // No saves yet: Restore is unavailable.
+    expect(states()).toEqual([0, 3, 0, 0, 0]);
+    const restore = items()[1]!;
+    expect(g.prop(restore, "fore")).toBe(53);
+    // The text is drawn over the row: its paper is transparent.
+    const bmp = vm.memory.bitmap(vm.getProp(items()[0]!, "bitmap")!)!;
+    expect(bmp.pixels.includes(50)).toBe(true);
+    expect(bmp.pixels.every((p) => p === 50 || p === 254)).toBe(true);
+
+    // The pointer over a row lights it, in the hover colour; off the panel, nothing is lit.
+    point(100, 30 + 14 * 2 + 5);
+    expect(states()).toEqual([0, 3, 1, 0, 0]);
+    expect(g.prop(items()[2]!, "fore")).toBe(51);
+    point(5, 5);
+    expect(states()).toEqual([0, 3, 0, 0, 0]);
+    // Nor does an unavailable one light.
+    point(100, 30 + 14 + 5);
+    expect(states()).toEqual([0, 3, 0, 0, 0]);
+
+    // Down from nothing lights the first, then passes over Restore; Up goes round to the end.
+    key(0x5000);
+    expect(states()).toEqual([1, 3, 0, 0, 0]);
+    key(0x5000);
+    expect(states()).toEqual([0, 3, 1, 0, 0]);
+    key(0x4800);
+    key(0x4800);
+    expect(states()).toEqual([0, 3, 0, 0, 1]);
+    key(0x4800);
+    // Enter chooses Text speed: the menu again, with the next speed.
+    key(13);
+    frames(1);
+    expect(items().map(text)[3]).toBe("Text speed: fast");
+
+    // The button down on a row presses it; up off it, nothing is chosen.
+    inp.x = 100; inp.y = 30 + 14 * 4 + 5;
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    frames(1);
+    expect(states()[4]).toBe(2);
+    expect(g.prop(items()[4]!, "fore")).toBe(52);
+    inp.x = 5;
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    frames(1);
+    expect(items().length).toBe(5);
+    expect(states()[4]).toBe(0);
+    // A click on Restore does nothing; Escape is Carry on.
+    inp.x = 100; inp.y = 30 + 14 + 5;
+    inp.push({ type: EventType.MouseDown, message: 0, modifiers: 0 });
+    inp.push({ type: EventType.MouseUp, message: 0 });
+    frames(1);
+    expect(items().length).toBe(5);
+    key(27);
+    expect(global("dialog")).toBe(0);
+  });
+});
+
 describe("cursors", () => {
   it("are the game's own when it has them, and a wait cursor shows while hands are off", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sci-cursors-"));
