@@ -4,6 +4,12 @@ All notable changes to this project. Versions follow [Semantic Versioning](https
 and the entries are generated from commit messages
 ([Conventional Commits](https://www.conventionalcommits.org/)) when a release is made.
 
+## [0.18.0](https://github.com/rlueder/sci-ts/compare/v0.17.0...v0.18.0) (2026-10-03)
+
+### Added
+
+* **lib:** painted game menu with lit rows, arrow keys, Escape and unavailable choices ([#21](https://github.com/rlueder/sci-ts/issues/21)) ([17dfd28](https://github.com/rlueder/sci-ts/commit/17dfd28c0f16379714a058869b7b698dc5338344))
+
 ## [0.17.0](https://github.com/rlueder/sci-ts/compare/v0.16.0...v0.17.0) (2026-10-02)
 
 ### Added
