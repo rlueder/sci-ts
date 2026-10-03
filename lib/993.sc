@@ -37,7 +37,13 @@
     y 24
     skin -1
     cols 4 slotLeft 0 slotTop 0 slotWidth 0 slotHeight 0 inset 0
-    iconSize INV_ICON)
+    iconSize INV_ICON
+    newest 0)       ; the item gained last (the icon bar offers it)
+
+  (method (add item &tmp i)
+    (super add: item &rest)
+    (= newest [item (- argc 1)])
+    (return self))
 
   (method (showSelf &tmp node item icon ix i)
     (if (not size)
@@ -120,7 +126,10 @@
 
   (method (delete item)
     (if (== theItem item) (user useItem: 0))
-    (super delete: item &rest)))
+    (super delete: item &rest)
+    ;; Gone: the bar offers whatever is left, the last-gained first.
+    (if (not (self contains: newest))
+      (= newest (if size (NodeValue (LastNode elements)) else 0)))))
 
 ;; A close look at something: a view shown in the middle of the screen with the room dimmed
 ;; behind it, until a click; then it goes, and whoever asked is cued.

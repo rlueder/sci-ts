@@ -10,7 +10,11 @@ import processorUrl from "spessasynth_lib/dist/spessasynth_processor.min.js?url"
 export class SoundFontMidi implements MidiOutput {
   private synth: WorkletSynthesizer | undefined;
 
-  constructor(private readonly ctx: AudioContext) {}
+  /** It plays into `out` (the speakers unless given): the session's music bus, to mute it alone. */
+  constructor(
+    private readonly ctx: AudioContext,
+    private readonly out: AudioNode = ctx.destination,
+  ) {}
 
   async load(soundFontUrl: string): Promise<void> {
     const res = await fetch(soundFontUrl);
@@ -18,7 +22,7 @@ export class SoundFontMidi implements MidiOutput {
     const bank = await res.arrayBuffer();
     await this.ctx.audioWorklet.addModule(processorUrl);
     const synth = new WorkletSynthesizer(this.ctx);
-    synth.connect(this.ctx.destination);
+    synth.connect(this.out);
     await synth.soundBankManager.addSoundBank(bank, "main");
     await synth.isReady;
     this.synth = synth;

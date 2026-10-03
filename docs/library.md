@@ -153,6 +153,11 @@ anchored at its top left) instead of the box. Its icons can be any `size`, at `l
 `left + spacing` and on, at `top`; the item in use takes the fifth place, between the verbs
 and the inventory.
 
+That place shows the item in use or, with none in use, the item gained last (the
+inventory's `newest`), so it's one tap to pick up again. It's dimmed unless that item is
+the verb, and empty and dimmed while nothing is carried: a box of remap colour 253 over it,
+at `dim` percent (50).
+
 ```lisp
 (iconBar view: 266 skin: 267 size: 32 left: 16 spacing: 42 top: 8)
 ```

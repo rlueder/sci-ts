@@ -26,6 +26,8 @@ export interface SessionOptions {
   debug?: boolean;
   /** Start with audio suspended; `setMuted(false)` turns it on. */
   muted?: boolean;
+  /** Start with the music off (voices and effects still play); see `setMusicMuted`. */
+  musicMuted?: boolean;
   /**
    * Keep running when the page isn't painted (a hidden tab or pane), where
    * requestAnimationFrame stops: a timer takes over. For automated testing.
@@ -65,6 +67,8 @@ export class GameSession {
     /** Only for games with an AdLib instrument bank (patch 3). */
     private readonly adlib: AdLibOutput | undefined,
     private readonly options: SessionOptions,
+    /** Where both music devices play: its gain turns the music alone off and on. */
+    private readonly musicBus: GainNode,
   ) {
     this.ctx = canvas.getContext("2d")!;
     this.image = this.ctx.createImageData(320, 200);
@@ -85,15 +89,19 @@ export class GameSession {
     if (options.mods?.length) audio(vm).missingSpeechTicks = readingTime(vm);
     // Music: General MIDI through a SoundFont (loads in the background), or the AdLib track
     // through Sierra's driver and an OPL2 emulator: what most players heard in 1994.
-    const music = new SoundFontMidi(sound.ctx);
+    // Music plays through its own bus, so it can be turned off and the voices left on.
+    const musicBus = sound.ctx.createGain();
+    musicBus.connect(sound.ctx.destination);
+    const music = new SoundFontMidi(sound.ctx, musicBus);
     music.load(`${BASE}soundfonts/GeneralUser-GS.sf2`).catch((e) => console.warn("SoundFont unavailable:", e));
     const bank = { type: ResourceType.Patch, number: 3 };
-    const adlib = rm.has(bank) ? await AdLibOutput.create(sound.ctx, parseAdLibBank(rm.loadSync(bank).data)) : undefined;
+    const adlib = rm.has(bank) ? await AdLibOutput.create(sound.ctx, parseAdLibBank(rm.loadSync(bank).data), musicBus) : undefined;
 
-    const session = new GameSession(rm, vm, options.canvas, sound, music, adlib, options);
+    const session = new GameSession(rm, vm, options.canvas, sound, music, adlib, options, musicBus);
     graphics(vm).onFrame = (f) => (session.latest = f);
     session.setMusicMode(readMusicMode());
     session.setMuted(!!options.muted);
+    session.setMusicMuted(!!options.musicMuted);
     session.attachInput();
     for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => session.muted || sound.unlock());
     // A hidden tab gets no animation frames, so the game stops where it is, music and all: the
@@ -127,6 +135,13 @@ export class GameSession {
     } catch {
       /* private mode: just don't remember */
     }
+  }
+
+  musicMuted = false;
+  /** Music off or on, leaving voices and effects as they are. A short fade avoids a click. */
+  setMusicMuted(muted: boolean): void {
+    this.musicMuted = muted;
+    this.musicBus.gain.setTargetAtTime(muted ? 0 : 1, this.sound.ctx.currentTime, 0.02);
   }
 
   muted = false;
